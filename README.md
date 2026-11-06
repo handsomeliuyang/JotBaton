@@ -129,6 +129,24 @@ cloud runner is the compiler host. On Ventura, verify first launch and permissio
 selection-to-comment, session rename/cancel, search-field arrow keys, toast/undo,
 screenshot annotation (including blur/pixelation), export and restart persistence.
 
+## Apple Silicon fork build
+
+The **Apple Silicon** GitHub Actions workflow builds a native arm64 Release app
+from `main`, including local UI customizations. The standard macOS 14 minimum
+and full speech backends are preserved (voice features require macOS 26).
+Automatic upstream updates are disabled for this independently packaged build.
+
+Download the `Remarc-Apple-Silicon-arm64` artifact and open the enclosed DMG.
+Drag `Remarc.app` into Applications. This works on Apple Silicon Macs, including
+M5 Pro, without Rosetta. The app is ad-hoc signed, not Apple-notarized; if the
+first launch is blocked, use **System Settings → Privacy & Security → Open Anyway**
+as described in [Apple's instructions](https://support.apple.com/en-us/102445).
+The artifact includes installation instructions, the source commit and SHA-256.
+
+On an Apple Silicon Mac with Xcode 26.2, run
+`bash scripts/build-apple-silicon.sh` to clean-build, sign, relaunch and verify
+`app/DerivedData/Build/Products/Release/Remarc.app`.
+
 ## Repository layout
 
 | Path | Contents |
