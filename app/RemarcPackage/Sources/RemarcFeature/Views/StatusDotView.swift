@@ -21,22 +21,25 @@ struct StatusDotView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(comment.status.label)
+                Image(systemName: comment.status.iconName)
                     .font(.system(size: 10, weight: .semibold))
+                Text(comment.status.label)
+                    .font(.system(size: 11, weight: .semibold))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 8, weight: .bold))
+                    .opacity(0.7)
             }
-            .foregroundStyle(.primary.opacity(0.85))
-            .padding(.horizontal, 7)
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(statusColor.opacity(isHovered || isOpen ? 0.2 : 0.08))
+                    .fill(statusColor.opacity(isHovered || isOpen ? 0.28 : 0.18))
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(statusColor.opacity(0.3), lineWidth: 0.5)
+                    .strokeBorder(statusColor.opacity(0.4), lineWidth: 0.5)
             )
             .contentShape(Capsule())
             .overlay(DropdownAnchor(ref: anchorRef))
@@ -122,9 +125,9 @@ private struct StatusOptionRow: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(dotColor)
-                    .frame(width: 6, height: 6)
+                Image(systemName: status.iconName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(dotColor)
                 Text(status.label)
                     .font(.system(size: 12))
                     .lineLimit(1)

@@ -16,6 +16,16 @@ public enum CommentStatus: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Shape cue so statuses stay distinguishable without relying on color alone.
+    public var iconName: String {
+        switch self {
+        case .open: return "circle"
+        case .handedOff: return "arrow.right.circle"
+        case .inProgress: return "circle.lefthalf.filled"
+        case .resolved: return "checkmark.circle.fill"
+        }
+    }
+
     public static func color(for status: CommentStatus, colorScheme: ColorScheme) -> Color {
         switch status {
         case .open:       return Color.remarcSecondary(for: colorScheme)

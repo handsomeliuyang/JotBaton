@@ -47,23 +47,31 @@ struct CommentCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 8) {
             headerView
             if !isCollapsed {
-                VStack(alignment: .leading, spacing: 8) {
-                    referenceView
-                    if !comment.attachments.isEmpty {
-                        AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
-                            .padding(.leading, 8)
-                            .quoteBorder()
-                    }
-                    if let commentText = comment.meaningfulCommentText {
-                        commentTextView(commentText)
-                    }
-                    metadataView
+                contextBadges
+                referenceView
+                if !comment.attachments.isEmpty {
+                    AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
+                        .padding(.leading, 8)
+                        .quoteBorder()
                 }
-                .padding(12)
+                if let commentText = comment.meaningfulCommentText {
+                    commentTextView(commentText)
+                }
+                metadataView
             }
+        }
+        .padding(.horizontal, 12)
+        // Collapsed resolved cards are a single row, so they take less vertical padding.
+        .padding(.vertical, isCollapsed ? 9 : 12)
+        .padding(.top, statusStripeHeight)
+        .overlay(alignment: .top) {
+            // Full-width status stripe: the at-a-glance cue when scanning a list of cards.
+            Rectangle()
+                .fill(statusColor)
+                .frame(height: statusStripeHeight)
         }
         .clipShape(RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
@@ -76,86 +84,82 @@ struct CommentCardView: View {
             isResolvedExpanded = false
         }
         .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+        .animation(.easeInOut(duration: 0.2), value: comment.status)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .animation(.easeInOut(duration: 0.15), value: showActions)
     }
 
     // MARK: - Header
 
+    private let statusStripeHeight: CGFloat = 3
+
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
-                    Text(comment.createdAt.remarcCompactTimestamp(
-                        dateFormat: settings.exportDateFormat,
-                        use24Hour: settings.timeFormat.use24Hour,
-                        now: context.date
-                    ))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.65))
-                    .lineLimit(1)
-                    .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
-                }
-
-                Spacer(minLength: 0)
-                StatusDotView(comment: comment)
-                    .fixedSize()
-            }
-
-            HStack(spacing: 6) {
-                if comment.status == .resolved {
-                    Button {
-                        isResolvedExpanded.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            headerTitle
-                            Spacer(minLength: 0)
-                            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        .contentShape(Rectangle())
+        HStack(spacing: 8) {
+            if comment.status == .resolved {
+                Button {
+                    isResolvedExpanded.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        headerTitle
+                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
-                    .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
-                    .accessibilityLabel("\(comment.type.displayName): \(collapsedSummary)")
-                    .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
-                } else {
-                    headerTitle
-                    Spacer(minLength: 0)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
+                .accessibilityLabel("\(comment.type.displayName): \(collapsedSummary)")
+                .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
+            } else {
+                headerTitle
+                Spacer(minLength: 0)
+            }
 
-                if let webContext = comment.webContext {
-                    WebContextBadge(webContext: webContext, regionElements: comment.regionElements, colorScheme: colorScheme)
-                }
-                if let hfCtx = comment.webContext?.hyperframesContext, !hfCtx.isEmpty {
-                    HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
-                }
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(statusColor.opacity(colorScheme == .dark ? 0.22 : 0.16))
-        .overlay(alignment: .bottom) {
-            if !isCollapsed {
-                Rectangle()
-                    .fill(statusColor.opacity(0.2))
-                    .frame(height: 1)
-            }
+            StatusDotView(comment: comment)
+                .fixedSize()
         }
     }
 
     private var headerTitle: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Image(systemName: comment.type.iconName)
-                .foregroundStyle(statusColor)
+                .foregroundStyle(.secondary)
                 .help(comment.type.displayName)
             Text(isCollapsed ? collapsedSummary : comment.type.displayName)
-                .foregroundStyle(.primary.opacity(0.85))
+                .fontWeight(.medium)
+                // De-emphasize only the text; the stripe and status pill keep full color.
+                .foregroundStyle(.primary.opacity(isCollapsed ? 0.55 : 0.85))
                 .lineLimit(1)
                 .truncationMode(.tail)
+            Text("·")
+                .foregroundStyle(.tertiary)
+            TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
+                Text(comment.createdAt.remarcCompactTimestamp(
+                    dateFormat: settings.exportDateFormat,
+                    use24Hour: settings.timeFormat.use24Hour,
+                    now: context.date
+                ))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+            }
+            .fixedSize()
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(.system(size: 11))
+    }
+
+    @ViewBuilder
+    private var contextBadges: some View {
+        if let webContext = comment.webContext {
+            HStack(spacing: 6) {
+                WebContextBadge(webContext: webContext, regionElements: comment.regionElements, colorScheme: colorScheme)
+                if let hfCtx = webContext.hyperframesContext, !hfCtx.isEmpty {
+                    HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
+                }
+            }
+        }
     }
 
     // MARK: - Reference Container
