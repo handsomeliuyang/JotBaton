@@ -60,27 +60,32 @@ Read the [full Remarc documentation](https://docs.remarc.app/getting-started/wha
 
 ## Install
 
-Download the latest signed and notarized build:
+Download both packages from [this fork's GitHub Releases](https://github.com/handsomeliuyang/Remarc/releases/latest):
 
-- [remarc.app/download](https://remarc.app/download)
-- or grab `Remarc.zip` from [GitHub Releases](https://github.com/metedata/Remarc/releases/latest)
+- `Remarc-Ventura-x86_64.zip`: Hackintosh / Intel, macOS 13+.
+- `Remarc-Apple-Silicon-arm64.dmg`: M5 Pro / Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-Requires macOS 14.0 (Sonoma) or later. The app updates itself via Sparkle.
+These fork builds are ad-hoc signed, not Apple-notarized, and use manual updates.
+See [installation and release instructions](RELEASING.md) for Intel local signing,
+first launch, checksums and permissions. The upstream signed distribution is
+available separately at [remarc.app/download](https://remarc.app/download).
 
 ## Build from source
 
-Prerequisites: Xcode 26 or later.
+Prerequisites: Xcode 26.2 / Swift 6.2. On Ventura, use GitHub Actions.
 
 ```bash
-git clone https://github.com/metedata/Remarc.git
-cd Remarc/app
-xcodebuild build -workspace Remarc.xcworkspace -scheme Remarc \
-  -configuration Debug -derivedDataPath "$(pwd)/DerivedData"
-open DerivedData/Build/Products/Debug/Remarc.app
+git clone https://github.com/handsomeliuyang/Remarc.git
+cd Remarc
+# On an Apple Silicon build host:
+bash scripts/build-apple-silicon.sh
+# On a compatible Intel build host:
+REMARC_BUILD_CONFIGURATION=Release bash scripts/build-ventura.sh
 ```
 
-Release builds are signed with a Developer ID certificate and notarized through the [release workflow](.github/workflows/release.yml); see [RELEASING.md](RELEASING.md).
+The [release workflow](.github/workflows/release.yml) builds, verifies and publishes
+both packages together; see [RELEASING.md](RELEASING.md).
 
 ## Ventura / Intel compatibility build
 
@@ -95,9 +100,10 @@ share the same implementation and data format. Voice features still require
 macOS 26; FluidAudio/Parakeet is omitted from the compatibility build. Official
 Sparkle updates are disabled for this build so updates are installed manually.
 
-Use the **Ventura Intel** GitHub Actions workflow to compile with
-Xcode 26.2. Download the `Remarc-Ventura-x86_64` artifact, then extract its inner
-ZIP with Archive Utility or `ditto` to preserve the app bundle. No Developer ID
+For versioned delivery, use the **Release** workflow to build both Intel and
+Apple Silicon packages from the same commit with Xcode 26.2. Download
+`Remarc-Ventura-x86_64.zip` from [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases)
+and extract it with Archive Utility or `ditto` to preserve the app bundle. No Developer ID
 certificate or notarization is needed. The CI artifact has an ad-hoc signature;
 re-sign it on the Ventura machine before granting Accessibility and Screen Recording
 permissions:
@@ -119,7 +125,8 @@ bash scripts/build-ventura.sh
 ```
 
 The script selects `REMARC_VENTURA=1` and `Config/Ventura.xcconfig`, performs a
-clean Debug build, relaunches the app, and verifies all bundled Mach-O images
+clean Debug build by default (set `REMARC_BUILD_CONFIGURATION=Release` for Release),
+relaunches the app, and verifies all bundled Mach-O images
 have an Intel slice and support macOS 13.0 or earlier. It retains the upstream
 pinned dependency revisions and fails if resolution changes them. Output:
 `app/DerivedData/Build/Products/Debug/Remarc.app`.
@@ -131,17 +138,20 @@ screenshot annotation (including blur/pixelation), export and restart persistenc
 
 ## Apple Silicon fork build
 
-The **Apple Silicon** GitHub Actions workflow builds a native arm64 Release app
-from `main`, including local UI customizations. The standard macOS 14 minimum
+The **Release** workflow builds and publishes a native arm64 Release app together
+with the Intel app. The standalone **Apple Silicon** workflow is for development
+and produces an Actions artifact only. The standard macOS 14 minimum
 and full speech backends are preserved (voice features require macOS 26).
 Automatic upstream updates are disabled for this independently packaged build.
 
-Download the `Remarc-Apple-Silicon-arm64` artifact and open the enclosed DMG.
+Download `Remarc-Apple-Silicon-arm64.dmg` from
+[this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases).
 Drag `Remarc.app` into Applications. This works on Apple Silicon Macs, including
 M5 Pro, without Rosetta. The app is ad-hoc signed, not Apple-notarized; if the
 first launch is blocked, use **System Settings → Privacy & Security → Open Anyway**
 as described in [Apple's instructions](https://support.apple.com/en-us/102445).
 The artifact includes installation instructions, the source commit and SHA-256.
+See [RELEASING.md](RELEASING.md) for the dual-architecture release and installation process.
 
 On an Apple Silicon Mac with Xcode 26.2, run
 `bash scripts/build-apple-silicon.sh` to clean-build, sign, relaunch and verify

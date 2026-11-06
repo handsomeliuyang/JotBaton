@@ -3,6 +3,11 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export REMARC_VENTURA=1
+CONFIGURATION="${REMARC_BUILD_CONFIGURATION:-Debug}"
+case "$CONFIGURATION" in
+  Debug|Release) ;;
+  *) echo "Unsupported build configuration: $CONFIGURATION" >&2; exit 1 ;;
+esac
 cd "$REPO_ROOT/app"
 
 # Resolve the reduced dependency graph, retaining the upstream pinned revisions.
@@ -37,13 +42,15 @@ cp RemarcPackage/Package.resolved "$LOCK_DIR/Package.resolved"
 
 xcodebuild clean build \
   -workspace "$REPO_ROOT/app/Remarc.xcworkspace" \
-  -scheme Remarc -configuration Debug \
+  -scheme Remarc -configuration "$CONFIGURATION" \
   -destination 'generic/platform=macOS' \
   -derivedDataPath "$(pwd)/DerivedData" \
   -xcconfig "$REPO_ROOT/app/Config/Ventura.xcconfig" \
   -onlyUsePackageVersionsFromResolvedFile
 
-APP="$REPO_ROOT/app/DerivedData/Build/Products/Debug/Remarc.app"
+APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/Remarc.app"
+/usr/libexec/PlistBuddy -c 'Add :RemarcManualUpdates bool true' "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Add :RemarcSourceCommit string $(git -C "$REPO_ROOT" rev-parse HEAD)" "$APP/Contents/Info.plist"
 codesign --force --sign - --timestamp=none \
   --entitlements "$REPO_ROOT/app/Config/Ventura.entitlements" "$APP"
 # Relaunch after every successful app build, including on the CI build host.
@@ -52,3 +59,5 @@ sleep 0.5
 open "$APP"
 python3 "$REPO_ROOT/scripts/verify-ventura-app.py" "$APP"
 codesign --verify --deep --strict "$APP"
+sleep 3
+pgrep -x Remarc >/dev/null

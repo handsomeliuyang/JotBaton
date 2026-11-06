@@ -1,6 +1,11 @@
 name: Apple Silicon
 
 on:
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
   workflow_dispatch:
   push:
     branches: [main]
@@ -24,6 +29,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
       - name: Build, launch and verify native arm64 app
         run: bash scripts/build-apple-silicon.sh
       - name: Test packaged MCP image delivery
@@ -50,7 +57,7 @@ jobs:
           Voice features require macOS 26. Updates are installed manually.
           https://support.apple.com/en-us/102445
           TEXT
-          printf '\nSource commit: %s\n' "$GITHUB_SHA" >> build/dmg/INSTALL.txt
+          printf '\nSource commit: %s\n' "$(git rev-parse HEAD)" >> build/dmg/INSTALL.txt
           hdiutil create -volname 'Remarc Apple Silicon' -srcfolder build/dmg \
             -ov -format UDZO build/apple-silicon/Remarc-Apple-Silicon-arm64.dmg
           hdiutil verify build/apple-silicon/Remarc-Apple-Silicon-arm64.dmg
