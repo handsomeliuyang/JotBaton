@@ -84,6 +84,10 @@ Release builds are signed with a Developer ID certificate and notarized through 
 
 ## Ventura / Intel compatibility build
 
+This fork's `main` branch is the maintained version, including macOS 13 support
+and local UI customizations. Use `main` for development and builds. The
+`compat/macos13` branch is retained for the upstream compatibility PR.
+
 An opt-in build supports **macOS 13.0+ / x86_64**,
 including Ventura 13.7.8. The standard build keeps the upstream macOS 14 minimum.
 Comments, sessions, selection monitoring, screenshots, annotations and exports

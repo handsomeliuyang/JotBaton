@@ -27,63 +27,141 @@ struct CommentCardView: View {
     @State private var moveAnchorRef = AnchorViewRef()
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
+    @State private var isResolvedExpanded = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
+    private var isCollapsed: Bool { comment.status == .resolved && !isResolvedExpanded }
+
+    private var statusColor: Color {
+        CommentStatus.color(for: comment.status, colorScheme: colorScheme)
+    }
+
+    private var collapsedSummary: String {
+        let text = comment.meaningfulCommentText ?? comment.truncatedTypeLabel
+        let summary = text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return summary.isEmpty ? comment.type.displayName : summary
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            referenceView
-            if !comment.attachments.isEmpty {
-                AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
-                    .padding(.leading, 8)
-                    .quoteBorder()
+        VStack(alignment: .leading, spacing: 0) {
+            headerView
+            if !isCollapsed {
+                VStack(alignment: .leading, spacing: 8) {
+                    referenceView
+                    if !comment.attachments.isEmpty {
+                        AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
+                            .padding(.leading, 8)
+                            .quoteBorder()
+                    }
+                    if let commentText = comment.meaningfulCommentText {
+                        commentTextView(commentText)
+                    }
+                    metadataView
+                }
+                .padding(12)
             }
-            if let commentText = comment.meaningfulCommentText {
-                commentTextView(commentText)
-            }
-            metadataView
         }
-        .padding(12)
-        .overlay(alignment: .topTrailing) {
-            StatusDotView(comment: comment)
-                .padding(8)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
-        .modifier(EdgeRefractionModifier(
-            color: CommentStatus.color(for: comment.status, colorScheme: colorScheme),
-            corner: .topTrailing,
-            cornerRadius: AppConstants.cardCornerRadius
-        ))
         .onHover { hovering in
             isHovered = hovering
             onFocusChange?(hovering)
         }
-        .opacity(comment.status == .resolved ? 0.6 : 1.0)
+        .onRemarcChange(of: comment.status) { _ in
+            // Newly resolved cards collapse; reopening always reveals the body.
+            isResolvedExpanded = false
+        }
+        .animation(.easeInOut(duration: 0.2), value: isCollapsed)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .animation(.easeInOut(duration: 0.15), value: showActions)
+    }
+
+    // MARK: - Header
+
+    private var headerView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
+                    Text(comment.createdAt.remarcCompactTimestamp(
+                        dateFormat: settings.exportDateFormat,
+                        use24Hour: settings.timeFormat.use24Hour,
+                        now: context.date
+                    ))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.65))
+                    .lineLimit(1)
+                    .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+                }
+
+                Spacer(minLength: 0)
+                StatusDotView(comment: comment)
+                    .fixedSize()
+            }
+
+            HStack(spacing: 6) {
+                if comment.status == .resolved {
+                    Button {
+                        isResolvedExpanded.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            headerTitle
+                            Spacer(minLength: 0)
+                            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
+                    .accessibilityLabel("\(comment.type.displayName): \(collapsedSummary)")
+                    .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
+                } else {
+                    headerTitle
+                    Spacer(minLength: 0)
+                }
+
+                if let webContext = comment.webContext {
+                    WebContextBadge(webContext: webContext, regionElements: comment.regionElements, colorScheme: colorScheme)
+                }
+                if let hfCtx = comment.webContext?.hyperframesContext, !hfCtx.isEmpty {
+                    HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(statusColor.opacity(colorScheme == .dark ? 0.22 : 0.16))
+        .overlay(alignment: .bottom) {
+            if !isCollapsed {
+                Rectangle()
+                    .fill(statusColor.opacity(0.2))
+                    .frame(height: 1)
+            }
+        }
+    }
+
+    private var headerTitle: some View {
+        HStack(spacing: 6) {
+            Image(systemName: comment.type.iconName)
+                .foregroundStyle(statusColor)
+                .help(comment.type.displayName)
+            Text(isCollapsed ? collapsedSummary : comment.type.displayName)
+                .foregroundStyle(.primary.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .font(.system(size: 11, weight: .medium))
     }
 
     // MARK: - Reference Container
 
     @ViewBuilder
     private var referenceView: some View {
-        // Type label — consistent across all types
-        HStack(spacing: 6) {
-            Label(comment.type.displayName, systemImage: comment.type.iconName)
-                .font(.system(size: 11))
-                .labelStyle(TypeLabelStyle(colorScheme: colorScheme))
-            if comment.webContext != nil {
-                WebContextBadge(webContext: comment.webContext!, regionElements: comment.regionElements, colorScheme: colorScheme)
-            }
-            if let hfCtx = comment.webContext?.hyperframesContext, !hfCtx.isEmpty {
-                HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
-            }
-        }
-
-        // Type-specific content below the label
         switch comment.type {
         case .comment(let text):
             TruncatingQuoteText(
@@ -192,26 +270,13 @@ struct CommentCardView: View {
 
     // MARK: - Metadata + Actions
 
-    private func metadataText(now: Date) -> String {
-        let date = comment.createdAt.remarcCompactTimestamp(
-            dateFormat: settings.exportDateFormat,
-            use24Hour: settings.timeFormat.use24Hour,
-            now: now
-        )
-        if let app = appDisplayName(for: comment) {
-            return "\(app) - \(date)"
-        }
-        return date
-    }
-
     private var metadataView: some View {
         HStack(spacing: 4) {
-            TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
-                Text(metadataText(now: context.date))
+            if let app = appDisplayName(for: comment) {
+                Text(app)
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.45))
                     .lineLimit(1)
-                    .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
             }
 
             Text(comment.shortID)

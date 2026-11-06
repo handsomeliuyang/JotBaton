@@ -30,13 +30,17 @@ When the user describes a UI bug, confirm WHICH specific component/view they mea
 
 Use `Mete Polat <20049378+metedata@users.noreply.github.com>` as the author of repository and automated release commits and as the tagger of annotated tags. Automated commits must use the same identity as committer. Do not add `Co-authored-by` or equivalent attribution for bots, models, agents, or anyone else. Attribute another contributor only when Mete explicitly requests it.
 
-### Git Worktrees — MANDATORY
+### Fork Maintenance and Branches
 
-**All code changes MUST be made in a git worktree, not on main.** Always create a worktree before starting any feature, bugfix, or refactor. The only exceptions are edits to root config files (AGENTS.md, scripts/, .Codex/).
+This fork is independently maintained on `main`. It contains the macOS 13 compatibility work and accepted customizations; do not wait for upstream PRs to merge before integrating changes here.
 
-Worktrees go in `.worktrees/` (gitignored). Use `git worktree add .worktrees/<name> -b <branch>` for isolated feature work.
+- Work in the current project directory on `main` by default, as requested by the maintainer. Do not create a branch or worktree for every edit.
+- Use a temporary branch only when isolation is needed or requested. Integrate accepted changes into `main` and remove the temporary branch after verification.
+- `origin` is this fork; `upstream` is the original author's repository. Review upstream updates before merging them into `main`, preserving local compatibility and customizations.
+- Keep `compat/macos13` available for the existing upstream PR; it is not the daily development or release branch.
+- On Ventura, build through the existing **Ventura Intel** GitHub Actions workflow. Download the artifact for the exact commit, verify it, re-sign with `scripts/sign-ventura-local.sh`, and install at the stable `/Applications/Remarc.app` path before relaunching. Xcode 14 on Ventura cannot build the Swift 6 package locally.
 
-**Build path in worktrees:** Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable) — `$PWD` can resolve incorrectly in subshells and worktree contexts.
+For an explicitly requested worktree, use `.worktrees/<name>`. Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable).
 
 ### Crit Mode / Microphone Capture
 

@@ -12,9 +12,6 @@ struct StatusDotView: View {
         CommentStatus.color(for: comment.status, colorScheme: colorScheme)
     }
 
-    private var isExpanded: Bool { isHovered || isOpen }
-    private let dotCollapsedWidth: CGFloat = 15
-
     var body: some View {
         Button {
             if isOpen {
@@ -24,51 +21,24 @@ struct StatusDotView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 7, height: 7)
-
                 Text(comment.status.label)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(statusColor)
+                    .font(.system(size: 10, weight: .semibold))
                     .lineLimit(1)
-                    .fixedSize()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
             }
-            .padding(.horizontal, isExpanded ? 6 : 4)
-            .padding(.vertical, 3)
-            .frame(width: isExpanded ? nil : dotCollapsedWidth, alignment: .leading)
-            .clipShape(Capsule())
+            .foregroundStyle(.primary.opacity(0.85))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(statusColor.opacity(isExpanded ? 0.12 : 0))
+                    .fill(statusColor.opacity(isHovered || isOpen ? 0.2 : 0.08))
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(statusColor.opacity(isExpanded ? 0.25 : 0), lineWidth: 0.5)
+                    .strokeBorder(statusColor.opacity(0.3), lineWidth: 0.5)
             )
-            .background(alignment: .leading) {
-                // Glow lives outside the clip so it can spread naturally.
-                // Light mode uses reduced opacity — status colors are darker/more saturated.
-                let glowPeak = colorScheme == .dark ? 0.5 : 0.25
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                statusColor.opacity(glowPeak),
-                                statusColor.opacity(glowPeak * 0.4),
-                                statusColor.opacity(glowPeak * 0.1),
-                                statusColor.opacity(0),
-                            ],
-                            center: .center,
-                            startRadius: 2,
-                            endRadius: 14
-                        )
-                    )
-                    .frame(width: 28, height: 28)
-                    .offset(x: -6.5)
-                    .opacity(isExpanded ? 0 : 1)
-                    .allowsHitTesting(false)
-            }
+            .contentShape(Capsule())
             .overlay(DropdownAnchor(ref: anchorRef))
         }
         .buttonStyle(.plain)
@@ -78,7 +48,9 @@ struct StatusDotView: View {
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: comment.status)
-        .help(comment.status == .resolved ? (comment.resolutionSummary ?? "Resolved") : "")
+        .accessibilityLabel("Change status")
+        .accessibilityValue(comment.status.label)
+        .help(comment.status == .resolved ? (comment.resolutionSummary ?? "Change status") : "Change status")
     }
 
     private func showDropdown() {
