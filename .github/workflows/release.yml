@@ -149,7 +149,7 @@ jobs:
           PY
           gh release create "$TAG" build/release/* --draft --verify-tag \
             --title "Remarc $TAG — Intel + Apple Silicon" --notes-file build/release-notes.md
-          gh release view "$TAG" --json assets,isDraft > build/draft.json
+          gh release view "$TAG" --json assets,isDraft,body > build/draft.json
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -157,6 +157,7 @@ jobs:
           expected = {p.name: p.stat().st_size for p in Path('build/release').iterdir()}
           actual = {a['name']: a['size'] for a in release['assets']}
           assert release['isDraft'] and actual == expected, (actual, expected)
+          assert release['body'].strip() == Path('build/release-notes.md').read_text().strip()
           PY
           gh release download "$TAG" --dir build/draft-verified
           (cd build/draft-verified && shasum -a 256 -c SHA256SUMS)
