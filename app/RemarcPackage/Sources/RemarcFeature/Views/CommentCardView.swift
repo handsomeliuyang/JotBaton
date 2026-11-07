@@ -28,9 +28,12 @@ struct CommentCardView: View {
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
     @State private var isResolvedExpanded = false
+    @State private var isRenaming = false
+    @State private var titleDraft = ""
+    @FocusState private var isTitleFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
 
-    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
+    private var showActions: Bool { isHovered || isFocused || isRenaming || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
@@ -100,7 +103,18 @@ struct CommentCardView: View {
 
     private var headerView: some View {
         HStack(spacing: 8) {
-            if comment.status == .resolved {
+            if isRenaming {
+                TextField("任务名称", text: $titleDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+                    .focused($isTitleFocused)
+                    .onSubmit(saveTitle)
+                    .onExitCommand {
+                        isRenaming = false
+                        isTitleFocused = false
+                    }
+                    .accessibilityIdentifier("remarc.card.titleEditor")
+            } else if comment.status == .resolved {
                 Button {
                     isResolvedExpanded.toggle()
                 } label: {
@@ -115,30 +129,56 @@ struct CommentCardView: View {
                 }
                 .buttonStyle(.plain)
                 .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
-                .accessibilityLabel("\(comment.type.displayName): \(collapsedSummary)")
+                .accessibilityLabel(comment.taskTitle)
                 .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
             } else {
                 headerTitle
                 Spacer(minLength: 0)
             }
 
+            if !isRenaming {
+                Button {
+                    titleDraft = comment.taskTitle
+                    isRenaming = true
+                    isTitleFocused = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                        .frame(width: 20, height: 22)
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovered || isFocused ? 1 : 0)
+                .allowsHitTesting(isHovered || isFocused)
+                .accessibilityLabel("修改任务标题")
+                .help("修改任务标题")
+            }
+
             StatusDotView(comment: comment)
                 .fixedSize()
         }
+        .onRemarcChange(of: isTitleFocused) { focused in
+            if !focused && isRenaming { saveTitle() }
+        }
+    }
+
+    private func saveTitle() {
+        guard persistence.renameComment(comment.id, title: titleDraft) else {
+            ToastManager.shared.show("标题未能保存")
+            return
+        }
+        isRenaming = false
+        isTitleFocused = false
     }
 
     private var headerTitle: some View {
-        HStack(spacing: 5) {
-            Image(systemName: comment.type.iconName)
-                .foregroundStyle(.secondary)
-                .help(comment.type.displayName)
-            Text(comment.truncatedTypeLabel)
+        Text(comment.taskTitle)
                 .fontWeight(.medium)
                 .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(1)
                 .truncationMode(.tail)
-        }
-        .font(.system(size: 11))
+                .font(.system(size: 11))
+                .help(comment.taskTitle)
     }
 
     @ViewBuilder
@@ -325,6 +365,13 @@ struct CommentCardView: View {
                     ToastManager.shared.show("Copied to clipboard")
                 } else {
                     ToastManager.shared.show("Couldn’t copy comment")
+                }
+            }
+            cardActionButton(icon: "play.fill", tooltip: "复制并开发", tint: Color.remarcPrimary(for: colorScheme)) {
+                if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
+                    ToastManager.shared.show("已复制，已标记为正在开发中")
+                } else {
+                    ToastManager.shared.show("复制失败，状态未修改")
                 }
             }
             cardActionButton(icon: "pencil", tooltip: "Edit", tint: Color.remarcPrimary(for: colorScheme)) {
@@ -531,6 +578,7 @@ struct CardActionButton: View {
         }
         .buttonStyle(.plain)
         .help(tooltip)
+        .accessibilityLabel(tooltip)
         .onHover { hovering in
             isHovered = hovering
         }

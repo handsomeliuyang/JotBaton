@@ -59,6 +59,26 @@ final class AppStateMergeTests: XCTestCase {
         XCTAssertEqual(merged.comments[0].status, .inProgress, "the agent's claim must not be rolled back")
     }
 
+    func testTaskRenameAndConcurrentAgentStatusBothSurvive() {
+        let id = UUID()
+        let base = state([comment(id)])
+        var ours = base
+        ours.comments[0].customTitle = "用户改的任务名"
+        var theirs = base
+        theirs.comments[0].status = .inProgress
+        let merged = AppStateMerge.merge(base: base, ours: ours, theirs: theirs)
+        XCTAssertEqual(merged.comments[0].customTitle, "用户改的任务名")
+        XCTAssertEqual(merged.comments[0].status, .inProgress)
+
+        // An external title edit must also survive an unrelated local body edit.
+        ours = base
+        ours.comments[0].commentText = "本地正文"
+        theirs.comments[0].customTitle = "外部任务名"
+        let external = AppStateMerge.merge(base: base, ours: ours, theirs: theirs)
+        XCTAssertEqual(external.comments[0].customTitle, "外部任务名")
+        XCTAssertEqual(external.comments[0].commentText, "本地正文")
+    }
+
     func testKeepsCommentsCreatedByEitherSide() {
         let existing = UUID()
         let base = state([comment(existing)])

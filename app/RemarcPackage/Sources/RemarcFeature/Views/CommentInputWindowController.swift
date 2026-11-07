@@ -32,6 +32,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     @Published public var isScreenshotMode: Bool = false
     @Published public var textResetToken = UUID()
     @Published public var currentText: String = ""
+    @Published public var currentTitle: String = ""
     @Published public var currentAttachments: [String] = []
     @Published public var pendingVoiceText: String?
     @Published public var targetSessionID: UUID?
@@ -112,7 +113,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     public var pendingRegionScreenRect: CGRect?
     private let panelWidth: CGFloat = 340
     private let minPanelHeight: CGFloat = 120
-    private let maxPanelHeight: CGFloat = 460
+    private let maxPanelHeight: CGFloat = 520
     private let screenshotPanelLevel = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
     public var suppressClickOutside: Bool = false
     private var draftGeneration: UInt64 = 0
@@ -168,6 +169,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         self.targetSessionID = targetSessionID
         self.wakeOnSave = wakeOnSave
         currentText = ""
+        currentTitle = ""
         currentAttachments = []
         pendingVoiceText = nil
         isVoiceInvoked = false
@@ -198,6 +200,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         screenshotImagePath = nil
         isScreenshotMode = false
         currentText = ""
+        currentTitle = ""
         currentAttachments = []
         pendingVoiceText = nil
         targetSessionID = nil
@@ -530,7 +533,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         }
     }
 
-    public func saveComment(text: String, attachments: [String] = [], wakeRequested: Bool = false) {
+    public func saveComment(text: String, attachments: [String] = [], wakeRequested: Bool = false, title: String? = nil) {
         // The panel remains onscreen for the 0.3s success animation. Refuse a
         // second key equivalent/button event after the draft has already ended;
         // otherwise its now-cleared context can be misclassified as a Quick Note.
@@ -574,6 +577,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         }
 
         let normalizedText = Comment.normalizedCommentText(text)
+        let savedTitle = CommentTitlePolicy.normalizedCustomTitle(title ?? currentTitle)
         let savedTargetSessionID = targetSessionID
         let shouldWake = CommentWakePolicy.shouldWake(
             explicitlyRequested: wakeRequested,
@@ -591,6 +595,7 @@ public final class CommentInputController: NSObject, ObservableObject {
 
             let draft = CaptureSaveDraft(
                 commentText: normalizedText,
+                customTitle: savedTitle,
                 attachments: attachments,
                 sourceBundleID: screenshotSourceBundleID,
                 targetSessionID: savedTargetSessionID,
@@ -651,7 +656,8 @@ public final class CommentInputController: NSObject, ObservableObject {
             webContext: webContext,
             regionElements: regionElements,
             targetSessionID: savedTargetSessionID,
-            wakeRequested: shouldWake
+            wakeRequested: shouldWake,
+            customTitle: savedTitle
         )
 
         guard let comment else {
@@ -795,6 +801,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     /// the whole transaction; nothing is cleared until finalize.
     struct CaptureSaveDraft {
         let commentText: String
+        let customTitle: String?
         let attachments: [String]
         let sourceBundleID: String?
         let targetSessionID: UUID?
@@ -858,7 +865,8 @@ public final class CommentInputController: NSObject, ObservableObject {
             webContext: webContext,
             regionElements: regionElements,
             targetSessionID: draft.targetSessionID,
-            wakeRequested: draft.wakeRequested
+            wakeRequested: draft.wakeRequested,
+            customTitle: draft.customTitle
         )
 
         captureTransaction = .concluding
@@ -1336,6 +1344,7 @@ public final class CommentInputController: NSObject, ObservableObject {
                 return !self.suppressClickOutside
                     && !self.isScreenshotMode
                     && self.currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && self.currentTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     && self.currentAttachments.isEmpty
             },
             dismiss: { [weak self] in self?.dismiss() }

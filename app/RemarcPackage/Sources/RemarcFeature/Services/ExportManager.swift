@@ -687,6 +687,11 @@ public final class ExportManager {
         comments.filter { !$0.isDeleted && $0.sessionID == session.id }
     }
 
+    /// Only the clipboard envelope changes; the exported Markdown is kept verbatim.
+    static func clipboardMarkdown(_ content: String) -> String {
+        content.isEmpty ? content : "需求\n\(content)"
+    }
+
     @discardableResult
     public func copySessionToClipboard(
         _ session: Session,
@@ -699,7 +704,7 @@ public final class ExportManager {
 
         switch format {
         case .markdown:
-            content = markdownForSession(session, comments: snapshot, includeMetadata: includeMetadata)
+            content = Self.clipboardMarkdown(markdownForSession(session, comments: snapshot, includeMetadata: includeMetadata))
         case .json:
             content = jsonForSession(session, comments: snapshot, includeMetadata: includeMetadata)
         }
@@ -715,7 +720,7 @@ public final class ExportManager {
 
     @discardableResult
     public func copyCommentToClipboard(_ comment: Comment) -> ExportReceipt? {
-        let content = markdownForComment(comment)
+        let content = Self.clipboardMarkdown(markdownForComment(comment))
         NSPasteboard.general.clearContents()
         guard NSPasteboard.general.setString(content, forType: .string) else {
             debugLog("ExportManager: Clipboard write failed for single comment")
@@ -723,6 +728,30 @@ public final class ExportManager {
         }
         debugLog("ExportManager: Copied single comment")
         return ExportReceipt(sessionID: comment.sessionID, comments: [comment])
+    }
+
+    public func copyCommentAndStartDevelopment(_ comment: Comment) -> Bool {
+        copyCommentAndStartDevelopment(
+            comment,
+            copy: { self.copyCommentToClipboard($0) != nil },
+            startDevelopment: { PersistenceManager.shared.setCommentStatus($0, to: .inProgress) }
+        )
+    }
+
+    /// Keep clipboard failure from changing status, and export the intended status.
+    func copyCommentAndStartDevelopment(
+        _ comment: Comment,
+        copy: (Comment) -> Bool,
+        startDevelopment: (UUID) -> Void
+    ) -> Bool {
+        var snapshot = comment
+        snapshot.status = .inProgress
+        snapshot.resolutionSummary = nil
+        snapshot.resolvedBy = nil
+        snapshot.resolvedAt = nil
+        guard copy(snapshot) else { return false }
+        startDevelopment(comment.id)
+        return true
     }
 
     // MARK: - File Save

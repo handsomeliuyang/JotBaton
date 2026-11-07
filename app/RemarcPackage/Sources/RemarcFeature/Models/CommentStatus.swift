@@ -11,7 +11,7 @@ public enum CommentStatus: String, Codable, Sendable, CaseIterable {
         switch self {
         case .open: return "Open"
         case .handedOff: return "Handed Off"
-        case .inProgress: return "In-Progress"
+        case .inProgress: return "正在开发中"
         case .resolved: return "Resolved"
         }
     }

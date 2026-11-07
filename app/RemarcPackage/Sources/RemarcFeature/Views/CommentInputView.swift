@@ -8,6 +8,7 @@ struct CommentInputView: View {
     /// changes (plugin installed or removed) instead of showing stale state.
     @ObservedObject private var settings = SettingsManager.shared
     @State private var commentText: String = ""
+    @State private var customTitle: String = ""
     @State private var attachments: [String] = []
     @State private var isCloseHovered = false
     @State private var isSaveHovered = false
@@ -25,12 +26,24 @@ struct CommentInputView: View {
             // Source reference line
             headerSection
 
+            TaskTitleField(
+                text: $customTitle,
+                automaticTitle: CommentTitlePolicy.automaticTitle(
+                    reference: controller.currentSelection?.text ?? controller.pendingElementWebContext?.elementName,
+                    body: commentText,
+                    filePath: controller.screenshotImagePath ?? attachments.first
+                ),
+                onSubmit: refocusEditor
+            )
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+
             if isTextScrollable { Divider() }
 
             // Text input
             CommentTextEditor(
                 text: $commentText,
-                onSubmit: { controller.saveComment(text: commentText, attachments: attachments) },
+                onSubmit: { controller.saveComment(text: commentText, attachments: attachments, title: customTitle) },
                 onCancel: {
                     if controller.autoSaveCountdownActive {
                         controller.cancelAutoSave()
@@ -99,7 +112,8 @@ struct CommentInputView: View {
                         controller.saveComment(
                             text: commentText,
                             attachments: attachments,
-                            wakeRequested: true
+                            wakeRequested: true,
+                            title: customTitle
                         )
                     }
                 }
@@ -109,7 +123,7 @@ struct CommentInputView: View {
                     VoiceAwareSaveButton(
                         isSaveHovered: $isSaveHovered,
                         colorScheme: colorScheme,
-                        onSave: { controller.saveComment(text: commentText, attachments: attachments) },
+                        onSave: { controller.saveComment(text: commentText, attachments: attachments, title: customTitle) },
                         appendText: appendTranscribedText,
                         transcriptionGeneration: controller.currentDraftGeneration,
                         acceptsTranscription: { controller.isCurrentDraft($0) },
@@ -148,6 +162,7 @@ struct CommentInputView: View {
         .accessibilityIdentifier("remarc.commentInput")
         .onAppear {
             commentText = ""
+            customTitle = ""
             attachments = []
             isFocused = true
         }
@@ -156,6 +171,7 @@ struct CommentInputView: View {
                 VoiceInputService.shared.cancelRecording()
             }
             commentText = ""
+            customTitle = ""
             attachments = []
             isFocused = true
         }
@@ -167,6 +183,12 @@ struct CommentInputView: View {
         }
         .onRemarcChange(of: attachments) { _ in
             controller.currentAttachments = attachments
+        }
+        .onRemarcChange(of: customTitle) { _ in
+            controller.currentTitle = customTitle
+            if controller.autoSaveCountdownActive {
+                controller.cancelAutoSave()
+            }
         }
         .onRemarcChange(of: controller.validationFeedbackTrigger) { trigger in
             guard trigger > 0 else { return }
@@ -205,7 +227,7 @@ struct CommentInputView: View {
     // MARK: - Save Button (fallback for pre-macOS 26)
 
     private var saveButton: some View {
-        Button(action: { controller.saveComment(text: commentText, attachments: attachments) }) {
+        Button(action: { controller.saveComment(text: commentText, attachments: attachments, title: customTitle) }) {
             HStack(spacing: 6) {
                 Text("Save")
                     .font(.system(size: 12, weight: .medium))
