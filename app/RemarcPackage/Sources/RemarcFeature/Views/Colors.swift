@@ -30,6 +30,13 @@ extension Color {
 
     // MARK: - Status
 
+    /// Muted green for completed tasks, so pending work keeps visual priority.
+    public static func remarcResolved(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.549, green: 0.651, blue: 0.592)   // #8CA697
+            : Color(red: 0.369, green: 0.459, blue: 0.420)   // #5E756B
+    }
+
     public static func remarcSuccess(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
             ? Color(red: 0.239, green: 0.859, blue: 0.651)   // #3DDBA6

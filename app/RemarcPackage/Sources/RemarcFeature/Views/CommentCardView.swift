@@ -43,6 +43,14 @@ struct CommentCardView: View {
         CommentStatus.color(for: comment.status, colorScheme: colorScheme)
     }
 
+    private var statusHeaderOpacity: Double {
+        switch comment.status {
+        case .open: return colorScheme == .dark ? 0.18 : 0.10
+        case .resolved: return colorScheme == .dark ? 0.06 : 0.035
+        default: return colorScheme == .dark ? 0.14 : 0.08
+        }
+    }
+
     private var collapsedSummary: String {
         let text = comment.meaningfulCommentText ?? comment.truncatedTypeLabel
         let firstLine = text.split(whereSeparator: { $0.isNewline }).first.map(String.init) ?? text
@@ -55,7 +63,7 @@ struct CommentCardView: View {
             headerView
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(statusColor.opacity(colorScheme == .dark ? 0.14 : 0.08))
+                .background(statusColor.opacity(statusHeaderOpacity))
 
             VStack(alignment: .leading, spacing: 8) {
                 if isCollapsed {

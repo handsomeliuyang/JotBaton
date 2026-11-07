@@ -9,19 +9,20 @@ struct TaskTitleField: View {
     var onSubmit: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("标题（可选）")
-                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
+                .fixedSize()
             TextField(
                 automaticTitle == CommentTitlePolicy.untitled ? "输入任务名称，留空自动取名" : automaticTitle,
                 text: $text
             )
             .textFieldStyle(.plain)
-            .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(.primary)
             .focused($isFocused)
-            .padding(.vertical, 6)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 4)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(isFocused
@@ -35,5 +36,6 @@ struct TaskTitleField: View {
             .accessibilityLabel("任务标题（可选）")
             .accessibilityIdentifier("remarc.taskTitle")
         }
+        .font(.system(size: 13))
     }
 }
