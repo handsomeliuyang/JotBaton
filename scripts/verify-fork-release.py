@@ -47,7 +47,9 @@ def main():
     shutil.copy2(dmg, output)
     # Ship the Intel signing helper with its exact relative dependencies.
     helpers = Path('build/ventura-install-tools')
-    for relative in ('scripts/sign-ventura-local.sh', 'scripts/verify-ventura-app.py', 'app/Config/Ventura.entitlements'):
+    for relative in ('scripts/sign-ventura-local.sh', 'scripts/sign-local.sh',
+                     'scripts/verify-ventura-app.py', 'scripts/verify-apple-silicon-app.py',
+                     'app/Config/Ventura.entitlements'):
         destination = helpers / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(relative, destination)
@@ -64,6 +66,8 @@ Source commit: {os.environ['SOURCE_SHA']}
 
 M5 Pro / Apple Silicon (macOS 14+):
 打开 Remarc-Apple-Silicon-arm64.dmg，将 Remarc.app 拖入 Applications 后打开。
+为避免更新后临时签名变化导致权限失效，可先将应用复制到可写目录，使用同一安装工具包中的
+scripts/sign-local.sh 对其签名，再替换 /Applications/Remarc.app。
 保留完整语音后端；语音功能需要 macOS 26。
 
 两个版本均未经过 Apple 公证。首次打开被拦截时，前往“系统设置 → 隐私与安全性 → 仍要打开”。

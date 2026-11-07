@@ -94,6 +94,13 @@ Intel build host for the release configuration.
 
 ### M5 Pro / Apple Silicon
 
+For a stable local signing identity across updates, copy the app from the DMG
+to a writable directory and run `bash scripts/sign-local.sh /absolute/path/Remarc.app`
+from a source checkout (or the same script in the installation tools ZIP), then
+install it at `/Applications/Remarc.app`. Reuse the generated identity on future
+updates. The first switch from an upstream or ad-hoc signature may require granting
+Accessibility and Screen Recording again. This is local signing, not notarization.
+
 Open the DMG, drag `Remarc.app` into Applications, and open it there. No Rosetta
 is needed. The standard speech backends are retained; voice features require
 macOS 26. Grant required permissions when prompted. The workflow validates

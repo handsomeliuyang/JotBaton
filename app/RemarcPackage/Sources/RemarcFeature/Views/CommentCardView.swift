@@ -42,36 +42,43 @@ struct CommentCardView: View {
 
     private var collapsedSummary: String {
         let text = comment.meaningfulCommentText ?? comment.truncatedTypeLabel
-        let summary = text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        let firstLine = text.split(whereSeparator: { $0.isNewline }).first.map(String.init) ?? text
+        let summary = firstLine.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
         return summary.isEmpty ? comment.type.displayName : summary
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             headerView
-            if !isCollapsed {
-                contextBadges
-                referenceView
-                if !comment.attachments.isEmpty {
-                    AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
-                        .padding(.leading, 8)
-                        .quoteBorder()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(statusColor.opacity(colorScheme == .dark ? 0.14 : 0.08))
+
+            VStack(alignment: .leading, spacing: 8) {
+                if isCollapsed {
+                    Text(collapsedSummary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    contextBadges
+                    referenceView
+                    if !comment.attachments.isEmpty {
+                        AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
+                            .padding(.leading, 8)
+                            .quoteBorder()
+                    }
+                    if let commentText = comment.meaningfulCommentText {
+                        commentTextView(commentText)
+                    }
                 }
-                if let commentText = comment.meaningfulCommentText {
-                    commentTextView(commentText)
-                }
+
                 metadataView
             }
-        }
-        .padding(.horizontal, 12)
-        // Collapsed resolved cards are a single row, so they take less vertical padding.
-        .padding(.vertical, isCollapsed ? 9 : 12)
-        .padding(.top, statusStripeHeight)
-        .overlay(alignment: .top) {
-            // Full-width status stripe: the at-a-glance cue when scanning a list of cards.
-            Rectangle()
-                .fill(statusColor)
-                .frame(height: statusStripeHeight)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
         .clipShape(RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
@@ -90,8 +97,6 @@ struct CommentCardView: View {
     }
 
     // MARK: - Header
-
-    private let statusStripeHeight: CGFloat = 3
 
     private var headerView: some View {
         HStack(spacing: 8) {
@@ -127,25 +132,11 @@ struct CommentCardView: View {
             Image(systemName: comment.type.iconName)
                 .foregroundStyle(.secondary)
                 .help(comment.type.displayName)
-            Text(isCollapsed ? collapsedSummary : comment.type.displayName)
+            Text(comment.truncatedTypeLabel)
                 .fontWeight(.medium)
-                // De-emphasize only the text; the stripe and status pill keep full color.
-                .foregroundStyle(.primary.opacity(isCollapsed ? 0.55 : 0.85))
+                .foregroundStyle(.primary.opacity(0.85))
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Text("·")
-                .foregroundStyle(.tertiary)
-            TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
-                Text(comment.createdAt.remarcCompactTimestamp(
-                    dateFormat: settings.exportDateFormat,
-                    use24Hour: settings.timeFormat.use24Hour,
-                    now: context.date
-                ))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
-            }
-            .fixedSize()
         }
         .font(.system(size: 11))
     }
@@ -276,11 +267,12 @@ struct CommentCardView: View {
 
     private var metadataView: some View {
         HStack(spacing: 4) {
-            if let app = appDisplayName(for: comment) {
-                Text(app)
+            TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
+                Text(metadataText(now: context.date))
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.45))
                     .lineLimit(1)
+                    .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
             }
 
             Text(comment.shortID)
@@ -289,8 +281,6 @@ struct CommentCardView: View {
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
                 .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-                .opacity(showActions ? 1 : 0)
-                .animation(.easeInOut(duration: 0.15), value: showActions)
                 .onTapGesture {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
@@ -302,7 +292,22 @@ struct CommentCardView: View {
 
             cardActions
                 .opacity(showActions ? 1 : 0)
+                .allowsHitTesting(showActions)
+                .accessibilityHidden(!showActions)
         }
+        .frame(minHeight: 22)
+    }
+
+    private func metadataText(now: Date) -> String {
+        let date = comment.createdAt.remarcCompactTimestamp(
+            dateFormat: settings.exportDateFormat,
+            use24Hour: settings.timeFormat.use24Hour,
+            now: now
+        )
+        if let app = appDisplayName(for: comment) {
+            return "\(app) · \(date)"
+        }
+        return date
     }
 
     /// Show move button when there are other sessions to move to, or room to create a new one.
