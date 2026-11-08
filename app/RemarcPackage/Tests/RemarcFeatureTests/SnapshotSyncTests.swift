@@ -34,11 +34,13 @@ final class SnapshotSyncTests {
         original.comments[0].type = .screenshot(imagePath: image.path)
         original.comments[0].attachments = [image.path]
         original.comments[0].isDeleted = true
+        original.comments[0].customTitle = "Office review"
         original.comments[0].deletedAt = Date()
         let prepared = try SnapshotArchive.prepare(original, root: directory)
         let version = try makeVersion(prepared)
         let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
         #expect(restored.state.comments[0].isDeleted)
+        #expect(restored.state.comments[0].customTitle == "Office review")
         #expect(restored.state.comments[0].deletedAt == original.comments[0].deletedAt)
         #expect(restored.files.count == 3)
         #expect(restored.state.comments[0].type.imagePath == restored.state.comments[0].attachments.first)

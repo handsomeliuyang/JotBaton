@@ -98,6 +98,9 @@ final class OpenSourceReadinessTests: XCTestCase {
             "--clobber",
             "Sparkle-2.6.4",
             "release notes must contain at least one '- ' bullet",
+            "GIST_PAT",
+            "SPARKLE_PRIVATE_KEY",
+            "NOTARIZE_KEY",
         ]
         for marker in forbiddenMarkers {
             XCTAssertFalse(workflow.contains(marker), "Release workflow contains retired marker: \(marker)")
@@ -105,25 +108,18 @@ final class OpenSourceReadinessTests: XCTestCase {
 
         let requiredMarkers = [
             "refs/heads/main",
-            "repos/${GITHUB_REPOSITORY}",
-            "--jq .visibility",
-            "Repository visibility must be public before publishing a release",
+            "handsomeliuyang/Remarc",
             "cancel-in-progress: false",
-            "-onlyUsePackageVersionsFromResolvedFile",
-            "Sparkle/bin/sign_update",
-            "codesign --verify --deep --strict",
-            "spctl --assess --type execute",
-            "xcrun stapler validate",
-            "Remarc.zip.sha256",
-            "current-appcast.xml",
-            "appcast already advertises version",
-            "release_notes cannot be empty",
-            "<p>{escape(note_lines[0], quote=False)}</p>",
-            "draft release notes differ from the requested notes",
-            "published appcast release notes differ from the requested notes",
-            "HEAD is not the workflow's release commit",
-            "Verify published release assets",
-            "Verify published appcast",
+            "scripts/prepare-fork-release.py",
+            "scripts/verify-fork-release.py",
+            "uses: ./.github/workflows/ventura.yml",
+            "uses: ./.github/workflows/apple-silicon.yml",
+            "configuration: Release",
+            "needs: [prepare, ventura, apple-silicon]",
+            "source_ref: ${{ needs.prepare.outputs.source_sha }}",
+            "already exists; inspect it instead of overwriting it",
+            "--verify-tag",
+            "shasum -a 256 -c SHA256SUMS",
             "--draft",
             "--draft=false",
         ]
@@ -131,15 +127,33 @@ final class OpenSourceReadinessTests: XCTestCase {
             XCTAssertTrue(workflow.contains(marker), "Release workflow is missing safeguard: \(marker)")
         }
 
-        let visibilityGuard = try XCTUnwrap(
-            workflow.range(of: "Repository visibility must be public before publishing a release")
-        )
+        let repositoryGuard = try XCTUnwrap(workflow.range(of: "Require this fork and main"))
         let checkoutStep = try XCTUnwrap(workflow.range(of: "uses: actions/checkout@"))
         XCTAssertLessThan(
-            visibilityGuard.lowerBound,
+            repositoryGuard.lowerBound,
             checkoutStep.lowerBound,
-            "Repository visibility must be checked before source checkout and all publishing work"
+            "Fork and branch must be checked before source checkout and all publishing work"
         )
+
+        let draftVerification = try XCTUnwrap(workflow.range(of: "cd build/draft-verified && shasum"))
+        let publication = try XCTUnwrap(workflow.range(of: "--draft=false --latest"))
+        let publishedVerification = try XCTUnwrap(workflow.range(of: "cd build/published-verified && shasum"))
+        XCTAssertLessThan(draftVerification.lowerBound, publication.lowerBound)
+        XCTAssertLessThan(publication.lowerBound, publishedVerification.lowerBound)
+
+        for script in ["scripts/build-ventura.sh", "scripts/build-apple-silicon.sh"] {
+            let builder = try String(contentsOf: repositoryRoot.appendingPathComponent(script), encoding: .utf8)
+            for marker in ["-onlyUsePackageVersionsFromResolvedFile", "codesign --verify --deep --strict", "RemarcSourceCommit"] {
+                XCTAssertTrue(builder.contains(marker), "\(script) is missing safeguard: \(marker)")
+            }
+        }
+        let verifier = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("scripts/verify-fork-release.py"), encoding: .utf8
+        )
+        for marker in ["Remarc-Ventura-x86_64.zip", "Remarc-Apple-Silicon-arm64.dmg",
+                       "RemarcSourceCommit", "CFBundleShortVersionString", "CFBundleVersion", "RemarcManualUpdates"] {
+            XCTAssertTrue(verifier.contains(marker), "Package verification is missing: \(marker)")
+        }
     }
 
     private func sourceFiles(beneath root: URL) throws -> [URL] {

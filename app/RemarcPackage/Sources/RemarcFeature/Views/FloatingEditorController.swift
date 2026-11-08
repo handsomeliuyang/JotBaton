@@ -22,6 +22,7 @@ public final class FloatingEditorController: ObservableObject {
 
     @Published public var isVisible: Bool = false
     @Published public var currentText: String = ""
+    @Published public var currentTitle: String = ""
     @Published public var currentAttachments: [String] = []
     @Published public var targetSessionID: UUID?
     @Published public var pendingVoiceText: String?
@@ -39,11 +40,12 @@ public final class FloatingEditorController: ObservableObject {
     private let clickOutsideMonitor = ClickOutsideMonitor()
     private var contentCancellable: AnyCancellable?
     private var initialText: String = ""
+    private var initialTitle: String = ""
     private var initialAttachments: [String] = []
     private var isVoiceInvoked: Bool = false
     private var allowsVoiceAutoSave: Bool = false
     private var currentCommentType: CommentType?
-    private var currentSaveAction: ((String, [String]) -> Bool)?
+    private var currentSaveAction: ((String, String, [String]) -> Bool)?
     private var currentSuccessMessage: String?
     private var autoSaveTask: Task<Void, Never>?
     private var autoSaveClickMonitor: Any?
@@ -55,6 +57,7 @@ public final class FloatingEditorController: ObservableObject {
         currentText.trimmingCharacters(in: .whitespacesAndNewlines)
             != initialText.trimmingCharacters(in: .whitespacesAndNewlines)
             || currentAttachments != initialAttachments
+            || currentTitle != initialTitle
     }
 
     /// Show editor for editing an existing comment
@@ -68,11 +71,12 @@ public final class FloatingEditorController: ObservableObject {
             commentType: comment.type,
             targetSessionID: comment.sessionID,
             successMessage: "Comment updated",
-            onSave: { newText, newAttachments in
+            onSave: { title, newText, newAttachments in
                 PersistenceManager.shared.updateComment(
                     comment.id,
                     text: newText,
-                    attachments: newAttachments
+                    attachments: newAttachments,
+                    customTitle: .some(CommentTitlePolicy.normalizedCustomTitle(title))
                 )
             }
         )
@@ -89,14 +93,15 @@ public final class FloatingEditorController: ObservableObject {
             commentType: .quickNote,
             targetSessionID: PersistenceManager.shared.appState.activeSessionID,
             successMessage: "Quick note saved",
-            onSave: { text, attachments in
+            onSave: { title, text, attachments in
                 PersistenceManager.shared.createComment(
                     type: .quickNote,
                     commentText: text,
                     source: "Quick Note",
                     appBundleID: nil,
                     attachments: attachments,
-                    targetSessionID: self.targetSessionID
+                    targetSessionID: self.targetSessionID,
+                    customTitle: title
                 ) != nil
             }
         )
@@ -139,7 +144,7 @@ public final class FloatingEditorController: ObservableObject {
         )
     }
 
-    private func attemptSave(text: String, attachments: [String]) {
+    private func attemptSave(title: String, text: String, attachments: [String]) {
         // Button, Command-Return, and voice auto-save all converge here.
         cancelAutoSaveCountdown()
 
@@ -160,7 +165,7 @@ public final class FloatingEditorController: ObservableObject {
             return
         }
 
-        guard saveAction(text, attachments) else {
+        guard saveAction(title, text, attachments) else {
             ToastManager.shared.show("Comment could not be saved")
             triggerSaveFeedback(announcement: "Comment could not be saved")
             debugLog("FloatingEditorController: Comment save failed")
@@ -240,9 +245,10 @@ public final class FloatingEditorController: ObservableObject {
     private func performAutoSave() {
         guard autoSaveCountdownActive, currentSaveAction != nil else { return }
         let text = currentText
+        let title = currentTitle
         let attachments = currentAttachments
         cleanupAutoSaveState()
-        attemptSave(text: text, attachments: attachments)
+        attemptSave(title: title, text: text, attachments: attachments)
         debugLog("FloatingEditorController: Auto-saved voice quick note")
     }
 
@@ -283,7 +289,9 @@ public final class FloatingEditorController: ObservableObject {
         currentSaveAction = nil
         currentSuccessMessage = nil
         currentText = ""
+        currentTitle = ""
         initialText = ""
+        initialTitle = ""
         currentAttachments = []
         initialAttachments = []
         targetSessionID = nil
@@ -337,7 +345,7 @@ public final class FloatingEditorController: ObservableObject {
         commentType: CommentType,
         targetSessionID: UUID?,
         successMessage: String,
-        onSave: @escaping (String, [String]) -> Bool
+        onSave: @escaping (String, String, [String]) -> Bool
     ) {
         // Dismiss any previous editor
         dismiss()
@@ -347,6 +355,8 @@ public final class FloatingEditorController: ObservableObject {
         // Track text and attachments for click-outside dismiss behavior
         self.initialText = initialText
         self.currentText = initialText
+        self.initialTitle = comment?.customTitle ?? ""
+        self.currentTitle = self.initialTitle
         self.initialAttachments = initialAttachments
         self.currentAttachments = initialAttachments
         self.pendingVoiceText = nil
@@ -366,13 +376,14 @@ public final class FloatingEditorController: ObservableObject {
         let wrapper = FloatingEditorWrapper(
             presentationGeneration: generation,
             initialText: initialText,
+            initialTitle: self.initialTitle,
             initialAttachments: initialAttachments,
             screenshotImagePath: screenshotImagePath,
             referenceText: referenceText,
             comment: comment,
-            onSave: { [weak self] text, attachments in
+            onSave: { [weak self] title, text, attachments in
                 guard let self, self.presentationGeneration == generation else { return }
-                self.attemptSave(text: text, attachments: attachments)
+                self.attemptSave(title: title, text: text, attachments: attachments)
             },
             onCancel: { [weak self] in
                 guard let self, self.presentationGeneration == generation else { return }
@@ -598,18 +609,20 @@ private class DimOverlayContentView: NSView {
 
 struct FloatingEditorWrapper: View {
     @State private var text: String
+    @State private var title: String
     @State private var attachments: [String]
 
     let presentationGeneration: UInt64
     let screenshotImagePath: String?
     let referenceText: String?
     let comment: Comment?
-    let onSave: (String, [String]) -> Void
+    let onSave: (String, String, [String]) -> Void
     let onCancel: () -> Void
 
-    init(presentationGeneration: UInt64, initialText: String, initialAttachments: [String], screenshotImagePath: String?, referenceText: String?, comment: Comment?, onSave: @escaping (String, [String]) -> Void, onCancel: @escaping () -> Void) {
+    init(presentationGeneration: UInt64, initialText: String, initialTitle: String, initialAttachments: [String], screenshotImagePath: String?, referenceText: String?, comment: Comment?, onSave: @escaping (String, String, [String]) -> Void, onCancel: @escaping () -> Void) {
         self.presentationGeneration = presentationGeneration
         _text = State(initialValue: initialText)
+        _title = State(initialValue: initialTitle)
         _attachments = State(initialValue: initialAttachments)
         self.screenshotImagePath = screenshotImagePath
         self.referenceText = referenceText
@@ -621,6 +634,7 @@ struct FloatingEditorWrapper: View {
     var body: some View {
         CommentEditorView(
             commentText: $text,
+            customTitle: $title,
             attachments: $attachments,
             screenshotImagePath: screenshotImagePath,
             referenceText: referenceText,
@@ -632,15 +646,20 @@ struct FloatingEditorWrapper: View {
         .frame(width: AppConstants.editorWidth)
         // Material background and shadow provided by NSVisualEffectView + maskImage
         // in FloatingEditorController — no SwiftUI material backgrounds here.
-        .onChange(of: text) { _, newValue in
+        .onRemarcChange(of: text) { newValue in
             let controller = FloatingEditorController.shared
             guard controller.isCurrentPresentation(presentationGeneration) else { return }
             controller.currentText = newValue
         }
-        .onChange(of: attachments) { _, newValue in
+        .onRemarcChange(of: attachments) { newValue in
             let controller = FloatingEditorController.shared
             guard controller.isCurrentPresentation(presentationGeneration) else { return }
             controller.currentAttachments = newValue
+        }
+        .onRemarcChange(of: title) { newValue in
+            let controller = FloatingEditorController.shared
+            guard controller.isCurrentPresentation(presentationGeneration) else { return }
+            controller.currentTitle = newValue
         }
     }
 }

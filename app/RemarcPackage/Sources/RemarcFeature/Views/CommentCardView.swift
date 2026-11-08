@@ -27,63 +27,184 @@ struct CommentCardView: View {
     @State private var moveAnchorRef = AnchorViewRef()
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
+    @State private var isResolvedExpanded = false
+    @State private var isRenaming = false
+    @State private var titleDraft = ""
+    @FocusState private var isTitleFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
 
-    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
+    private var showActions: Bool { isHovered || isFocused || isRenaming || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
+    private var isCollapsed: Bool { comment.status == .resolved && !isResolvedExpanded }
+
+    private var statusColor: Color {
+        CommentStatus.color(for: comment.status, colorScheme: colorScheme)
+    }
+
+    private var statusHeaderOpacity: Double {
+        switch comment.status {
+        case .open: return colorScheme == .dark ? 0.18 : 0.10
+        case .resolved: return colorScheme == .dark ? 0.06 : 0.035
+        default: return colorScheme == .dark ? 0.14 : 0.08
+        }
+    }
+
+    private var collapsedSummary: String {
+        let text = comment.meaningfulCommentText ?? comment.truncatedTypeLabel
+        let firstLine = text.split(whereSeparator: { $0.isNewline }).first.map(String.init) ?? text
+        let summary = firstLine.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return summary.isEmpty ? comment.type.displayName : summary
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            referenceView
-            if !comment.attachments.isEmpty {
-                AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
-                    .padding(.leading, 8)
-                    .quoteBorder()
+        VStack(alignment: .leading, spacing: 0) {
+            headerView
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(statusColor.opacity(statusHeaderOpacity))
+
+            VStack(alignment: .leading, spacing: 8) {
+                if isCollapsed {
+                    Text(collapsedSummary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    contextBadges
+                    referenceView
+                    if !comment.attachments.isEmpty {
+                        AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
+                            .padding(.leading, 8)
+                            .quoteBorder()
+                    }
+                    if let commentText = comment.meaningfulCommentText {
+                        commentTextView(commentText)
+                    }
+                }
+
+                metadataView
             }
-            if let commentText = comment.meaningfulCommentText {
-                commentTextView(commentText)
-            }
-            metadataView
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(12)
-        .overlay(alignment: .topTrailing) {
-            StatusDotView(comment: comment)
-                .padding(8)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
-        .modifier(EdgeRefractionModifier(
-            color: CommentStatus.color(for: comment.status, colorScheme: colorScheme),
-            corner: .topTrailing,
-            cornerRadius: AppConstants.cardCornerRadius
-        ))
         .onHover { hovering in
             isHovered = hovering
             onFocusChange?(hovering)
         }
-        .opacity(comment.status == .resolved ? 0.6 : 1.0)
+        .onRemarcChange(of: comment.status) { _ in
+            // Newly resolved cards collapse; reopening always reveals the body.
+            isResolvedExpanded = false
+        }
+        .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+        .animation(.easeInOut(duration: 0.2), value: comment.status)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .animation(.easeInOut(duration: 0.15), value: showActions)
+    }
+
+    // MARK: - Header
+
+    private var headerView: some View {
+        HStack(spacing: 8) {
+            if isRenaming {
+                TextField("任务名称", text: $titleDraft)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 11))
+                    .focused($isTitleFocused)
+                    .onSubmit(saveTitle)
+                    .onExitCommand {
+                        isRenaming = false
+                        isTitleFocused = false
+                    }
+                    .accessibilityIdentifier("remarc.card.titleEditor")
+            } else if comment.status == .resolved {
+                Button {
+                    isResolvedExpanded.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        headerTitle
+                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
+                .accessibilityLabel(comment.taskTitle)
+                .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
+            } else {
+                headerTitle
+                Spacer(minLength: 0)
+            }
+
+            if !isRenaming {
+                Button {
+                    titleDraft = comment.taskTitle
+                    isRenaming = true
+                    isTitleFocused = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                        .frame(width: 20, height: 22)
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovered || isFocused ? 1 : 0)
+                .allowsHitTesting(isHovered || isFocused)
+                .accessibilityLabel("修改任务标题")
+                .help("修改任务标题")
+            }
+
+            StatusDotView(comment: comment)
+                .fixedSize()
+        }
+        .onRemarcChange(of: isTitleFocused) { focused in
+            if !focused && isRenaming { saveTitle() }
+        }
+    }
+
+    private func saveTitle() {
+        guard persistence.renameComment(comment.id, title: titleDraft) else {
+            ToastManager.shared.show("标题未能保存")
+            return
+        }
+        isRenaming = false
+        isTitleFocused = false
+    }
+
+    private var headerTitle: some View {
+        Text(comment.taskTitle)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary.opacity(0.85))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .font(.system(size: 11))
+                .help(comment.taskTitle)
+    }
+
+    @ViewBuilder
+    private var contextBadges: some View {
+        if let webContext = comment.webContext {
+            HStack(spacing: 6) {
+                WebContextBadge(webContext: webContext, regionElements: comment.regionElements, colorScheme: colorScheme)
+                if let hfCtx = webContext.hyperframesContext, !hfCtx.isEmpty {
+                    HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
+                }
+            }
+        }
     }
 
     // MARK: - Reference Container
 
     @ViewBuilder
     private var referenceView: some View {
-        // Type label — consistent across all types
-        HStack(spacing: 6) {
-            Label(comment.type.displayName, systemImage: comment.type.iconName)
-                .font(.system(size: 11))
-                .labelStyle(TypeLabelStyle(colorScheme: colorScheme))
-            if comment.webContext != nil {
-                WebContextBadge(webContext: comment.webContext!, regionElements: comment.regionElements, colorScheme: colorScheme)
-            }
-            if let hfCtx = comment.webContext?.hyperframesContext, !hfCtx.isEmpty {
-                HyperframesContextBadge(hyperframesContext: hfCtx, colorScheme: colorScheme)
-            }
-        }
-
-        // Type-specific content below the label
         switch comment.type {
         case .comment(let text):
             TruncatingQuoteText(
@@ -192,18 +313,6 @@ struct CommentCardView: View {
 
     // MARK: - Metadata + Actions
 
-    private func metadataText(now: Date) -> String {
-        let date = comment.createdAt.remarcCompactTimestamp(
-            dateFormat: settings.exportDateFormat,
-            use24Hour: settings.timeFormat.use24Hour,
-            now: now
-        )
-        if let app = appDisplayName(for: comment) {
-            return "\(app) - \(date)"
-        }
-        return date
-    }
-
     private var metadataView: some View {
         HStack(spacing: 4) {
             TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
@@ -220,8 +329,6 @@ struct CommentCardView: View {
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
                 .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-                .opacity(showActions ? 1 : 0)
-                .animation(.easeInOut(duration: 0.15), value: showActions)
                 .onTapGesture {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
@@ -233,7 +340,22 @@ struct CommentCardView: View {
 
             cardActions
                 .opacity(showActions ? 1 : 0)
+                .allowsHitTesting(showActions)
+                .accessibilityHidden(!showActions)
         }
+        .frame(minHeight: 22)
+    }
+
+    private func metadataText(now: Date) -> String {
+        let date = comment.createdAt.remarcCompactTimestamp(
+            dateFormat: settings.exportDateFormat,
+            use24Hour: settings.timeFormat.use24Hour,
+            now: now
+        )
+        if let app = appDisplayName(for: comment) {
+            return "\(app) · \(date)"
+        }
+        return date
     }
 
     /// Show move button when there are other sessions to move to, or room to create a new one.
@@ -253,6 +375,13 @@ struct CommentCardView: View {
                     ToastManager.shared.show("Couldn’t copy comment")
                 }
             }
+            cardActionButton(icon: "play.fill", tooltip: "复制并开发", tint: Color.remarcPrimary(for: colorScheme)) {
+                if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
+                    ToastManager.shared.show("已复制，已标记为正在开发中")
+                } else {
+                    ToastManager.shared.show("复制失败，状态未修改")
+                }
+            }
             cardActionButton(icon: "pencil", tooltip: "Edit", tint: Color.remarcPrimary(for: colorScheme)) {
                 FloatingEditorController.shared.showForEdit(comment: comment)
             }
@@ -269,7 +398,7 @@ struct CommentCardView: View {
                 .overlay(DropdownAnchor(ref: webhookAnchorRef).allowsHitTesting(false))
             }
             if canMoveComment {
-                cardActionButton(icon: "arrow.forward.folder", tooltip: "Move to session", tint: Color.remarcPrimary(for: colorScheme)) {
+                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: "Move to session", tint: Color.remarcPrimary(for: colorScheme)) {
                     if isMoveDropdownOpen {
                         DropdownPanelController.shared.dismiss()
                     } else {
@@ -457,6 +586,7 @@ struct CardActionButton: View {
         }
         .buttonStyle(.plain)
         .help(tooltip)
+        .accessibilityLabel(tooltip)
         .onHover { hovering in
             isHovered = hovering
         }

@@ -222,7 +222,9 @@ struct PreferencesView: View {
     @State private var pendingHarnesses: Set<SkillInstaller.Harness> = []
     @ObservedObject private var updateManager = UpdateManager.shared
     @ObservedObject private var modelManager = WhisperKitModelManager.shared
+    #if canImport(FluidAudio)
     @ObservedObject private var parakeetManager = ParakeetModelManager.shared
+    #endif
     @State private var selectedSection: SettingsSection = {
         if let raw = UserDefaults.standard.string(forKey: PreferencesWindowController.selectedSectionKey),
            let section = SettingsSection(rawValue: raw) {
@@ -356,7 +358,7 @@ struct PreferencesView: View {
                 selectedSection = section
             }
         }
-        .onChange(of: selectedSection) { _, newValue in
+        .onRemarcChange(of: selectedSection) { newValue in
             UserDefaults.standard.set(newValue.rawValue, forKey: PreferencesWindowController.selectedSectionKey)
             NotificationCenter.default.post(
                 name: PreferencesWindowController.resizeNotification,
@@ -619,7 +621,7 @@ struct PreferencesView: View {
                     settingsRow("Engine") {
                         RemarcDropdown(
                             selection: $settings.transcriptionEngine,
-                            options: Array(TranscriptionEngineType.allCases),
+                            options: TranscriptionEngineType.availableCases,
                             labelFor: { $0.rawValue },
                             trailingAccessoryFor: { engine, cs in
                                 switch engine {
@@ -631,10 +633,14 @@ struct PreferencesView: View {
                                         colorScheme: cs
                                     )
                                 case .parakeet:
+                                    #if canImport(FluidAudio)
                                     return downloadIndicator(
                                         downloaded: parakeetManager.downloadState == .downloaded,
                                         colorScheme: cs
                                     )
+                                    #else
+                                    return nil
+                                    #endif
                                 }
                             },
                             width: Self.pickerWidth
@@ -653,11 +659,13 @@ struct PreferencesView: View {
                             title: "WhisperKit",
                             description: "OpenAI Whisper via CoreML. High accuracy, multiple model sizes."
                         )
+                        #if canImport(FluidAudio)
                         engineInfoRow(
                             icon: "bolt.fill",
                             title: "Parakeet",
                             description: "NVIDIA Parakeet via CoreML. Fastest inference, excellent accuracy."
                         )
+                        #endif
                     }
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -707,6 +715,7 @@ struct PreferencesView: View {
                     }
                 }
 
+                #if canImport(FluidAudio)
                 if settings.transcriptionEngine == .parakeet {
                     Divider()
 
@@ -736,6 +745,8 @@ struct PreferencesView: View {
                         }
                     }
                 }
+
+                #endif
 
                 if settings.transcriptionEngine != .appleSpeech {
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
@@ -986,6 +997,7 @@ struct PreferencesView: View {
         }
     }
 
+    #if canImport(FluidAudio)
     // MARK: - Parakeet Download Status
 
     @available(macOS 26, *)
@@ -1070,6 +1082,8 @@ struct PreferencesView: View {
             }
         }
     }
+
+    #endif
 
     // MARK: - Download Indicator
 
@@ -2695,10 +2709,16 @@ struct PreferencesView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.primary.opacity(0.35))
 
+            #if REMARC_VENTURA
+            Text("Ventura compatibility build - updates installed manually")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            #else
             Button("Check for Updates\u{2026}") {
                 UpdateManager.shared.checkForUpdates()
             }
             .disabled(!updateManager.canCheckForUpdates)
+            #endif
 
             HStack(spacing: 16) {
                 Link("Website", destination: URL(string: "https://remarc.app")!)

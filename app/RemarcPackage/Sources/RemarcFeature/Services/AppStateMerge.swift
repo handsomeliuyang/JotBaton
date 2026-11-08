@@ -64,6 +64,7 @@ enum AppStateMerge {
         }
         pick(\.type)
         pick(\.commentText)
+        pick(\.customTitle)
         pick(\.source)
         pick(\.appBundleID)
         pick(\.updatedAt)

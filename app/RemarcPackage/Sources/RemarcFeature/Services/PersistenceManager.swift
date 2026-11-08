@@ -393,7 +393,7 @@ public final class PersistenceManager: ObservableObject {
     }
 
     @discardableResult
-    public func createComment(type: CommentType, commentText: String, source: String, appBundleID: String?, attachments: [String] = [], webContext: WebContext? = nil, regionElements: [WebContext]? = nil, targetSessionID: UUID? = nil, wakeRequested: Bool = false) -> Comment? {
+    public func createComment(type: CommentType, commentText: String, source: String, appBundleID: String?, attachments: [String] = [], webContext: WebContext? = nil, regionElements: [WebContext]? = nil, targetSessionID: UUID? = nil, wakeRequested: Bool = false, customTitle: String? = nil) -> Comment? {
         guard CommentSavePolicy.allowsSave(
             type: type,
             commentText: commentText,
@@ -431,7 +431,8 @@ public final class PersistenceManager: ObservableObject {
             attachments: attachments,
             webContext: webContext,
             regionElements: regionElements,
-            wakeRequestedAt: wakeRequested ? Date() : nil
+            wakeRequestedAt: wakeRequested ? Date() : nil,
+            customTitle: customTitle
         )
 
         appState.comments.append(comment)
@@ -450,7 +451,7 @@ public final class PersistenceManager: ObservableObject {
     }
 
     @discardableResult
-    public func updateComment(_ id: UUID, text: String, attachments: [String]? = nil) -> Bool {
+    public func updateComment(_ id: UUID, text: String, attachments: [String]? = nil, customTitle: String?? = nil) -> Bool {
         guard let index = appState.comments.firstIndex(where: { $0.id == id }) else { return false }
         guard CommentSavePolicy.allowsSave(
             type: appState.comments[index].type,
@@ -461,9 +462,23 @@ public final class PersistenceManager: ObservableObject {
             return false
         }
         appState.comments[index].commentText = Comment.normalizedCommentText(text)
+        // An omitted patch preserves the title; .some(nil) explicitly clears it.
+        if let customTitle {
+            appState.comments[index].customTitle = CommentTitlePolicy.normalizedCustomTitle(customTitle)
+        }
         if let attachments = attachments {
             appState.comments[index].attachments = attachments
         }
+        appState.comments[index].updatedAt = Date()
+        scheduleSave()
+        WebhookService.shared.dispatch(.commentUpdated, comment: appState.comments[index])
+        return true
+    }
+
+    @discardableResult
+    public func renameComment(_ id: UUID, title: String) -> Bool {
+        guard let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted }) else { return false }
+        appState.comments[index].customTitle = CommentTitlePolicy.normalizedCustomTitle(title)
         appState.comments[index].updatedAt = Date()
         scheduleSave()
         WebhookService.shared.dispatch(.commentUpdated, comment: appState.comments[index])
@@ -885,7 +900,8 @@ public final class PersistenceManager: ObservableObject {
         webContext: WebContext? = nil,
         regionElements: [WebContext]? = nil,
         targetSessionID: UUID? = nil,
-        wakeRequested: Bool = false
+        wakeRequested: Bool = false,
+        customTitle: String? = nil
     ) async -> Result<Comment, PersistenceError> {
 
         guard CommentSavePolicy.allowsSave(
@@ -932,7 +948,8 @@ public final class PersistenceManager: ObservableObject {
             attachments: attachments,
             webContext: webContext,
             regionElements: regionElements,
-            wakeRequestedAt: wakeRequested ? Date() : nil
+            wakeRequestedAt: wakeRequested ? Date() : nil,
+            customTitle: customTitle
         )
         candidate.comments.append(comment)
         // Inside the candidate, never applied afterwards: the counter is part of

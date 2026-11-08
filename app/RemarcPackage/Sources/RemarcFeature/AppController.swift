@@ -13,6 +13,7 @@ public final class AppController: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var bounceTimer: DispatchSourceTimer?
     private var pendingBounce = false
+    private let accessibilityPermissionMonitor = AccessibilityPermissionMonitor()
 
     @Published public private(set) var isOnboardingComplete: Bool = false
 
@@ -84,6 +85,15 @@ public final class AppController: NSObject, ObservableObject {
 
         enableLoginItem()
         setupObservers()
+        accessibilityPermissionMonitor.start { [weak self] granted in
+            self?.handleAccessibilityPermissionChange(granted)
+        }
+        if !withHotkey {
+            // Updates and local re-signing can invalidate TCC even after onboarding.
+            // Register this binary with macOS instead of silently failing every read.
+            debugLog("Accessibility: access missing; requesting permission for this installation")
+            OnboardingWindowController.shared.requestAccessibility()
+        }
         if #available(macOS 26, *) {
             preloadTranscriptionEngine()
         }
@@ -98,6 +108,19 @@ public final class AppController: NSObject, ObservableObject {
         ScriptInstaller.removeStaleInstalledScripts()
 
         debugLog("AppController setup complete")
+    }
+
+    private func handleAccessibilityPermissionChange(_ granted: Bool) {
+        debugLog("Accessibility: permission changed (granted: \(granted)); reconnecting listeners")
+        SelectionTooltipWindowController.shared.dismiss()
+        SelectionMonitor.shared.stopMonitoring()
+        FnKeyMonitor.shared.uninstall()
+        if !SettingsManager.shared.isPaused {
+            SelectionMonitor.shared.startMonitoring()
+        }
+        if granted {
+            FnKeyMonitor.shared.install()
+        }
     }
 
     /// Prewarm or fully load the selected transcription engine model in the background.
@@ -123,6 +146,7 @@ public final class AppController: NSObject, ObservableObject {
                     await manager.prewarmModel(model)
                 }
             case .parakeet:
+                #if canImport(FluidAudio)
                 let model = await settings.parakeetModelVersion
                 let manager = await ParakeetModelManager.shared
                 guard await manager.isModelDownloaded(model) else { return }
@@ -130,6 +154,9 @@ public final class AppController: NSObject, ObservableObject {
                     let success = await manager.prepareModel(model)
                     await debugLog("AppController: Parakeet preload \(success ? "succeeded" : "failed")")
                 }
+                #else
+                break
+                #endif
             case .appleSpeech:
                 await debugLog("AppController: Apple Speech — no prewarm needed")
             }

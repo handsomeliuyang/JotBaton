@@ -1,162 +1,125 @@
-# Releasing Remarc Updates
+# Releasing this Remarc fork
 
-Automated release process for Remarc, including signing, notarization, GitHub Release publishing, and Sparkle auto-updates.
+This fork is maintained at `handsomeliuyang/Remarc`. The **Release** workflow
+publishes both supported architectures in one GitHub Release:
 
-## Architecture
+| Asset | Target | Configuration |
+|---|---|---|
+| `Remarc-Ventura-x86_64.zip` | Hackintosh / Intel, macOS 13+ | Release |
+| `Remarc-Apple-Silicon-arm64.dmg` | M5 Pro / Apple Silicon, macOS 14+ | Release |
+| `Remarc-Ventura-Install-Tools.zip` | Local Intel signing helper and dependencies | — |
+| `INSTALL.txt` | Installation instructions and exact source commit | — |
+| `SHA256SUMS` | SHA-256 of all other assets | — |
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  GitHub Actions │────▶│ GitHub Releases  │────▶│   Sparkle App   │
-│  (Build & Sign) │     │ (Remarc.zip)     │     │  (Auto-update)  │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │                                                 │
-         ▼                                                 │
-┌─────────────────┐                                        │
-│  GitHub Gist    │◀───────────────────────────────────────┘
-│  (appcast.xml)  │
-└─────────────────┘
-```
+Download from [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases).
+Actions artifacts are intermediate outputs with an expiry date; they are not
+published Releases. Standalone **Ventura Intel** and **Apple Silicon** workflows
+remain useful for development, but do not publish a Release.
 
-- **Binary (.zip)**: uploaded as an asset on the tagged GitHub Release.
-- **Appcast**: lives on a GitHub Gist. `SUFeedURL` in every shipped binary points at this gist. The workflow updates the gist on each release.
-- **Signing**: Developer ID + Apple notarization for Gatekeeper; EdDSA signatures for Sparkle.
-- **Website download**: after the first public source release, `remarc.app/download` 302-redirects to `https://github.com/metedata/Remarc/releases/latest/download/Remarc.zip`. During repository recreation, `website/public/_redirects` deliberately keeps the shipped 0.5.1 R2 URL as a non-breaking fallback; switch it only after the newer GitHub asset is live.
+## Start a release
 
-## GitHub Secrets Required
+1. Commit accepted changes to `main` and push to `origin`.
+2. Choose a new `X.Y.Z` marketing version and a larger build number than those
+   in `app/Config/Shared.xcconfig`. Do not change these fields manually for a
+   normal release; the workflow creates the version commit.
+3. Run **Actions → Release → Run workflow** on `main`, with version, build
+   number and nonempty release notes, or use:
 
-Repository → Settings → Secrets and variables → Actions.
-
-| Secret | Description |
-|--------|-------------|
-| `CERTIFICATE_P12` | Base64-encoded Developer ID Application certificate |
-| `CERTIFICATE_PASSWORD` | Password for the .p12 |
-| `PROVISIONING_PROFILE` | Base64-encoded provisioning profile |
-| `SPARKLE_PRIVATE_KEY` | EdDSA private key for signing updates |
-| `GIST_PAT` | GitHub Personal Access Token with `gist` scope |
-| `NOTARIZE_KEY` | App Store Connect API key (.p8 contents) |
-| `NOTARIZE_KEY_ID` | Key ID from App Store Connect |
-| `NOTARIZE_ISSUER_ID` | Issuer ID from App Store Connect |
-
-The release workflow no longer writes to R2, so `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_ACCOUNT_ID` can be removed from Actions secrets. Do not disable the bucket or delete its versioned objects: during repository recreation `/download` still serves the signed 0.5.1 archive from R2, every existing appcast entry through 0.5.1 points there, and extension 0.3.0 is still served there. After the GitHub cutover, retain those objects for old clients and stable historical links. New extension releases ship as GitHub Releases on `extension-v{VERSION}` tags, always created with `--latest=false` so they never hijack the app's `releases/latest/download/Remarc.zip` URL - see `.claude/skills/release-extension/SKILL.md`.
-
-## Releasing a New Version
-
-The recreated public repository begins with source fields `0.5.1` / `12`, but
-that exact shipped build is already in the live appcast and remains available
-from the historical R2 URL. Do **not** rebuild or republish `0.5.1` / `12` from
-the newer open-source snapshot. The first automated source release must use a
-genuinely newer pair, such as `1.0.0` / `14`.
-
-### Via GitHub Actions (normal path)
-
-1. **Actions** tab → **Release** workflow → **Run workflow**
-2. Fill in:
-   - **Version:** e.g. `1.0.0` (marketing version)
-   - **Build number:** must be higher than previous (check `app/Config/Shared.xcconfig`)
-   - **Release notes:** one non-empty plain line for a single announcement, or one `- ` prefixed line per change for a list.
-3. Run.
-
-Or via CLI:
 ```bash
-gh workflow run release.yml \
-  -f version="1.0.0" \
-  -f build_number="14" \
-  -f release_notes="Remarc's public release."
+gh workflow run release.yml -R handsomeliuyang/Remarc --ref main \
+  -f version='1.2.5' -f build_number='24' \
+  -f release_notes='Improve comment status styling and ship Intel and Apple Silicon installers.'
 ```
 
-### What the workflow does (in order)
+The values above are an example, not values to reuse after that release ships.
+Always specify `-R handsomeliuyang/Remarc`: this checkout also has an upstream remote.
 
-1. Require the repository to be public and the dispatch to come from `main`, validate semantic-version/build inputs against the live appcast, and fail closed if that version/build or a conflicting tag or GitHub Release already exists.
-2. Checkout the current `main`, select Xcode 26.2, and bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `Shared.xcconfig`.
-3. Install the Developer ID certificate and provisioning profile into an ephemeral keychain.
-4. Archive and export the Release configuration using only versions pinned in `Package.resolved`. A build phase verifies the committed MCP server and skill against their recorded SHA-256 values and bundles both; there is no npm build. Before landing an MCP update, run `scripts/sync-mcp-vendor.sh` against the clean companion release commit to refresh the server, skill, and dependency notices together.
-5. Submit the app to Apple notarization, staple the accepted ticket, and validate the signed app with `codesign`, Gatekeeper, and `stapler`.
-6. Create `Remarc.zip`, create `Remarc.zip.sha256`, extract the archive, and repeat the signature, Gatekeeper, and stapling checks on the extracted app.
-7. Sign the zip with the `sign_update` tool from the resolved Sparkle 2.9.5 artifact, recording its EdDSA signature and exact byte length.
-8. Commit the version bump to `main`, confirm that the remote did not move during the build, and create the annotated `vX.Y.Z` tag.
-9. Create a draft GitHub Release containing exactly `Remarc.zip` and `Remarc.zip.sha256`; verify both asset names and sizes.
-10. Download the current appcast from the gist, prepend the candidate item, and fully validate it while the GitHub Release is still a draft.
-11. Publish the verified draft as the latest GitHub Release.
-12. Publish the already-validated appcast immediately afterward.
-13. Re-download and byte/checksum-verify both GitHub assets, then parse the published appcast and verify its version, build, URL, Sparkle signature, and byte length.
-14. Remove temporary certificate, provisioning-profile, notarization-key, Sparkle-key, and keychain files even if an earlier step fails; the hosted runner is also discarded after the job.
+## What the workflow guarantees
 
-Sparkle clients see the new version only after step 12 completes. The release is published before the appcast so an update enclosure never intentionally points at a missing asset.
+1. Requires this fork and `main`; validates version/build increments, release
+   notes, and existing tags/releases. It creates `Release vX.Y.Z` using
+   `liuyang <40610243@qq.com>` as author and committer.
+2. Passes that exact version commit to both reusable builders. Both perform
+   clean Release builds with Xcode 26.2 and locked dependency revisions, then
+   sign, relaunch and verify their apps on matching build hosts.
+3. Runs the full Swift suite for both standard and Ventura profiles, Intel
+   compatibility tests, and packaged MCP image delivery checks for both apps.
+4. Downloads both artifacts, verifies checksums, extracts/mounts the packages,
+   and checks signatures, architecture, deployment floor, version, build,
+   source commit and manual-update setting in each app.
+5. Requires `main` still to identify that source commit, creates the annotated
+   `vX.Y.Z` tag with the same liuyang identity, and uploads all five assets to a
+   draft Release. It verifies names/sizes and downloads the draft assets to
+   compare their bytes and checksums before publishing.
+6. Publishes the Release as latest and downloads/verifies the published assets
+   again. Deliver the Release URL, not just an Actions run link.
 
-### Failure recovery
+Only `GITHUB_TOKEN` with `contents: write` is required by preparation and
+publishing. Builders have read-only repository access. This process does not
+use upstream Developer ID, notarization, Sparkle, Gist or website credentials.
+It does not publish an upstream appcast or website update.
 
-The workflow is deliberately fail-closed: it never overwrites a tag, release, or release asset.
+## Signing and installation
 
-- If it fails before creating a GitHub Release, rerun it with the exact same inputs. A matching version commit and tag at the current `main` can be resumed safely.
-- If it leaves a draft release, inspect its assets first. Delete that draft only if you intend to rerun the entire workflow; otherwise finish and verify the draft manually.
-- If the GitHub Release is already published but the appcast step fails, do not rerun the workflow and do not delete the published release. Repair and validate the gist appcast separately using the published asset's exact Sparkle signature and length.
-- If any existing tag or release differs from the requested version or current release commit, stop and resolve the mismatch rather than moving or replacing it.
+These packages are ad-hoc signed and **not Apple-notarized**. GitHub Release
+publication does not change that. If first launch is blocked, follow
+[Apple's Open Anyway instructions](https://support.apple.com/en-us/102445).
+Both packages disable upstream automatic updates; install future versions manually.
 
-The automated path pushes its version commit directly to `main`. If branch protection disallows that push, first land a change containing only the requested `Shared.xcconfig` version/build bump and make the resulting `main` commit subject exactly `Release vX.Y.Z`. Dispatch the workflow with the same values; it will verify that commit and resume at the tag step instead of trying to push another version commit.
+### Hackintosh / Ventura Intel
 
-## URLs
+1. Download and verify the release assets with `shasum -a 256 -c SHA256SUMS`.
+2. Extract the app ZIP with Archive Utility or `ditto` to preserve the bundle.
+3. Extract `Remarc-Ventura-Install-Tools.zip` and run:
 
-| Resource | URL |
-|----------|-----|
-| Latest download (stable) | `https://github.com/metedata/Remarc/releases/latest/download/Remarc.zip` |
-| Versioned download | `https://github.com/metedata/Remarc/releases/download/vX.Y.Z/Remarc.zip` |
-| Website download (302 → GitHub after the first public release) | `https://remarc.app/download` |
-| Appcast feed | `https://gist.githubusercontent.com/metedata/0bbb8342e141a8c41a9f1c0bfaab8f81/raw/appcast.xml` |
-| GitHub Releases page | `https://github.com/metedata/Remarc/releases` |
+```bash
+bash /absolute/path/ventura-install-tools/scripts/sign-ventura-local.sh /absolute/path/Remarc.app
+```
 
-## One-Time Setup Reference
+The helper creates/reuses a local signing identity in the dedicated keychain
+under `~/Library/Application Support/RemarcLocalSigning` and adds a code-signing
+trust entry for the current user. Keep private key material outside the repo.
+An existing source checkout can use `scripts/sign-ventura-local.sh` directly.
 
-### Developer ID Certificate
+4. Quit Remarc, back up the installed app and user data, replace
+   `/Applications/Remarc.app` with the re-signed app, and relaunch that path.
+   Preserve `~/Library/Application Support/Remarc`; do not reset TCC routinely.
+5. Verify the installed version, signature and running process. Keep the old
+   app backup for rollback. Local delivery is not complete until this relaunch.
 
-1. Create a **Developer ID Application** certificate at [developer.apple.com](https://developer.apple.com/account/resources/certificates/list).
-2. Export as `.p12` from Keychain Access with a password.
-3. `base64 -i certificate.p12 | pbcopy`.
-4. Add to secrets as `CERTIFICATE_P12`. Password goes in `CERTIFICATE_PASSWORD`.
+Xcode 14 on Ventura cannot compile the locked Swift 6 dependencies. Build in
+Actions. Standalone Intel development builds default to Debug; use
+`REMARC_BUILD_CONFIGURATION=Release bash scripts/build-ventura.sh` on a compatible
+Intel build host for the release configuration.
 
-### Sparkle EdDSA Key
+### M5 Pro / Apple Silicon
 
-- Public key lives in `app/Remarc/Info.plist` under `SUPublicEDKey`.
-- Private key goes into the `SPARKLE_PRIVATE_KEY` secret.
-- **Do not rotate** without shipping a new build first, or existing installs will reject updates signed with the new key.
+For a stable local signing identity across updates, copy the app from the DMG
+to a writable directory and run `bash scripts/sign-local.sh /absolute/path/Remarc.app`
+from a source checkout (or the same script in the installation tools ZIP), then
+install it at `/Applications/Remarc.app`. Reuse the generated identity on future
+updates. The first switch from an upstream or ad-hoc signature may require granting
+Accessibility and Screen Recording again. This is local signing, not notarization.
 
-### GitHub Gist PAT
+Open the DMG, drag `Remarc.app` into Applications, and open it there. No Rosetta
+is needed. The standard speech backends are retained; voice features require
+macOS 26. Grant required permissions when prompted. The workflow validates
+startup on an Apple Silicon runner; this does not imply physical M5 Pro testing.
 
-1. Create a token at [github.com/settings/tokens](https://github.com/settings/tokens) with only the `gist` scope.
-2. Add as `GIST_PAT`.
+## Failure recovery
 
-### Notarization Credentials
+- Before publication, a failed build may be retried with the same inputs only
+  while `main` is still the exact `Release vX.Y.Z` version commit. Rerun all jobs
+  to ensure both artifacts are present. A matching existing tag can be reused.
+- If source changes are needed after a failed build, land them on `main` and
+  choose a new version/build. Never move an existing release tag.
+- If a draft exists, inspect and verify it. The workflow refuses to overwrite
+  it. Recover the verified draft manually, or explicitly remove the failed
+  draft before restarting; do not delete an already-published release.
+- If publication succeeded but a later network verification failed, verify
+  the published assets and checksums. Do not republish or replace the assets.
+- If `main` advances during compilation, publishing stops. Start a new release
+  from the accepted source rather than tagging a different commit under the
+  packages that were already built.
 
-1. App Store Connect → Users and Access → API Keys → create a key with "App Manager" role.
-2. Add `.p8` contents to `NOTARIZE_KEY`, Key ID to `NOTARIZE_KEY_ID`, Issuer ID to `NOTARIZE_ISSUER_ID`.
-
-## Troubleshooting
-
-### Build fails with signing error
-- Verify `CERTIFICATE_P12` is base64-encoded correctly (`file certificate.p12` should report "PKCS#12").
-- Check certificate hasn't expired in the Apple Developer portal.
-
-### Notarization fails
-- Workflow fetches the notarization log via `xcrun notarytool log` on failure and prints it.
-- Common causes: an entitlement the notary disagrees with, or a dependency binary that isn't signed.
-
-### Appcast not updating
-- Check `GIST_PAT` scope includes `gist` and isn't expired.
-- Gist ID is hardcoded as `0bbb8342e141a8c41a9f1c0bfaab8f81`; verify it still belongs to the right account.
-
-### Empty release notes in Sparkle's update dialog
-- Release notes may be one plain line or one or more `- ` prefixed bullet lines.
-- The workflow rejects blank input, mixed plain text and bullets, and multiline plain text.
-
-### Users not seeing updates
-- Check the binary's `Info.plist` has the correct `SUFeedURL` and `SUPublicEDKey`.
-- `curl -sL "$SUFeedURL"` should return the appcast XML.
-- The most recent `<item>` in the appcast must have a valid EdDSA signature and a downloadable enclosure URL.
-- If you ever change `SUPublicEDKey` between versions, users on the older version cannot upgrade and must manually re-download.
-
-## Manual intervention
-
-Prefer recovering the workflow state described above over rebuilding or publishing a release by hand. A manual intervention must preserve the same ordering and validation gates: notarize and staple; validate the app before and after archiving; create and verify both release assets in a draft; publish the release; then update and validate the appcast last. Never move an existing release tag or overwrite an existing release asset to make a failed run pass.
-
-## Version History
-
-See the [GitHub Releases page](https://github.com/metedata/Remarc/releases) for the authoritative list.
+The commit, tag and package versions must always agree.

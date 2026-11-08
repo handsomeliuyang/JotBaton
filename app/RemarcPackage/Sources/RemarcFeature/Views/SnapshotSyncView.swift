@@ -103,7 +103,7 @@ struct SnapshotSyncView: View {
             }.padding(28)
         }
         .task { await sync.checkIfNeeded() }
-        .onChange(of: versionToApply != nil || confirmEnable) { _, active in sync.holdAutomaticChecks(active, token: reviewToken) }
+        .onRemarcChange(of: versionToApply != nil || confirmEnable) { active in sync.holdAutomaticChecks(active, token: reviewToken) }
         .onDisappear { sync.holdAutomaticChecks(false, token: reviewToken) }
         .alert("Replace local tasks?", isPresented: Binding(get: { versionToApply != nil }, set: { if !$0 { versionToApply = nil } })) {
             Button("Cancel", role: .cancel) { versionToApply = nil }
@@ -365,7 +365,7 @@ struct SnapshotSyncControls: View {
             Button("Cancel", role: .cancel) {}
             Button("Enable iCloud Snapshots") { Task { await sync.enable() } }
         } message: { Text("Remarc will create or reuse iCloud Drive/Remarc. Publishing and applying stay manual.") }
-        .onChange(of: choosing || versionToApply != nil || confirmPublish || confirmEnable) { _, active in
+        .onRemarcChange(of: choosing || versionToApply != nil || confirmPublish || confirmEnable) { active in
             sync.holdAutomaticChecks(active, token: reviewToken)
         }
         .task { await sync.observeCloud() }
@@ -434,7 +434,7 @@ struct SnapshotSyncToolbarButton: View {
             }.frame(width: 340).frame(maxHeight: 510)
         }
         .task { await sync.checkIfNeeded() }
-        .onChange(of: panel.isVisible) { _, visible in
+        .onRemarcChange(of: panel.isVisible) { visible in
             if !visible && !panel.isDetached { showing = false }
         }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
