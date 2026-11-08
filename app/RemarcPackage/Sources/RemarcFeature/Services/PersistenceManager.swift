@@ -18,6 +18,7 @@ public final class PersistenceManager: ObservableObject {
     /// A mutation arrived while a save was in flight; that save's snapshot is
     /// stale, so another must follow it.
     private var backgroundSaveRequested = false
+    private var snapshotGeneration = 0
     private var saveCancellable: AnyCancellable?
     private let saveSubject = PassthroughSubject<Void, Never>()
     private var resolvedDeletionTimer: Timer?
@@ -690,6 +691,64 @@ public final class PersistenceManager: ObservableObject {
 
     // MARK: - Persistence
 
+    /// Flush and adopt local MCP/CLI changes before capturing a snapshot. The
+    /// slot also drains a routine save's main-actor publication, not just IO.
+    func stateForSnapshot() async throws -> AppState {
+        await acquireDocumentSlot()
+        defer { releaseDocumentSlot() }
+        while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
+        guard saveToDiskBlocking() else { throw SnapshotError.message("Could not save local changes. Please try again.") }
+        return appState
+    }
+
+    var snapshotReceipt: SnapshotReceipt? {
+        guard let value = appState.unknownFields["_snapshotReceipt"],
+              let bytes = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(SnapshotReceipt.self, from: bytes)
+    }
+
+    var snapshotContentStamp: SnapshotContentStamp? {
+        guard let value = appState.unknownFields["_snapshotContentStamp"],
+              let bytes = try? JSONEncoder().encode(value) else { return nil }
+        return try? JSONDecoder().decode(SnapshotContentStamp.self, from: bytes)
+    }
+
+    func recordSnapshotReceipt(_ receipt: SnapshotReceipt) async throws {
+        await acquireDocumentSlot()
+        defer { releaseDocumentSlot() }
+        while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
+        appState.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt))
+        guard saveToDiskBlocking() else { throw SnapshotError.message("The snapshot was published, but its local version label could not be saved. Check updates before retrying.") }
+    }
+
+    /// Intentionally replaces the complete document. Never pass an imported
+    /// snapshot through AppStateMerge: doing so resurrects local-only records.
+    func applySnapshot(_ prepared: SnapshotArchive.Prepared, version: SnapshotVersion, expected: AppState) async throws {
+        await acquireDocumentSlot()
+        defer { releaseDocumentSlot() }
+        while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
+        guard saveToDiskBlocking(), appState == expected else {
+            throw SnapshotError.message("Local data changed while preparing the snapshot. Nothing was replaced. Review it and try again.")
+        }
+        var replacement = prepared.state
+        let selection = appState.activeSessionID
+        replacement.activeSessionID = replacement.sessions.first(where: { $0.id == selection && !$0.isDeleted && !$0.isAutoDismissed })?.id
+            ?? replacement.sessions.first(where: { $0.isInbox && !$0.isDeleted })?.id
+            ?? replacement.sessions.first(where: { !$0.isDeleted && !$0.isAutoDismissed })?.id
+        let receipt = SnapshotReceipt(version: version, contentHash: prepared.hash, appliedAt: Date())
+        replacement.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt))
+        let stamp = SnapshotContentStamp(contentHash: prepared.hash, modifiedAt: version.contentModifiedAt)
+        replacement.unknownFields["_snapshotContentStamp"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(stamp))
+        try SnapshotReplacement.commit(replacement, expected: lastPersisted, fileURL: fileURL)
+        snapshotGeneration += 1
+        appState = replacement
+        lastPersisted = replacement
+        backgroundSaveRequested = false
+        deferredSaveRequested = false
+        // No webhooks, wake requests, retention pass, or screenshot-directory
+        // setting changes: this is an explicit restore, not newly created work.
+    }
+
     private func scheduleSave() {
         saveSubject.send()
     }
@@ -1230,9 +1289,11 @@ public final class PersistenceManager: ObservableObject {
     /// Delays briefly so the resolved state change is visible before the comment disappears.
     private func autoDeleteResolvedCommentIfImmediate(_ id: UUID) {
         guard SettingsManager.shared.resolvedCommentDeletion == .immediately else { return }
+        let generation = snapshotGeneration
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(800))
-            guard let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted }) else { return }
+            guard generation == snapshotGeneration,
+                  let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted && $0.status == .resolved }) else { return }
             let sessionID = appState.comments[index].sessionID
             let now = Date()
             appState.comments[index].isDeleted = true

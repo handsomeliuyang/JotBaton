@@ -143,16 +143,19 @@ struct PopoverContentView: View {
                     }
 
                     if hasComments && !isSearching {
-                        Divider()
                         if showAutoClearCountdown {
+                            Divider()
                             autoClearCountdown
                         } else if showClearPrompt {
+                            Divider()
                             clearPrompt
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
-                        } else {
-                            footer
                         }
                     }
+                }
+                if !critModeActive && !showCritModeOnboarding {
+                    Divider()
+                    footer
                 }
             }
             .frame(minHeight: AppConstants.popoverMinHeight)
@@ -174,7 +177,7 @@ struct PopoverContentView: View {
         .overlay(alignment: .bottom) {
             if let toast = ToastManager.shared.currentToast {
                 ToastOverlay(toast: toast)
-                    .padding(.bottom, hasComments ? 52 : 12)
+                    .padding(.bottom, !critModeActive && !showCritModeOnboarding ? 52 : 12)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: ToastManager.shared.currentToast?.id)
@@ -189,6 +192,9 @@ struct PopoverContentView: View {
             return .handled
         }
         .onChange(of: popoverController.isVisible) { _, visible in
+            if visible {
+                Task { await SnapshotSyncManager.shared.checkIfNeeded() }
+            }
             if !visible {
                 searchText = ""
                 isSearching = false
@@ -463,14 +469,6 @@ struct PopoverContentView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(alignment: .bottomTrailing) {
-            iconFooterButton(icon: "gearshape") {
-                PreferencesWindowController.shared.show()
-            }
-            .help("Settings")
-            .padding(.trailing, 14)
-            .padding(.bottom, 10)
-        }
     }
 
     // MARK: - Card List
@@ -509,36 +507,41 @@ struct PopoverContentView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             primaryFooterButton(icon: "doc.on.doc", title: "Copy All") {
                 copyAll()
             }
             .help("Copy all comments in this session")
+            .disabled(!hasComments || isSearching || showingHistory)
 
             mcpButton
 
             Spacer()
 
-            iconFooterButton(icon: "checkmark.bubble") {
-                showResolveAllConfirmation = true
-            }
-            .help("Resolve all comments in this session")
-            .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
-                resolveAllConfirmation
-            }
+            Group {
+                iconFooterButton(icon: "checkmark.bubble") {
+                    showResolveAllConfirmation = true
+                }
+                .help("Resolve all comments in this session")
+                .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
+                    resolveAllConfirmation
+                }
 
-            iconFooterButton(icon: "trash") {
-                showDeleteAllConfirmation = true
-            }
-            .help("Delete all comments in this session")
-            .popover(isPresented: $showDeleteAllConfirmation, arrowEdge: .top) {
-                deleteAllConfirmation
-            }
+                iconFooterButton(icon: "trash") {
+                    showDeleteAllConfirmation = true
+                }
+                .help("Delete all comments in this session")
+                .popover(isPresented: $showDeleteAllConfirmation, arrowEdge: .top) {
+                    deleteAllConfirmation
+                }
 
-            iconFooterButton(icon: "arrow.down.doc") {
-                exportToFile()
-            }
-            .help("Export to file")
+                iconFooterButton(icon: "arrow.down.doc") {
+                    exportToFile()
+                }
+                .help("Export to file")
+            }.disabled(!hasComments || isSearching || showingHistory)
+
+            SnapshotSyncToolbarButton()
 
             iconFooterButton(icon: "gearshape") {
                 PreferencesWindowController.shared.show()

@@ -348,7 +348,7 @@ final class CritModeService: ObservableObject {
     // MARK: - Segmentation
 
     private func segment(transcript: String, speechSegments: [String]) async -> [String] {
-        #if canImport(FoundationModels)
+        #if canImport(FoundationModels) && !REMARC_COMMAND_LINE_PREVIEW
         if #available(macOS 26, *) {
             return await _segmentWithFoundationModels(transcript: transcript, speechSegments: speechSegments)
         }
@@ -530,7 +530,7 @@ extension CritModeService {
 
 // MARK: - Foundation Models Integration
 
-#if canImport(FoundationModels)
+#if canImport(FoundationModels) && !REMARC_COMMAND_LINE_PREVIEW
 import FoundationModels
 
 @available(macOS 26, *)

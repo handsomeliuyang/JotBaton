@@ -9,6 +9,7 @@ xcuserdata/
 # SPM
 .build/
 .swiftpm/
+app/RemarcPackage/Packages/
 
 # macOS
 .DS_Store

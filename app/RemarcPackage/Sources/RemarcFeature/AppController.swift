@@ -42,6 +42,7 @@ public final class AppController: NSObject, ObservableObject {
         }
 
         _ = UpdateManager.shared
+        _ = SnapshotSyncManager.shared // Observe content changes from launch, before the panel opens.
         debugLog("UpdateManager initialized")
 
         // Check if onboarding is needed

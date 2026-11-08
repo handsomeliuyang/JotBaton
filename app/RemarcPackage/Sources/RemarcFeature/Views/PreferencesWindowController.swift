@@ -250,6 +250,7 @@ struct PreferencesView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
+        case iCloudSync = "iCloud Sync"
         case shortcuts = "Shortcuts"
         case voice = "Voice"
         case export = "Export"
@@ -265,6 +266,7 @@ struct PreferencesView: View {
         var icon: String {
             switch self {
             case .general: return "gearshape"
+            case .iCloudSync: return "icloud"
             case .shortcuts: return "command"
             case .voice: return "waveform"
             case .export: return "square.and.arrow.up"
@@ -325,6 +327,7 @@ struct PreferencesView: View {
             Group {
                 switch selectedSection {
                 case .general: generalSection
+                case .iCloudSync: SnapshotSyncView()
                 case .shortcuts: shortcutsSection
                 case .voice:
                     if #available(macOS 26, *) {

@@ -61,6 +61,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard !shouldSkipSetup else { return }
 
         AppController.shared.setup()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--show-sync") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreferencesWindowController.shared.show(tab: "iCloud Sync")
+            }
+        }
+        #endif
     }
 
     private var installedRemarcCopyIsAlreadyRunning: Bool {
