@@ -1,6 +1,6 @@
 # Remarc
 
-macOS menu bar app (SwiftUI + AppKit) for contextual commenting on text selections.
+Independently maintained macOS menu bar app (SwiftUI + AppKit) for contextual commenting on text selections.
 
 - Bundle ID: `com.metepolat.Remarc`
 - Min macOS: standard build 14.0 (`app/Config/Shared.xcconfig`); opt-in Ventura build 13.0 (`app/Config/Ventura.xcconfig` with `REMARC_VENTURA=1`). Xcode 26.2 / Swift 6.2 is required by the locked dependencies. LSUIElement (no dock icon)
@@ -10,7 +10,7 @@ macOS menu bar app (SwiftUI + AppKit) for contextual commenting on text selectio
 
 **MANDATORY: After every successful build, you MUST relaunch Remarc.** The user cannot verify changes otherwise. Do this every single time, no exceptions:
 1. Build with `-derivedDataPath "$(pwd)/DerivedData"` (deterministic output path — no grep/find needed). Both build scripts relaunch their exact output on the matching CI host.
-2. For local delivery on this Ventura Intel machine, download the exact release's Intel package, verify it, re-sign with `scripts/sign-ventura-local.sh`, install at `/Applications/Remarc.app`, and relaunch that installed app. Do not launch a stale Debug build or the arm64 package here.
+2. For local delivery, detect the current machine's architecture with `uname -m` and download the matching package from the exact release: the Apple Silicon DMG for `arm64`, or the Ventura Intel ZIP for `x86_64`. Verify it, preserve the existing local signing identity using `scripts/sign-local.sh`, install at `/Applications/Remarc.app`, and relaunch that installed app. Keep a rollback backup and preserve user data.
 
 ## Build
 
@@ -23,8 +23,8 @@ When working on UI changes in SwiftUI, always do a clean build after layout chan
 - Increment marketing version and build number for a new release. The workflow owns the version commit and annotated tag; never move an existing tag or overwrite published assets. See `RELEASING.md` for retries.
 - Actions artifacts are intermediate build output, not a completed GitHub Release. Verify the published Release assets and include its URL in the delivery response.
 - Standalone **Ventura Intel** / **Apple Silicon** workflows remain available for development and troubleshooting; they do not publish a Release.
-- Packages use ad-hoc signing unless this fork configures its own Developer ID and notarization credentials. Do not claim Apple notarization or use the upstream author's signing, appcast, website or release credentials. Fork packages use manual updates.
-- After publishing, update and relaunch the local Intel installation using the existing local signing identity, preserve user data, and keep a rollback backup. Verify the arm64 package on its matching CI host and download it for transfer to the M5 Pro; do not claim physical M5 Pro testing unless performed.
+- Packages use ad-hoc signing unless this repository configures its own Developer ID and notarization credentials. Use this repository's releases and credentials. Packages use manual updates; only claim Apple notarization when verified.
+- After publishing, install and relaunch the matching native package on the current machine. Verify both architectures on their matching CI hosts and retain both downloads for transfer between Macs. Report the local checks actually performed.
 
 ### Worktree Builds
 
@@ -38,17 +38,17 @@ When the user describes a UI bug, confirm WHICH specific component/view they mea
 
 ### Contribution Attribution
 
-Use `liuyang <40610243@qq.com>` as both author and committer of new repository and automated release commits, and as the tagger of annotated tags. Do not add `Co-authored-by` or equivalent attribution for bots, models or agents. Preserve existing commit history and upstream authorship; do not rewrite old commits to change attribution. Attribute another contributor only when the maintainer explicitly requests it.
+Use `liuyang <40610243@qq.com>` as both author and committer of all new commits, including merge and automated release commits, and as the tagger of annotated tags. The release workflow must use this same identity. Do not add `Co-authored-by` or equivalent attribution for bots, models or agents. Preserve existing commit history; do not rewrite historical attribution. Attribute another contributor only when the maintainer explicitly requests it.
 
-### Fork Maintenance and Branches
+### Independent Development and Branches
 
-This fork is independently maintained on `main`. It contains the macOS 13 compatibility work and accepted customizations; do not wait for upstream PRs to merge before integrating changes here.
+This repository is independently developed and released at `handsomeliuyang/Remarc` on `main`. All accepted customizations and compatibility work belong to this repository's own development flow.
 
 - Work in the current project directory on `main` by default, as requested by the maintainer. Do not create a branch or worktree for every edit.
 - Use a temporary branch only when isolation is needed or requested. Integrate accepted changes into `main` and remove the temporary branch after verification.
-- `origin` is this fork; `upstream` is the original author's repository. Review upstream updates before merging them into `main`, preserving local compatibility and customizations.
-- Keep `compat/macos13` available for the existing upstream PR; it is not the daily development or release branch.
-- On Ventura, use the cloud **Release** workflow for delivery; it calls the existing Intel and Apple Silicon builders. Download the Intel asset for the exact release commit, verify it, re-sign with `scripts/sign-ventura-local.sh`, and install at the stable `/Applications/Remarc.app` path before relaunching. Xcode 14 on Ventura cannot build the Swift 6 package locally.
+- Keep `origin` as the only remote, pointing to `git@github.com:handsomeliuyang/Remarc.git`. Local `main` tracks `origin/main`.
+- Do not configure an `upstream` remote, synchronize from the original project, or submit changes or pull requests to it. Development and release do not depend on the original project's review or merge process.
+- Use this repository's cloud **Release** workflow for deliverables. Local source previews are available through `scripts/run-local.sh` on supported development machines; Xcode 14 on Ventura cannot build the Swift 6 package locally.
 
 For an explicitly requested worktree, use `.worktrees/<name>`. Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable).
 
