@@ -7,8 +7,8 @@
 PRODUCT_NAME = Remarc
 PRODUCT_DISPLAY_NAME = Remarc
 PRODUCT_BUNDLE_IDENTIFIER = com.metepolat.Remarc
-MARKETING_VERSION = 1.2.10
-CURRENT_PROJECT_VERSION = 29
+MARKETING_VERSION = 1.2.11
+CURRENT_PROJECT_VERSION = 30
 
 // ==========================================
 // Platform Configuration
