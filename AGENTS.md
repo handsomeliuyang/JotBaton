@@ -2,15 +2,19 @@
 
 Independently maintained macOS menu bar app (SwiftUI + AppKit) for contextual commenting on text selections.
 
-- Bundle ID: `com.metepolat.Remarc`
+- Production: `Remarc.app`, bundle ID `com.metepolat.Remarc`, executable `Remarc`
+- Development: `Remarc Dev.app`, bundle ID `com.metepolat.Remarc.dev`, executable `RemarcDev`; separate DEV app and menu bar icons
 - Min macOS: standard build 14.0 (`app/Config/Shared.xcconfig`); opt-in Ventura build 13.0 (`app/Config/Ventura.xcconfig` with `REMARC_VENTURA=1`). Xcode 26.2 / Swift 6.2 is required by the locked dependencies. LSUIElement (no dock icon)
 - Delivery build: use the **Release** GitHub Actions workflow in `handsomeliuyang/Remarc`; build both Ventura Intel and Apple Silicon from the same version commit (see `RELEASING.md`).
-- Debug log: `/tmp/remarc_debug.log` (Debug builds only; release builds write no log file unless `defaults write com.metepolat.Remarc debugFileLoggingEnabled -bool YES`)
-- Data: `~/Library/Application Support/Remarc/comments.json` (legacy fallback: `data.json`)
+- Development debug log: `/tmp/remarc_dev_debug.log`. Production Release writes no file unless `defaults write com.metepolat.Remarc debugFileLoggingEnabled -bool YES`; then it uses `~/Library/Logs/Remarc/remarc_debug.log`.
+- Production data: `~/Library/Application Support/Remarc/comments.json` (legacy fallback: `data.json`)
+- Development data: `~/Library/Application Support/Remarc Dev/comments.json`; never copy production data or defaults into it automatically
+- iCloud snapshots: production `iCloud Drive/Remarc`; development `iCloud Drive/Remarc Dev`
 
 **MANDATORY: After every successful build, you MUST relaunch Remarc.** The user cannot verify changes otherwise. Do this every single time, no exceptions:
 1. Build with `-derivedDataPath "$(pwd)/DerivedData"` (deterministic output path — no grep/find needed). Both build scripts relaunch their exact output on the matching CI host.
-2. For local delivery, detect the current machine's architecture with `uname -m` and download the matching package from the exact release: the Apple Silicon DMG for `arm64`, or the Ventura Intel ZIP for `x86_64`. Verify it, preserve the existing local signing identity using `scripts/sign-local.sh`, install at `/Applications/Remarc.app`, and relaunch that installed app. Keep a rollback backup and preserve user data.
+2. For local delivery, detect the current machine's architecture with `uname -m` and download the matching package from the exact release: the Apple Silicon DMG for `arm64`, or the Ventura Intel ZIP for `x86_64`. Verify its checksum and pinned production certificate with `scripts/sign-app.py --channel production --verify-only`. Install with `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`; it backs up the matching app and user data, installs without re-signing, and relaunches `/Applications/Remarc.app`. Retain both native downloads.
+3. Development installs use `--channel development` and `/Applications/Remarc Dev.app`. Relaunch only the corresponding executable; never kill the other channel as part of a build or install.
 
 ## Build
 
@@ -23,8 +27,23 @@ When working on UI changes in SwiftUI, always do a clean build after layout chan
 - Increment marketing version and build number for a new release. The workflow owns the version commit and annotated tag; never move an existing tag or overwrite published assets. See `RELEASING.md` for retries.
 - Actions artifacts are intermediate build output, not a completed GitHub Release. Verify the published Release assets and include its URL in the delivery response.
 - Standalone **Ventura Intel** / **Apple Silicon** workflows remain available for development and troubleshooting; they do not publish a Release.
-- Packages use ad-hoc signing unless this repository configures its own Developer ID and notarization credentials. Use this repository's releases and credentials. Packages use manual updates; only claim Apple notarization when verified.
+- Packages use a fixed private self-signed production certificate stored in this repository's Actions Secrets. They are manually updated and are not Apple-notarized. Never fall back to ad-hoc signing or replace a missing identity with a newly generated certificate.
 - After publishing, install and relaunch the matching native package on the current machine. Verify both architectures on their matching CI hosts and retain both downloads for transfer between Macs. Report the local checks actually performed.
+
+### Development and Production Identities
+
+- Local testing and the **Development** workflow share the exact `signing/development.p12` and `signing/development-password.txt`. These are deliberately committed **test-only** credentials, an explicit maintainer-approved exception. The secret scanner exception covers only this `.p12` file.
+- Production certificate plus private key exist exclusively in GitHub Actions Secrets `REMARC_SIGNING_P12_BASE64`; its password is `REMARC_SIGNING_P12_PASSWORD`. Never commit, log, retain, or download production private material for local signing. Only the public fingerprint is in `signing/identities.json`.
+- Both Intel and Apple Silicon production packages use that same production identity. Both development packages and both Macs' local builds use the other, shared test identity. Select and verify identities by pinned fingerprint, not just certificate name.
+- `scripts/sign-app.py` imports into a temporary dedicated keychain, restores the original keychain search list and deletes the temporary keychain. Signing does not require changing user/system certificate trust or authorization rules. Keep command failures and timeout messages free of credentials.
+- `scripts/run-local.sh` clean-builds the development app on supported hosts, signs, installs and relaunches it. Preserve its CLT/macOS 26.5 SDK preview path, including development icons and identity. Xcode 14 / Swift 5.8 on Ventura cannot compile this package; use the paired **Development** artifacts there. Direct Xcode Debug builds are finalized by the scheme post-build action; builders set `REMARC_SIGNING_IN_BUILDER=1` and finalize once themselves.
+- The **Development** workflow builds both architectures from one exact commit. Its Actions artifacts are development output, not a published production Release. Versioned production delivery still requires the **Release** workflow and both published assets.
+- Use `AppIdentity.current` (the app's Bundle ID) for persistent paths and routing. A DEBUG compilation flag alone does not identify the installed channel. Keep local comments, images, model caches, settings, sync records/outbox/backups, agent markers and reload notifications isolated.
+- Cloud connection, creation and authorization must all use the same channel's child directory. Accept iCloud Drive root or that channel's folder; reject the other channel's folder and symbolic links. Never automatically migrate, merge, publish or apply data between channels. Keep production paths unchanged for existing data.
+- Production uses `remarc://`, browser port `9274`, MCP entry `remarc`, and Control+Option shortcuts. Development uses `remarc-dev://`, port `9275`, MCP entry `remarc-dev`, and Control+Option+Shift defaults. Stock browser/marketplace integrations target production; the development bundled MCP uses development storage.
+- Regenerate development visual assets with `swift scripts/generate-development-icons.swift /absolute/repo/path`; keep the DEV app icon and distinct template menu bar icon. Do not substitute the production app icon for CLT previews.
+- Each Mac and each app has independent macOS permission grants. A deliberate certificate rotation can require one-time reauthorization. Do not routinely reset TCC; `scripts/install-app.py --reset-permissions` is only for an explicitly requested certificate migration and resets Accessibility/ScreenCapture for the selected channel alone.
+- Resolve dependencies through `scripts/resolve-packages.sh` and the checkout's `app/DerivedData/PackageCache`. Its Sparkle prefetch verifies the exact upstream SHA-256 and pinned version, with an official asset API download fallback. Do not disable checksum validation or change dependency revisions to bypass download failures.
 
 ### Worktree Builds
 
@@ -59,11 +78,11 @@ When building from worktrees (or after nuking DerivedData), macOS TCC microphone
 ```bash
 rm -rf app/DerivedData
 # rebuild...
-tccutil reset Microphone com.metepolat.Remarc
-pkill -x Remarc; sleep 0.5; open app/DerivedData/Build/Products/Debug/Remarc.app
+tccutil reset Microphone com.metepolat.Remarc.dev
+python3 scripts/relaunch-app.py "/Applications/Remarc Dev.app"
 ```
 
-The user must grant mic access when macOS prompts after the reset. Do this whenever audio capture stops working (0 buffers in debug log).
+The example targets development. For a confirmed production issue, use `com.metepolat.Remarc` and `/Applications/Remarc.app` instead. Reset only the affected channel after confirming 0 buffers in its log; the user must grant mic access again when macOS prompts.
 
 ### Color System
 

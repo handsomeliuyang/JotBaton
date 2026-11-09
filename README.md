@@ -56,7 +56,7 @@ Comments and screenshots stay on your Mac unless you publish an iCloud snapshot,
 
 #### Switch Macs with manual iCloud snapshots
 
-In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and enable **iCloud snapshots**. After confirmation, Remarc automatically creates or reuses `iCloud Drive/Remarc`. Both Macs use this fixed location with the same iCloud account; no folder selection or Apple Developer membership is needed. The cloud button in the bottom toolbar stays available in empty, search, and history views. Its short status shows whether to publish, receive, or review. Click it for two sections: **iCloud Data** shows the source (this Mac or another Mac), the recorded publication time, its relationship to local data, and **Apply to This Mac**; **Local Data** shows the content's last modification time, publication status, and **Publish to iCloud**. Publishing asks for confirmation before replacing the shared data; applying confirms and backs up local data first. Identical copies disable both actions. If both sides changed, explicitly choose which complete copy to keep. **Check Updates**, its last-check time, and transfer status belong to **iCloud Data**. Its **…** menu holds settings, history, and Finder access; there is no extra popover title. While a sync surface is open, transfer metadata refreshes every three seconds and discovered data is checked at most every fifteen seconds. Uploading, downloading, waiting, failed, and ready states summarize the latest snapshot pairs and incoming/pending files, excluding retained history. Missing metadata stays unconfirmed; the directory modification time is never treated as proof of completed delivery. Pending transfers block replacement until the files are ready. Receiving still requires a manual Apply. Publication time identifies the shared copy; it is separate from content modification and iCloud delivery time. Content time travels with the data, so checking and applying do not make old content new. Legacy local data with no content timestamp shows **Not recorded**. Normal controls use names and times rather than version IDs.
+In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and enable **iCloud snapshots**. After confirmation, Remarc automatically creates or reuses `iCloud Drive/Remarc`. The production apps on both Macs use this fixed location with the same iCloud account; Remarc Dev independently uses `iCloud Drive/Remarc Dev`. Local data, sync records and settings are also separated. There is no automatic transfer between channels; no folder selection or Apple Developer membership is needed. The cloud button in the bottom toolbar stays available in empty, search, and history views. Its short status shows whether to publish, receive, or review. Click it for two sections: **iCloud Data** shows the source (this Mac or another Mac), the recorded publication time, its relationship to local data, and **Apply to This Mac**; **Local Data** shows the content's last modification time, publication status, and **Publish to iCloud**. Publishing asks for confirmation before replacing the shared data; applying confirms and backs up local data first. Identical copies disable both actions. If both sides changed, explicitly choose which complete copy to keep. **Check Updates**, its last-check time, and transfer status belong to **iCloud Data**. Its **…** menu holds settings, history, and Finder access; there is no extra popover title. While a sync surface is open, transfer metadata refreshes every three seconds and discovered data is checked at most every fifteen seconds. Uploading, downloading, waiting, failed, and ready states summarize the latest snapshot pairs and incoming/pending files, excluding retained history. Missing metadata stays unconfirmed; the directory modification time is never treated as proof of completed delivery. Pending transfers block replacement until the files are ready. Receiving still requires a manual Apply. Publication time identifies the shared copy; it is separate from content modification and iCloud delivery time. Content time travels with the data, so checking and applying do not make old content new. Legacy local data with no content timestamp shows **Not recorded**. Normal controls use names and times rather than version IDs.
 
 The app verifies that the existing iCloud Drive root is managed by iCloud before creating its own child folder. If iCloud Drive is off or inaccessible, it reports the problem and leaves local work available. An authorization button is offered when automatic access fails; it grants access to the fixed location instead of choosing a different sync destination. Disabling snapshots keeps local data and cloud archives. Snapshots in previously configured custom folders are left in place.
 
@@ -76,8 +76,8 @@ Download both packages from [this fork's GitHub Releases](https://github.com/han
 - `Remarc-Apple-Silicon-arm64.dmg`: M5 Pro / Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-These fork builds are ad-hoc signed, not Apple-notarized, and use manual updates.
-See [installation and release instructions](RELEASING.md) for Intel local signing,
+These fork builds use a fixed private signing certificate, are not Apple-notarized, and use manual updates.
+See [installation and release instructions](RELEASING.md) for verified installation without local re-signing,
 first launch, checksums and permissions. The upstream signed distribution is
 available separately at [remarc.app/download](https://remarc.app/download).
 
@@ -91,9 +91,9 @@ To build the current checkout and immediately launch its Debug app, without a co
 ./scripts/run-local.sh
 ```
 
-With Xcode selected, the script performs a clean build and launches `app/DerivedData/Build/Products/Debug/Remarc.app`, opening iCloud Sync settings. It leaves `/Applications/Remarc.app` in place. A local development signature may require granting macOS permissions to the development build.
+With supported Xcode selected, the script clean-builds and signs `Remarc Dev.app` with the shared test identity, installs it at `/Applications/Remarc Dev.app`, and relaunches it. It preserves the production app. The DEV icon, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the paired **Development** workflow artifacts instead.
 
-On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Voice segmentation uses the existing speech-segment fallback because CLT lacks the Foundation Models macro plugin. Installed visual assets are reused if available. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
+On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Voice segmentation uses the existing speech-segment fallback because CLT lacks the Foundation Models macro plugin. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 
 Run `./scripts/test-snapshots.sh` for the snapshot suite. With CLT, run the local preview script first; the test script uses the same production sources and pinned dependencies in a separate Swift Testing target without the unavailable XCTest runtime.
 
@@ -103,9 +103,9 @@ For a direct Xcode build:
 git clone https://github.com/handsomeliuyang/Remarc.git
 cd Remarc
 # On an Apple Silicon build host:
-bash scripts/build-apple-silicon.sh
+REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh
 # On a compatible Intel build host:
-REMARC_BUILD_CONFIGURATION=Release bash scripts/build-ventura.sh
+REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-ventura.sh
 ```
 
 The [release workflow](.github/workflows/release.yml) builds, verifies and publishes
@@ -128,19 +128,17 @@ For versioned delivery, use the **Release** workflow to build both Intel and
 Apple Silicon packages from the same commit with Xcode 26.2. Download
 `Remarc-Ventura-x86_64.zip` from [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases)
 and extract it with Archive Utility or `ditto` to preserve the app bundle. No Developer ID
-certificate or notarization is needed. The CI artifact has an ad-hoc signature;
-re-sign it on the Ventura machine before granting Accessibility and Screen Recording
-permissions:
+certificate or notarization is needed for personal use. Both production packages
+are already signed with the same fixed private certificate from Actions Secrets.
+Install directly without local re-signing. From a source checkout:
 
 ```bash
-bash scripts/sign-ventura-local.sh /absolute/path/Remarc.app
+python3 scripts/install-app.py /absolute/path/Remarc.app --channel production
 ```
 
-This generates/reuses a self-signed code-signing identity in a dedicated keychain
-under `~/Library/Application Support/RemarcLocalSigning`, with a code-signing trust
-entry for the current user. The private key and keychain password stay outside the
-repository. Keep the installed application at a stable path. This is a local build,
-not an Apple-notarized distribution.
+The installer verifies signature and architecture, preserves a rollback backup and
+user data, installs and relaunches. The first migration to the new signing identity
+requires granting Accessibility and Screen Recording again on each Mac.
 
 To build on a Mac that can run Xcode 26.2:
 
@@ -153,7 +151,7 @@ clean Debug build by default (set `REMARC_BUILD_CONFIGURATION=Release` for Relea
 relaunches the app, and verifies all bundled Mach-O images
 have an Intel slice and support macOS 13.0 or earlier. It retains the upstream
 pinned dependency revisions and fails if resolution changes them. Output:
-`app/DerivedData/Build/Products/Debug/Remarc.app`.
+`app/DerivedData/Build/Products/Debug/Remarc Dev.app`.
 
 Ventura itself cannot run Xcode 26.2; it is the runtime test machine, while the
 cloud runner is the compiler host. On Ventura, verify first launch and permissions,
@@ -171,15 +169,15 @@ Automatic upstream updates are disabled for this independently packaged build.
 Download `Remarc-Apple-Silicon-arm64.dmg` from
 [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases).
 Drag `Remarc.app` into Applications. This works on Apple Silicon Macs, including
-M5 Pro, without Rosetta. The app is ad-hoc signed, not Apple-notarized; if the
+M5 Pro, without Rosetta. The app uses the fixed private release certificate and is not Apple-notarized; if the
 first launch is blocked, use **System Settings → Privacy & Security → Open Anyway**
 as described in [Apple's instructions](https://support.apple.com/en-us/102445).
 The artifact includes installation instructions, the source commit and SHA-256.
 See [RELEASING.md](RELEASING.md) for the dual-architecture release and installation process.
 
 On an Apple Silicon Mac with Xcode 26.2, run
-`bash scripts/build-apple-silicon.sh` to clean-build, sign, relaunch and verify
-`app/DerivedData/Build/Products/Release/Remarc.app`.
+`REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh` to clean-build, sign, relaunch and verify
+`app/DerivedData/Build/Products/Debug/Remarc Dev.app`. Production signing runs only in Actions.
 
 ## Repository layout
 
