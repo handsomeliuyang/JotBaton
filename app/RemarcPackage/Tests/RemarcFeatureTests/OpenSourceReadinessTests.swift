@@ -143,7 +143,7 @@ final class OpenSourceReadinessTests: XCTestCase {
 
         for script in ["scripts/build-ventura.sh", "scripts/build-apple-silicon.sh"] {
             let builder = try String(contentsOf: repositoryRoot.appendingPathComponent(script), encoding: .utf8)
-            for marker in ["-onlyUsePackageVersionsFromResolvedFile", "codesign --verify --deep --strict", "RemarcSourceCommit"] {
+            for marker in ["-onlyUsePackageVersionsFromResolvedFile", "scripts/prepare-app.py", "scripts/sign-app.py", "scripts/relaunch-app.py"] {
                 XCTAssertTrue(builder.contains(marker), "\(script) is missing safeguard: \(marker)")
             }
         }

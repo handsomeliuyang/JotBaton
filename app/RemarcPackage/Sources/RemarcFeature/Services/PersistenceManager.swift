@@ -57,8 +57,7 @@ public final class PersistenceManager: ObservableObject {
     private var deferredSessionDeletions: [UUID] = []
 
     private init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let remarcDir = appSupport.appendingPathComponent("Remarc", isDirectory: true)
+        let remarcDir = remarcAppSupportURL
 
         if !FileManager.default.fileExists(atPath: remarcDir.path) {
             try? FileManager.default.createDirectory(at: remarcDir, withIntermediateDirectories: true)
@@ -122,7 +121,7 @@ public final class PersistenceManager: ObservableObject {
 
         // Listen for external reload requests (from MCP server)
         DistributedNotificationCenter.default().addObserver(
-            forName: NSNotification.Name("com.metepolat.Remarc.reload"),
+            forName: NSNotification.Name(AppIdentity.current.reloadNotification),
             object: nil,
             queue: .main
         ) { [weak self] _ in

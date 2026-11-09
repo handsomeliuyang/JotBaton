@@ -7,12 +7,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$REPO_ROOT/app"
 WORKSPACE="$APP_DIR/Remarc.xcworkspace"
 SCHEME="Remarc"
-APP_NAME="Remarc"
+APP_NAME="Remarc Dev"
+PROCESS_NAME="RemarcDev"
 SCREENSHOT_DIR="$REPO_ROOT/tests/screenshots"
 AX_INSPECT="$REPO_ROOT/tools/ax-inspect/.build/debug/ax-inspect"
 DERIVED_DATA="$APP_DIR/DerivedData"
 TIMESTAMP="$(date +%Y-%m-%d_%H-%M-%S)"
-DEBUG_LOG="/tmp/remarc_debug.log"
+DEBUG_LOG="/tmp/remarc_dev_debug.log"
 
 # Colors
 RED='\033[0;31m'
@@ -54,30 +55,8 @@ ensure_ax_inspect() {
 }
 
 cmd_build() {
-    ensure_workspace
-    log_info "Building $SCHEME (Debug)..."
-    cd "$APP_DIR"
-    local build_log
-    build_log="$(mktemp "${TMPDIR:-/tmp}/remarc-build.XXXXXX")"
-    if xcodebuild build \
-        -workspace Remarc.xcworkspace \
-        -scheme "$SCHEME" \
-        -configuration Debug \
-        -derivedDataPath "$(pwd)/DerivedData" \
-        -quiet >"$build_log" 2>&1; then
-        cat "$build_log"
-        rm -f "$build_log"
-    else
-        local build_status=$?
-        cat "$build_log" >&2
-        rm -f "$build_log"
-        cd "$REPO_ROOT"
-        log_fail "Build failed (xcodebuild exit $build_status)"
-        exit "$build_status"
-    fi
-    cd "$REPO_ROOT"
-    log_ok "Build succeeded"
-    cmd_launch
+    bash "$REPO_ROOT/scripts/run-local.sh"
+    log_ok "Development app built, signed, installed and relaunched"
 }
 
 find_app_path() {
@@ -96,7 +75,7 @@ cmd_launch() {
     fi
 
     # Kill existing instance
-    killall "$APP_NAME" 2>/dev/null || true
+    killall "$PROCESS_NAME" 2>/dev/null || true
     sleep 0.5
 
     # Clear debug log
@@ -107,9 +86,9 @@ cmd_launch() {
 
     # Wait for app to be ready
     for i in $(seq 1 10); do
-        if pgrep -x "$APP_NAME" > /dev/null 2>&1; then
+        if pgrep -x "$PROCESS_NAME" > /dev/null 2>&1; then
             sleep 1  # Extra time for UI initialization
-            log_ok "App launched (pid: $(pgrep -x "$APP_NAME"))"
+            log_ok "App launched (pid: $(pgrep -x "$PROCESS_NAME"))"
             return
         fi
         sleep 0.5
@@ -119,7 +98,7 @@ cmd_launch() {
 }
 
 cmd_kill() {
-    killall "$APP_NAME" 2>/dev/null && log_ok "Killed $APP_NAME" || log_info "$APP_NAME was not running"
+    killall "$PROCESS_NAME" 2>/dev/null && log_ok "Killed $APP_NAME" || log_info "$APP_NAME was not running"
 }
 
 cmd_screenshot() {
@@ -210,7 +189,7 @@ cmd_crop() {
 
     if [ -n "$identifier" ]; then
         # Check app is running
-        if ! pgrep -x "$APP_NAME" > /dev/null 2>&1; then
+        if ! pgrep -x "$PROCESS_NAME" > /dev/null 2>&1; then
             log_fail "App is not running. Cannot look up AX identifier."
             log_info "Either run 'verify.sh launch' first, or use --region for manual coordinates."
             exit 1
@@ -327,11 +306,11 @@ cmd_smoke_test() {
     log_info "Running smoke test..."
 
     # 1. Check app is running
-    if ! pgrep -x "$APP_NAME" > /dev/null 2>&1; then
+    if ! pgrep -x "$PROCESS_NAME" > /dev/null 2>&1; then
         log_fail "App is not running. Run 'verify.sh launch' first."
         exit 1
     fi
-    log_ok "App is running (pid: $(pgrep -x "$APP_NAME"))"
+    log_ok "App is running (pid: $(pgrep -x "$PROCESS_NAME"))"
 
     # 2. List windows
     log_info "Listing windows..."

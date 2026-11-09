@@ -43,14 +43,16 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             app = Path(directory) / 'Remarc.app'
             (app / 'Contents').mkdir(parents=True)
-            info = {'CFBundleShortVersionString': '1.2.5', 'CFBundleVersion': '24',
+            info = {'CFBundleIdentifier': 'com.metepolat.Remarc', 'RemarcChannel': 'production',
+                    'CFBundleShortVersionString': '1.2.5', 'CFBundleVersion': '24',
                     'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': True}
             env = {'VERSION': '1.2.5', 'BUILD_NUMBER': '24', 'SOURCE_SHA': 'a' * 40}
             plist = app / 'Contents/Info.plist'
             with patch.dict(os.environ, env), patch.object(verify, 'run'):
                 plist.write_bytes(plistlib.dumps(info))
                 verify.verify_app(app, 'verifier.py')
-                for key, wrong in [('CFBundleShortVersionString', '1.2.4'),
+                for key, wrong in [('CFBundleIdentifier', 'com.metepolat.Remarc.dev'),
+                                   ('RemarcChannel', 'development'), ('CFBundleShortVersionString', '1.2.4'),
                                    ('CFBundleVersion', '23'), ('RemarcSourceCommit', 'b' * 40),
                                    ('RemarcManualUpdates', False)]:
                     plist.write_bytes(plistlib.dumps({**info, key: wrong}))

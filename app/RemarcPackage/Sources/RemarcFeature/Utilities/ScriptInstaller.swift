@@ -65,7 +65,7 @@ enum ScriptInstaller {
     /// The bundle is the only copy that is signed, notarized, and replaced
     /// atomically by an update, so it is the only one worth resolving to.
     static func resolvedPath(source relativePath: String, bundleName: String, bundleExt: String) -> String? {
-        if let path = sourceTreePath(relativePath) {
+        if !AppIdentity.current.isDevelopment, let path = sourceTreePath(relativePath) {
             return path
         }
 

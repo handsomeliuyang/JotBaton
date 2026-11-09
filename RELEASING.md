@@ -7,7 +7,6 @@ publishes both supported architectures in one GitHub Release:
 |---|---|---|
 | `Remarc-Ventura-x86_64.zip` | Hackintosh / Intel, macOS 13+ | Release |
 | `Remarc-Apple-Silicon-arm64.dmg` | M5 Pro / Apple Silicon, macOS 14+ | Release |
-| `Remarc-Ventura-Install-Tools.zip` | Local Intel signing helper and dependencies | — |
 | `INSTALL.txt` | Installation instructions and exact source commit | — |
 | `SHA256SUMS` | SHA-256 of all other assets | — |
 
@@ -32,7 +31,7 @@ gh workflow run release.yml -R handsomeliuyang/Remarc --ref main \
 ```
 
 The values above are an example, not values to reuse after that release ships.
-Always specify `-R handsomeliuyang/Remarc`: this checkout also has an upstream remote.
+Always specify `-R handsomeliuyang/Remarc`. This independent repository uses only origin.
 
 ## What the workflow guarantees
 
@@ -48,63 +47,76 @@ Always specify `-R handsomeliuyang/Remarc`: this checkout also has an upstream r
    and checks signatures, architecture, deployment floor, version, build,
    source commit and manual-update setting in each app.
 5. Requires `main` still to identify that source commit, creates the annotated
-   `vX.Y.Z` tag with the same liuyang identity, and uploads all five assets to a
+   `vX.Y.Z` tag with the same liuyang identity, and uploads both packages, installation instructions and checksums to a
    draft Release. It verifies names/sizes and downloads the draft assets to
    compare their bytes and checksums before publishing.
 6. Publishes the Release as latest and downloads/verifies the published assets
    again. Deliver the Release URL, not just an Actions run link.
 
-Only `GITHUB_TOKEN` with `contents: write` is required by preparation and
-publishing. Builders have read-only repository access. This process does not
+Preparation and publishing require `GITHUB_TOKEN` with `contents: write`.
+Production builders require `REMARC_SIGNING_P12_BASE64` and `REMARC_SIGNING_P12_PASSWORD`
+from Actions Secrets. Builders have read-only repository access. This process does not
 use upstream Developer ID, notarization, Sparkle, Gist or website credentials.
 It does not publish an upstream appcast or website update.
 
 ## Signing and installation
 
-These packages are ad-hoc signed and **not Apple-notarized**. GitHub Release
-publication does not change that. If first launch is blocked, follow
-[Apple's Open Anyway instructions](https://support.apple.com/en-us/102445).
-Both packages disable upstream automatic updates; install future versions manually.
+Both architectures are signed with one fixed private production certificate. They
+are **not Apple-notarized**. Production `.p12` and password live exclusively in
+GitHub Actions Secrets (`REMARC_SIGNING_P12_BASE64`, `REMARC_SIGNING_P12_PASSWORD`).
+Only the public certificate fingerprint is committed in `signing/identities.json`.
+Missing or mismatched credentials fail signing; there is no ad-hoc fallback.
 
-### Hackintosh / Ventura Intel
+1. Download both packages and verify `shasum -a 256 -c SHA256SUMS`.
+2. On Intel, extract the ZIP with Archive Utility or `ditto`. On Apple Silicon,
+   open the DMG. Keep both downloads for transfer between Macs.
+3. Quit only the matching app, back it up, then replace `/Applications/Remarc.app`.
+   Preserve `~/Library/Application Support/Remarc` and `iCloud Drive/Remarc`.
+4. Relaunch the installed app. No local re-signing is necessary. The first
+   migration to this new certificate requires granting Accessibility and Screen
+   Recording again on **each Mac**. Future releases reuse this identity.
+5. Verify signature, version, running path and functionality. Keep the rollback
+   backup. If blocked on first launch, use [Apple's Open Anyway instructions](https://support.apple.com/en-us/102445).
 
-1. Download and verify the release assets with `shasum -a 256 -c SHA256SUMS`.
-2. Extract the app ZIP with Archive Utility or `ditto` to preserve the bundle.
-3. Extract `Remarc-Ventura-Install-Tools.zip` and run:
+### Development app
 
-```bash
-bash /absolute/path/ventura-install-tools/scripts/sign-ventura-local.sh /absolute/path/Remarc.app
-```
+The **Development** workflow builds both architectures from one commit using the
+same dedicated test certificate as local builds. Download its paired artifacts.
+On supported Macs, `bash scripts/run-local.sh` clean-builds, signs, installs and
+relaunches `/Applications/Remarc Dev.app`. Xcode 26.2+ is required; Ventura with
+Xcode 14 must use the cloud-built Intel development artifact.
 
-The helper creates/reuses a local signing identity in the dedicated keychain
-under `~/Library/Application Support/RemarcLocalSigning` and adds a code-signing
-trust entry for the current user. Keep private key material outside the repo.
-An existing source checkout can use `scripts/sign-ventura-local.sh` directly.
+`signing/development.p12` and `signing/development-password.txt` are deliberately
+shared test credentials. Both Macs use these exact bytes; do not regenerate them
+per machine or build. `scripts/sign-app.py` uses a temporary dedicated keychain,
+trusts the selected self-signed certificate for code signing, restores the original
+keychain search list, and removes the temporary keychain. No login keychain or
+production signing credentials are needed for development.
 
-4. Quit Remarc, back up the installed app and user data, replace
-   `/Applications/Remarc.app` with the re-signed app, and relaunch that path.
-   Preserve `~/Library/Application Support/Remarc`; do not reset TCC routinely.
-5. Verify the installed version, signature and running process. Keep the old
-   app backup for rollback. Local delivery is not complete until this relaunch.
+| Property | Production | Development |
+|---|---|---|
+| App | Remarc.app | Remarc Dev.app (DEV icon and separate menu bar icon) |
+| Bundle ID | com.metepolat.Remarc | com.metepolat.Remarc.dev |
+| Local data | Application Support/Remarc | Application Support/Remarc Dev |
+| iCloud snapshots | iCloud Drive/Remarc | iCloud Drive/Remarc Dev |
+| Settings and permission grants | Production bundle domain | Development bundle domain |
+| Callback | remarc:// | remarc-dev:// |
+| Browser socket | 9274 | 9275 |
+| Default shortcut modifiers | Control+Option | Control+Option+Shift |
+| Debug log | /tmp/remarc_debug.log (Debug only) | /tmp/remarc_dev_debug.log |
 
-Xcode 14 on Ventura cannot compile the locked Swift 6 dependencies. Build in
-Actions. Standalone Intel development builds default to Debug; use
-`REMARC_BUILD_CONFIGURATION=Release bash scripts/build-ventura.sh` on a compatible
-Intel build host for the release configuration.
+The apps can be installed and run together. Comments, screenshots, speech models,
+snapshot receipts/outbox/backups, and integration markers use their channel's
+local root. Sync authorization accepts only iCloud Drive or the **same channel's**
+child folder; choosing the other channel's folder is rejected. No automatic data
+migration or synchronization happens between channels. Bundled development MCP
+uses the development root and notification name; explicit registrations use
+`remarc-dev`, preserving the production `remarc` entry.
+The stock browser extension and marketplace integration continue targeting production.
 
-### M5 Pro / Apple Silicon
-
-For a stable local signing identity across updates, copy the app from the DMG
-to a writable directory and run `bash scripts/sign-local.sh /absolute/path/Remarc.app`
-from a source checkout (or the same script in the installation tools ZIP), then
-install it at `/Applications/Remarc.app`. Reuse the generated identity on future
-updates. The first switch from an upstream or ad-hoc signature may require granting
-Accessibility and Screen Recording again. This is local signing, not notarization.
-
-Open the DMG, drag `Remarc.app` into Applications, and open it there. No Rosetta
-is needed. The standard speech backends are retained; voice features require
-macOS 26. Grant required permissions when prompted. The workflow validates
-startup on an Apple Silicon runner; this does not imply physical M5 Pro testing.
+Both channels use manual updates. The standard Apple Silicon package retains
+speech backends; voice features require macOS 26. CI startup checks do not imply
+physical M5 Pro testing.
 
 ## Failure recovery
 

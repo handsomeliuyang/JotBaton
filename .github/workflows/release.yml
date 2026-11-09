@@ -77,6 +77,9 @@ jobs:
 
   ventura:
     needs: prepare
+    secrets:
+      REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
+      REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
     uses: ./.github/workflows/ventura.yml
     with:
       source_ref: ${{ needs.prepare.outputs.source_sha }}
@@ -84,6 +87,9 @@ jobs:
 
   apple-silicon:
     needs: prepare
+    secrets:
+      REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
+      REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
     uses: ./.github/workflows/apple-silicon.yml
     with:
       source_ref: ${{ needs.prepare.outputs.source_sha }}
@@ -142,8 +148,8 @@ jobs:
           notes += '| `Remarc-Ventura-x86_64.zip` | 黑苹果 / Intel，macOS 13+ |\n'
           notes += '| `Remarc-Apple-Silicon-arm64.dmg` | M5 Pro / Apple Silicon，macOS 14+ |\n\n'
           notes += '两个安装包均为 Release 配置，使用同一源码提交。附带 SHA256SUMS 和安装说明。\n\n'
-          notes += '采用 ad-hoc 签名，未经过 Apple 公证；首次打开可能需要在“隐私与安全性”中允许运行。'
-          notes += 'Intel 版本请按安装说明使用本机固定证书重新签名。两个版本均为手动更新。\n\n'
+          notes += '两个安装包使用同一固定私有发布证书签名，未经过 Apple 公证；首次打开可能需要允许运行并重新授权。'
+          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。两个版本均为手动更新。\n\n'
           notes += f'[安装与发布说明](https://github.com/{repo}/blob/v{version}/RELEASING.md)\n'
           Path('build/release-notes.md').write_text(notes)
           PY

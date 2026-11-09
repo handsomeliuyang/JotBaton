@@ -1,7 +1,7 @@
 import AppKit
 import os.log
 
-private let logger = Logger(subsystem: "com.metepolat.Remarc", category: "debug")
+private let logger = Logger(subsystem: AppIdentity.current.bundleIdentifier, category: "debug")
 nonisolated(unsafe) private let debugLogFormatter: ISO8601DateFormatter = {
     let f = ISO8601DateFormatter()
     return f
@@ -23,10 +23,10 @@ private let debugLogQueue = DispatchQueue(label: "com.metepolat.Remarc.debugLog"
 /// the fixed /tmp path that local tooling tails.
 private let debugLogFileURL: URL? = {
     #if DEBUG
-    return URL(fileURLWithPath: "/tmp/remarc_debug.log")
+    return URL(fileURLWithPath: AppIdentity.current.isDevelopment ? "/tmp/remarc_dev_debug.log" : "/tmp/remarc_debug.log")
     #else
     let logsDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        .appendingPathComponent("Logs/Remarc", isDirectory: true)
+        .appendingPathComponent("Logs/" + AppIdentity.current.directoryName, isDirectory: true)
     let logFile = logsDir.appendingPathComponent("remarc_debug.log")
     let previousLogFile = logsDir.appendingPathComponent("remarc_debug.log.old")
     guard UserDefaults.standard.bool(forKey: "debugFileLoggingEnabled") else {
@@ -78,7 +78,7 @@ public func debugLog(_ message: String) {
 /// The real storage root. Computed once; the app never uses anything else.
 private let productionAppSupportURL: URL = {
     let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-    return appSupport.appendingPathComponent("Remarc", isDirectory: true)
+    return appSupport.appendingPathComponent(AppIdentity.current.directoryName, isDirectory: true)
 }()
 
 /// Set only by tests, to redirect every path helper at a temporary directory.
@@ -145,7 +145,7 @@ public enum AppConstants {
 
     // Claude Code marker files — format must match scripts/hooks/remarc-session-*.sh
     public static let claudeCodeMarkerDirectory: String = "/tmp"
-    public static let claudeCodeMarkerPrefix: String = "remarc-claude-"
+    public static let claudeCodeMarkerPrefix: String = AppIdentity.current.isDevelopment ? "remarc-dev-claude-" : "remarc-claude-"
     public static let claudeCodeMarkerSuffix: String = ".marker"
     public static func claudeCodeMarkerPath(for claudeSessionId: String) -> String {
         "\(claudeCodeMarkerDirectory)/\(claudeCodeMarkerPrefix)\(claudeSessionId)\(claudeCodeMarkerSuffix)"
@@ -171,7 +171,7 @@ public enum AppConstants {
     public static let chromeExtensionURL = URL(string: "https://remarc.app/chrome-extension")!
 
     // WebSocket server
-    public static let webSocketPort: UInt16 = 9274
+    public static let webSocketPort: UInt16 = AppIdentity.current.webSocketPort
     public static let webSocketHost = "127.0.0.1"
 
     // Known Chromium browser bundle IDs

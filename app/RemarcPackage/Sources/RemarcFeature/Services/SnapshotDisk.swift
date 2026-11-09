@@ -4,7 +4,7 @@ enum SnapshotDisk {
     static func versions(in directory: URL) throws -> [SnapshotVersion] {
         let fm = FileManager.default
         guard fm.fileExists(atPath: directory.path) else {
-            throw SnapshotError.message("iCloud Drive/Remarc is unavailable. Check iCloud Drive and retry the connection.")
+            throw SnapshotError.message("\(AppIdentity.current.cloudDisplayPath) is unavailable. Check iCloud Drive and retry the connection.")
         }
         return try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .compactMap { entry -> SnapshotVersion? in

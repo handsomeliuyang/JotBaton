@@ -112,18 +112,10 @@ jobs:
         cd app/RemarcPackage
         env -u THREADS_ACCESS_TOKEN swift test
 
-    - name: Build unsigned app
+    - name: Build, sign and relaunch development app
       run: |
         set -euo pipefail
-        xcodebuild build \
-          -workspace app/Remarc.xcworkspace \
-          -scheme Remarc \
-          -configuration Debug \
-          -derivedDataPath app/DerivedData \
-          -onlyUsePackageVersionsFromResolvedFile \
-          CODE_SIGN_IDENTITY=- \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO
+        REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh
 
     - name: Test packaged MCP image delivery
-      run: node scripts/smoke-mcp-images.mjs app/DerivedData/Build/Products/Debug/Remarc.app/Contents/Resources/remarc-mcp.js
+      run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/Debug/Remarc Dev.app/Contents/Resources/remarc-mcp.js" development

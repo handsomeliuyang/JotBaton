@@ -33,7 +33,7 @@ struct SnapshotSyncView: View {
                         HStack {
                             Text("Storage location").fontWeight(.medium)
                             Spacer()
-                            Text("iCloud Drive/Remarc").foregroundStyle(.secondary)
+                            Text("\(AppIdentity.current.cloudDisplayPath)").foregroundStyle(.secondary)
                         }
                         HStack {
                             Text("Directory access").fontWeight(.medium)
@@ -120,7 +120,7 @@ struct SnapshotSyncView: View {
         .alert("Enable iCloud snapshots?", isPresented: $confirmEnable) {
             Button("Cancel", role: .cancel) {}
             Button("Enable iCloud Snapshots") { Task { await sync.enable() } }
-        } message: { Text("Remarc will create or reuse iCloud Drive/Remarc. Publishing and applying stay manual.") }
+        } message: { Text("Remarc will create or reuse \(AppIdentity.current.cloudDisplayPath). Publishing and applying stay manual.") }
     }
 }
 
@@ -364,7 +364,7 @@ struct SnapshotSyncControls: View {
         .alert("Enable iCloud snapshots?", isPresented: $confirmEnable) {
             Button("Cancel", role: .cancel) {}
             Button("Enable iCloud Snapshots") { Task { await sync.enable() } }
-        } message: { Text("Remarc will create or reuse iCloud Drive/Remarc. Publishing and applying stay manual.") }
+        } message: { Text("Remarc will create or reuse \(AppIdentity.current.cloudDisplayPath). Publishing and applying stay manual.") }
         .onRemarcChange(of: choosing || versionToApply != nil || confirmPublish || confirmEnable) { active in
             sync.holdAutomaticChecks(active, token: reviewToken)
         }

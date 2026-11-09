@@ -74,13 +74,13 @@ public enum CursorMCPInstaller {
               let servers = root["mcpServers"] as? [String: Any] else {
             return false
         }
-        return servers["remarc"] != nil
+        return servers[AppIdentity.current.integrationName] != nil
     }
 
     public static func snippet(nodePath: String?, mcpPath: String?) -> String {
         let root: [String: Any] = [
             "mcpServers": [
-                "remarc": [
+                AppIdentity.current.integrationName: [
                     "command": nodePath ?? nodePlaceholder,
                     "args": [mcpPath ?? mcpPlaceholder],
                 ],
@@ -106,7 +106,7 @@ public enum CursorMCPInstaller {
             servers = [:]
         }
 
-        servers["remarc"] = ["command": nodePath, "args": [mcpPath]]
+        servers[AppIdentity.current.integrationName] = ["command": nodePath, "args": [mcpPath]]
         root["mcpServers"] = servers
         return try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
     }
@@ -117,7 +117,7 @@ public enum CursorMCPInstaller {
             return priorData
         }
 
-        servers.removeValue(forKey: "remarc")
+        servers.removeValue(forKey: AppIdentity.current.integrationName)
         root["mcpServers"] = servers
         return try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
     }
@@ -133,7 +133,7 @@ public enum CursorMCPInstaller {
         guard let priorData, !priorData.isEmpty else { return false }
         let root = try parseRoot(from: priorData)
         guard let servers = root["mcpServers"] as? [String: Any] else { return false }
-        guard let remarc = servers["remarc"] as? [String: Any] else { return false }
+        guard let remarc = servers[AppIdentity.current.integrationName] as? [String: Any] else { return false }
         return remarc["command"] as? String == nodePath
             && remarc["args"] as? [String] == [mcpPath]
     }

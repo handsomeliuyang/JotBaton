@@ -9,7 +9,7 @@ from pathlib import Path
 app = Path(sys.argv[1]).resolve()
 with (app / "Contents/Info.plist").open("rb") as handle:
     info = plistlib.load(handle)
-assert info["CFBundleIdentifier"] == "com.metepolat.Remarc"
+assert info["CFBundleIdentifier"] in ("com.metepolat.Remarc", "com.metepolat.Remarc.dev")
 assert info["LSMinimumSystemVersion"] in ("14.0", "14.0.0")
 assert info["RemarcManualUpdates"] is True
 assert re.fullmatch(r"[0-9a-f]{40}", info["RemarcSourceCommit"])

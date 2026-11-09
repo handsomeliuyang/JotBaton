@@ -9,7 +9,7 @@ from pathlib import Path
 app = Path(sys.argv[1]).resolve()
 with (app / "Contents/Info.plist").open("rb") as handle:
     info = plistlib.load(handle)
-assert info["CFBundleIdentifier"] == "com.metepolat.Remarc"
+assert info["CFBundleIdentifier"] in ("com.metepolat.Remarc", "com.metepolat.Remarc.dev")
 assert info["LSMinimumSystemVersion"] in ("13.0", "13.0.0"), info.get("LSMinimumSystemVersion")
 
 checked = 0

@@ -2826,9 +2826,8 @@ struct PreferencesView: View {
     }
 
     private func resetDataForTesting() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let commentsFile = appSupport.appendingPathComponent("Remarc/comments.json")
-        let legacyFile = appSupport.appendingPathComponent("Remarc/data.json")
+        let commentsFile = remarcAppSupportURL.appendingPathComponent("comments.json")
+        let legacyFile = remarcAppSupportURL.appendingPathComponent("data.json")
         try? FileManager.default.removeItem(at: commentsFile)
         try? FileManager.default.removeItem(at: legacyFile)
         debugLog("Data file removed - restart app to reset")

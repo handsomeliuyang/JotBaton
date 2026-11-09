@@ -13,7 +13,7 @@ import Foundation
 /// nothing else read `RemarcURLRequest.pageTitle` either. Dropped rather than
 /// shipping a parser that reads untrusted input nothing uses.
 public struct RemarcURLRequest: Equatable, Sendable {
-    public static let scheme = "remarc"
+    public static let scheme = AppIdentity.current.urlScheme
     public static let commentHost = "comment"
     static let maxPageURLLength = 2048
 

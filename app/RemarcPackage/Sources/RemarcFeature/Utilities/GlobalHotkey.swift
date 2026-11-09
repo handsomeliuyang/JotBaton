@@ -4,42 +4,42 @@ import KeyboardShortcuts
 extension KeyboardShortcuts.Name {
     static let commentOnSelection = Self(
         "commentOnSelection",
-        initial: .init(.c, modifiers: [.control, .option])
+        initial: .init(.c, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let screenshotComment = Self(
         "screenshotComment",
-        initial: .init(.s, modifiers: [.control, .option])
+        initial: .init(.s, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     /// Screenshot capture whose save wakes a running session. No default
     /// binding: waking is opt-in, so this stays unassigned until asked for.
     static let screenshotCommentWake = Self("screenshotCommentWake")
     static let pasteAllComments = Self(
         "pasteAllComments",
-        initial: .init(.p, modifiers: [.control, .option])
+        initial: .init(.p, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let voiceInput = Self(
         "voiceInput",
-        initial: .init(.v, modifiers: [.control, .option])
+        initial: .init(.v, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let dictation = Self(
         "dictation",
-        initial: .init(.d, modifiers: [.control, .option])
+        initial: .init(.d, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let dictationHandsFree = Self(
         "dictationHandsFree",
-        initial: .init(.h, modifiers: [.control, .option])
+        initial: .init(.h, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let pasteLastTranscription = Self(
         "pasteLastTranscription",
-        initial: .init(.l, modifiers: [.control, .option])
+        initial: .init(.l, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let openRemarc = Self(
         "openRemarc",
-        initial: .init(.r, modifiers: [.control, .option])
+        initial: .init(.r, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
     static let startCritMode = Self(
         "startCritMode",
-        initial: .init(.m, modifiers: [.control, .option])
+        initial: .init(.m, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
 }
 

@@ -40,24 +40,22 @@ PY
 mkdir -p "$LOCK_DIR"
 cp RemarcPackage/Package.resolved "$LOCK_DIR/Package.resolved"
 
+CHANNEL=production
+APP_NAME=Remarc
+if [[ "$CONFIGURATION" = Debug ]]; then
+  CHANNEL=development
+  APP_NAME="Remarc Dev"
+fi
 xcodebuild clean build \
   -workspace "$REPO_ROOT/app/Remarc.xcworkspace" \
   -scheme Remarc -configuration "$CONFIGURATION" \
   -destination 'generic/platform=macOS' \
   -derivedDataPath "$(pwd)/DerivedData" \
   -xcconfig "$REPO_ROOT/app/Config/Ventura.xcconfig" \
-  -onlyUsePackageVersionsFromResolvedFile
-
-APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/Remarc.app"
-/usr/libexec/PlistBuddy -c 'Add :RemarcManualUpdates bool true' "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :RemarcSourceCommit string $(git -C "$REPO_ROOT" rev-parse HEAD)" "$APP/Contents/Info.plist"
-codesign --force --sign - --timestamp=none \
-  --entitlements "$REPO_ROOT/app/Config/Ventura.entitlements" "$APP"
-# Relaunch after every successful app build, including on the CI build host.
-pkill -x Remarc || true
-sleep 0.5
-open "$APP"
+  -onlyUsePackageVersionsFromResolvedFile \
+  CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/$APP_NAME.app"
+python3 "$REPO_ROOT/scripts/prepare-app.py" "$APP" --channel "$CHANNEL"
+python3 "$REPO_ROOT/scripts/sign-app.py" "$APP" --channel "$CHANNEL"
+python3 "$REPO_ROOT/scripts/relaunch-app.py" "$APP"
 python3 "$REPO_ROOT/scripts/verify-ventura-app.py" "$APP"
-codesign --verify --deep --strict "$APP"
-sleep 3
-pgrep -x Remarc >/dev/null

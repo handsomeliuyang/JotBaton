@@ -17,8 +17,7 @@ enum WakeReachability {
     static var markersDirectory: URL {
         // `claude` is a historical path component retained as the shared
         // cross-harness marker contract.
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Remarc/claude/markers", isDirectory: true)
+        remarcAppSupportURL.appendingPathComponent("claude/markers", isDirectory: true)
     }
 
     /// Markers are written by Node, whose `Date.toISOString()` always emits

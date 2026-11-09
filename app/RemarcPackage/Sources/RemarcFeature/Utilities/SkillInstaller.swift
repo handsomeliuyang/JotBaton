@@ -28,7 +28,7 @@ public enum SkillInstaller {
         }
 
         public var skillPath: URL {
-            rootPath.appending(path: "skills/remarc/SKILL.md")
+            rootPath.appending(path: "skills/\(AppIdentity.current.integrationName)/SKILL.md")
         }
 
         public func isPresent() async -> Bool {

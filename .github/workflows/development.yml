@@ -1,0 +1,19 @@
+name: Development
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: remarc-development
+  cancel-in-progress: false
+jobs:
+  ventura:
+    uses: ./.github/workflows/ventura.yml
+    with:
+      source_ref: ${{ github.sha }}
+      configuration: Debug
+  apple-silicon:
+    uses: ./.github/workflows/apple-silicon.yml
+    with:
+      source_ref: ${{ github.sha }}
+      configuration: Debug

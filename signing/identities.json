@@ -1,0 +1,14 @@
+{
+  "production": {
+    "name": "Remarc Private Release Signing",
+    "sha1": "721E9C5FF777F0D1D9E05B44473F8F3844BBCEE5",
+    "bundle_id": "com.metepolat.Remarc",
+    "url_scheme": "remarc"
+  },
+  "development": {
+    "name": "Remarc Shared Test Signing",
+    "sha1": "F24C98EB0B297205F92EF270CCD2C78B135626B1",
+    "bundle_id": "com.metepolat.Remarc.dev",
+    "url_scheme": "remarc-dev"
+  }
+}

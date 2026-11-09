@@ -4,3 +4,11 @@
 
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
 GCC_PREPROCESSOR_DEFINITIONS = DEBUG=1 $(inherited)
+
+// A separate installed app, with its own TCC grants, defaults and data.
+PRODUCT_NAME = Remarc Dev
+PRODUCT_DISPLAY_NAME = Remarc Dev
+EXECUTABLE_NAME = RemarcDev
+PRODUCT_BUNDLE_IDENTIFIER = com.metepolat.Remarc.dev
+REMARC_URL_SCHEME = remarc-dev
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIconDev

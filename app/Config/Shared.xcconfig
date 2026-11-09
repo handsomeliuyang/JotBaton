@@ -6,6 +6,9 @@
 // ==========================================
 PRODUCT_NAME = Remarc
 PRODUCT_DISPLAY_NAME = Remarc
+INFOPLIST_KEY_CFBundleDisplayName = $(PRODUCT_DISPLAY_NAME)
+EXECUTABLE_NAME = Remarc
+REMARC_URL_SCHEME = remarc
 PRODUCT_BUNDLE_IDENTIFIER = com.metepolat.Remarc
 MARKETING_VERSION = 1.2.11
 CURRENT_PROJECT_VERSION = 30
@@ -35,8 +38,10 @@ LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
 // ==========================================
 // Code Signing
 // ==========================================
-CODE_SIGN_STYLE = Automatic
-DEVELOPMENT_TEAM = 8HG333G2BW
+CODE_SIGN_STYLE = Manual
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO
+DEVELOPMENT_TEAM =
 
 // ==========================================
 // Entitlements

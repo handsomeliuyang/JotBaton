@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import RemarcFeature
 import AppMover
+import ApplicationServices
 
 @main
 struct RemarcApp: App {
@@ -59,6 +60,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !shouldSkipSetup else { return }
+
+        // Opt-in, read-only installation diagnostics for both signed channels.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "--diagnostics-output"), index + 1 < arguments.count {
+            let identity = AppIdentity.current
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            let drive = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
+            let report: [String: Any] = [
+                "channel": identity.rawValue, "bundleID": Bundle.main.bundleIdentifier ?? "",
+                "bundlePath": Bundle.main.bundlePath, "name": identity.displayName,
+                "dataDirectory": identity.appSupportURL(in: home).path,
+                "cloudDirectory": identity.cloudURL(in: drive).path,
+                "urlScheme": identity.urlScheme, "webSocketPort": identity.webSocketPort,
+                "accessibilityGranted": AXIsProcessTrusted(),
+                "screenCaptureGranted": CGPreflightScreenCaptureAccess(),
+                "appIcon": Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String ?? "",
+                "menuBarIcon": identity.menuBarIconName,
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: URL(fileURLWithPath: arguments[index + 1]), options: .atomic)
+            }
+        }
 
         AppController.shared.setup()
         #if DEBUG

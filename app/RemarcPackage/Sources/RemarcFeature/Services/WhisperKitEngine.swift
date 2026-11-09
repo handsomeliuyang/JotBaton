@@ -24,8 +24,7 @@ final class WhisperKitModelManager: ObservableObject {
     private static let defaultRepo = "argmaxinc/whisperkit-coreml"
 
     static var downloadBaseURL: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let modelsDir = appSupport.appendingPathComponent("Remarc/models", isDirectory: true)
+        let modelsDir = remarcAppSupportURL.appendingPathComponent("models", isDirectory: true)
         try? FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
         return modelsDir
     }

@@ -14,7 +14,8 @@ public final class UpdateManager: NSObject, ObservableObject {
 
         #if !REMARC_VENTURA
         // Independently packaged fork builds are updated manually.
-        guard Bundle.main.object(forInfoDictionaryKey: "RemarcManualUpdates") as? Bool != true else {
+        guard !AppIdentity.current.isDevelopment,
+              Bundle.main.object(forInfoDictionaryKey: "RemarcManualUpdates") as? Bool != true else {
             return
         }
         if UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") == nil {

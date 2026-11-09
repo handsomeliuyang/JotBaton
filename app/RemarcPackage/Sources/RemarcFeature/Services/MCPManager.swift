@@ -60,9 +60,9 @@ public final class MCPManager: ObservableObject {
             guard claudePath != nil else { return }
 
             let plugin = await PluginInstallDetector().read()
-            let pluginActive = plugin.remarcInstalled && plugin.remarcEnabled
+            let pluginActive = !AppIdentity.current.isDevelopment && plugin.remarcInstalled && plugin.remarcEnabled
             let legacy = (!pluginActive && nodePath != nil) ? await checkMCPRegistered() : false
-            self.isEnabled = Self.resolveEnabled(pluginState: plugin, legacyRegistered: legacy)
+            self.isEnabled = AppIdentity.current.isDevelopment ? legacy : Self.resolveEnabled(pluginState: plugin, legacyRegistered: legacy)
             debugLog("MCPManager: status pluginInstalled=\(plugin.remarcInstalled) pluginEnabled=\(plugin.remarcEnabled) legacyRegistered=\(legacy) -> isEnabled=\(self.isEnabled)")
         }
     }
@@ -108,7 +108,7 @@ public final class MCPManager: ObservableObject {
 
         let success = await runProcess(
             claudePath,
-            arguments: ["mcp", "add-json", "--scope", "user", "remarc", config]
+            arguments: ["mcp", "add-json", "--scope", "user", AppIdentity.current.integrationName, config]
         )
 
         if success {
@@ -126,7 +126,7 @@ public final class MCPManager: ObservableObject {
 
         let success = await runProcess(
             claudePath,
-            arguments: ["mcp", "remove", "--scope", "user", "remarc"]
+            arguments: ["mcp", "remove", "--scope", "user", AppIdentity.current.integrationName]
         )
 
         if success {
@@ -153,7 +153,7 @@ public final class MCPManager: ObservableObject {
         return await withCheckedContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: claudePath)
-            process.arguments = ["mcp", "get", "remarc"]
+            process.arguments = ["mcp", "get", AppIdentity.current.integrationName]
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
 

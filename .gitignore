@@ -61,3 +61,10 @@ assets/launch-assets/remarc-early-tester-demo.mp4
 .wrangler/
 .superpowers/
 .openidea
+
+# Deliberately shared development-only signing fixture
+!signing/development.p12
+
+# Python verification caches
+__pycache__/
+*.pyc

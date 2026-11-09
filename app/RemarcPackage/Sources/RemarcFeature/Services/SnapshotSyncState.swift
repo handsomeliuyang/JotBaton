@@ -37,7 +37,7 @@ struct SnapshotSyncIssue: Codable, Equatable, Sendable {
         case .permission: return "Allow Remarc access to iCloud Drive, then retry. Your local tasks are kept."
         case .cloudUnavailable: return "Check your network and iCloud Drive in System Settings, then check again."
         case .quota: return "Free up iCloud storage, then retry the same snapshot."
-        case .unavailable: return "Check that iCloud Drive is enabled and the Remarc folder is available."
+        case .unavailable: return "Check that iCloud Drive is enabled and the \(AppIdentity.current.directoryName) folder is available."
         case .review: return "Review the cloud versions and choose which complete state to keep."
         case .other: return "Your local tasks are kept. Retry, or copy the diagnostic details if the problem continues."
         }

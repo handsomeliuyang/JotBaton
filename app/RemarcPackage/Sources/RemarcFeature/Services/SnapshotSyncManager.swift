@@ -164,12 +164,12 @@ final class SnapshotSyncManager: ObservableObject {
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = SnapshotCloudLocation.driveRoot
-        panel.message = "Allow access to iCloud Drive, or its Remarc folder. Snapshots always use iCloud Drive/Remarc. Your saved snapshot will be kept for retry."
+        panel.message = "Allow access to iCloud Drive, or its \(AppIdentity.current.directoryName) folder. Snapshots always use \(AppIdentity.current.cloudDisplayPath). Your saved snapshot will be kept for retry."
         panel.prompt = "Allow Access"
         let response = await panel.begin()
         guard response == .OK, let url = panel.url else { return }
         guard SnapshotCloudLocation.isAuthorizationLocation(url) else {
-            fail(SnapshotError.message("Authorize iCloud Drive or its Remarc folder. Other folders cannot be used."), stage: .connection)
+            fail(SnapshotError.message("Authorize iCloud Drive or its \(AppIdentity.current.directoryName) folder. Other folders cannot be used."), stage: .connection)
             return
         }
         do {

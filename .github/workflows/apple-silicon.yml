@@ -2,23 +2,30 @@ name: Apple Silicon
 
 on:
   workflow_call:
+    secrets:
+      REMARC_SIGNING_P12_BASE64:
+        required: false
+      REMARC_SIGNING_P12_PASSWORD:
+        required: false
     inputs:
+      configuration:
+        type: string
+        default: Release
       source_ref:
         required: true
         type: string
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'scripts/*apple-silicon*'
-      - '.github/workflows/apple-silicon.yml'
+    inputs:
+      configuration:
+        type: choice
+        options: [Release, Debug]
+        default: Release
 
 permissions:
   contents: read
 
 concurrency:
-  group: apple-silicon-${{ github.ref }}
+  group: apple-silicon-${{ github.ref }}-${{ inputs.configuration || 'Release' }}
   cancel-in-progress: false
 
 jobs:
@@ -26,6 +33,11 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 45
     env:
+      REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
+      REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
+      REMARC_BUILD_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+      REMARC_APP_NAME: ${{ inputs.configuration == 'Debug' && 'Remarc Dev' || 'Remarc' }}
+      REMARC_CHANNEL: ${{ inputs.configuration == 'Debug' && 'development' || 'production' }}
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -34,40 +46,33 @@ jobs:
       - name: Build, launch and verify native arm64 app
         run: bash scripts/build-apple-silicon.sh
       - name: Test packaged MCP image delivery
-        run: node scripts/smoke-mcp-images.mjs app/DerivedData/Build/Products/Release/Remarc.app/Contents/Resources/remarc-mcp.js
+        run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app/Contents/Resources/remarc-mcp.js" "$REMARC_CHANNEL"
       - name: Package drag-to-install disk image
         run: |
           set -euo pipefail
           mkdir -p build/apple-silicon build/dmg
-          ditto app/DerivedData/Build/Products/Release/Remarc.app build/dmg/Remarc.app
+          ditto "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app" "build/dmg/$REMARC_APP_NAME.app"
           ln -s /Applications build/dmg/Applications
-          cat > build/dmg/INSTALL.txt <<'TEXT'
-          Remarc — Apple Silicon (M1–M5, including M5 Pro), macOS 14 or later
-
-          将 Remarc.app 拖入 Applications（应用程序），然后从应用程序打开。
-          此构建未经过 Apple 公证。如首次打开被拦截，请在“系统设置 → 隐私与安全性”中点击“仍要打开”。
-          首次使用时，根据提示授予辅助功能、屏幕录制等所需权限。
-          此版本保留完整语音后端；语音功能需要 macOS 26。
-          后续更新需手动安装，不会自动下载上游版本。
-
-          Drag Remarc.app into Applications, then open it from Applications.
-          This ad-hoc signed build is not Apple-notarized. If blocked on first launch,
-          use System Settings > Privacy & Security > Open Anyway.
-          Grant Accessibility, Screen Recording and other permissions as requested.
+          cat > build/dmg/INSTALL.txt <<TEXT
+          $REMARC_APP_NAME — Apple Silicon，macOS 14+
+          将 $REMARC_APP_NAME.app 拖入 Applications 后打开。无需本机重新签名。
+          此构建使用固定私有证书，未经过 Apple 公证。首次安装请允许运行并授予所需权限。
+          Remarc Dev 使用独立的 Application Support/Remarc Dev 与 iCloud Drive/Remarc Dev。
+          正式版继续使用 Application Support/Remarc 与 iCloud Drive/Remarc。
           Voice features require macOS 26. Updates are installed manually.
           https://support.apple.com/en-us/102445
           TEXT
           printf '\nSource commit: %s\n' "$(git rev-parse HEAD)" >> build/dmg/INSTALL.txt
-          hdiutil create -volname 'Remarc Apple Silicon' -srcfolder build/dmg \
-            -ov -format UDZO build/apple-silicon/Remarc-Apple-Silicon-arm64.dmg
-          hdiutil verify build/apple-silicon/Remarc-Apple-Silicon-arm64.dmg
+          hdiutil create -volname "$REMARC_APP_NAME Apple Silicon" -srcfolder build/dmg \
+            -ov -format UDZO "build/apple-silicon/$REMARC_APP_NAME-Apple-Silicon-arm64.dmg"
+          hdiutil verify "build/apple-silicon/$REMARC_APP_NAME-Apple-Silicon-arm64.dmg"
           cp build/dmg/INSTALL.txt build/apple-silicon/INSTALL.txt
           cd build/apple-silicon
-          shasum -a 256 Remarc-Apple-Silicon-arm64.dmg > SHA256SUMS
+          shasum -a 256 "$REMARC_APP_NAME-Apple-Silicon-arm64.dmg" > SHA256SUMS
       - name: Upload installable app
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Remarc-Apple-Silicon-arm64
+          name: ${{ inputs.configuration == 'Debug' && 'Remarc-Dev-Apple-Silicon-arm64' || 'Remarc-Apple-Silicon-arm64' }}
           path: build/apple-silicon/
           if-no-files-found: error
           retention-days: 30

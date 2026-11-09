@@ -11,3 +11,7 @@ PROVISIONING_PROFILE_SPECIFIER =
 // explicitly after building, so dependency bundles do not inherit them.
 CODE_SIGN_ENTITLEMENTS =
 ENABLE_HARDENED_RUNTIME = NO
+
+// Build scripts select Debug identity explicitly; finalize signatures after build.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO

@@ -34,7 +34,9 @@ public final class AppController: NSObject, ObservableObject {
         //   1. Old artifacts are removed, AND
         //   2. The new `remarc` plugin is detected installed.
         Task { @MainActor in
-            await LegacyInstallCleanup.shared.runIfNeeded()
+            if !AppIdentity.current.isDevelopment {
+                await LegacyInstallCleanup.shared.runIfNeeded()
+            }
             // After cleanup, so the popover status dot reflects the
             // post-cleanup registrations rather than one cleanup is about
             // to delete. Without this the dot stays on its default until
@@ -283,7 +285,7 @@ public final class AppController: NSObject, ObservableObject {
 
     /// The plain glyph, used whenever there is no dot to show.
     private lazy var plainIcon: NSImage? = {
-        let icon = NSImage(named: "MenuBarIcon")
+        let icon = NSImage(named: AppIdentity.current.menuBarIconName)
         icon?.isTemplate = true
         return icon
     }()
@@ -319,7 +321,7 @@ public final class AppController: NSObject, ObservableObject {
     /// Every frame keeps the full canvas and the dot's centre, so only the dot
     /// changes size - the status item's width never moves during the animation.
     private static func makeDottedIcon(dotScale: CGFloat) -> NSImage? {
-        guard let base = NSImage(named: "MenuBarIcon") else { return nil }
+        guard let base = NSImage(named: AppIdentity.current.menuBarIconName) else { return nil }
         let glyphSize = base.size
         let canvas = NSSize(width: glyphSize.width + dotCanvasPadRight,
                             height: glyphSize.height + dotCanvasPadVertical * 2)
@@ -604,9 +606,10 @@ public final class AppController: NSObject, ObservableObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            let icon = NSImage(named: "MenuBarIcon")
+            let icon = NSImage(named: AppIdentity.current.menuBarIconName)
             icon?.isTemplate = true
             button.image = icon
+            button.toolTip = AppIdentity.current.displayName
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
