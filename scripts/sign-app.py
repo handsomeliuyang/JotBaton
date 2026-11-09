@@ -90,8 +90,15 @@ def main():
             if os.environ.get('GITHUB_ACTIONS') == 'true':
                 # Hosted runners have no interactive user Trust Settings session.
                 # Trust only this public certificate on the disposable CI machine.
-                run('sudo', '-n', 'security', 'add-trusted-cert', '-d', '-r', 'trustRoot',
-                    '-p', 'codeSign', '-k', '/Library/Keychains/System.keychain', str(cert_file))
+                rule = 'com.apple.trust-settings.admin'
+                authorization = run('sudo', '-n', 'security', 'authorizationdb', 'read', rule)
+                try:
+                    run('sudo', '-n', 'security', 'authorizationdb', 'write', rule, 'allow')
+                    run('sudo', '-n', 'security', 'add-trusted-cert', '-d', '-r', 'trustRoot',
+                        '-p', 'codeSign', '-k', '/Library/Keychains/System.keychain', str(cert_file))
+                finally:
+                    # Restore the EXACT previous authorization rule, even on failure.
+                    run('sudo', '-n', 'security', 'authorizationdb', 'write', rule, input=authorization)
             else:
                 run('security', 'add-trusted-cert', '-r', 'trustRoot', '-p', 'codeSign', '-k', keychain, str(cert_file))
             run('security', 'list-keychains', '-d', 'user', '-s', *dict.fromkeys([*original, keychain]))

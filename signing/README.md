@@ -5,3 +5,5 @@
 Production certificate and private key are stored exclusively in GitHub Actions Secrets (`REMARC_SIGNING_P12_BASE64`, `REMARC_SIGNING_P12_PASSWORD`). The public fingerprint is pinned in `identities.json`. Production uses a newly created fixed identity. The first installation needs new permissions; future versions retain this identity.
 
 `python3 scripts/sign-app.py /absolute/path/to/app --channel development` signs local test apps. Use `--verify-only` to check either channel without accessing private keys. Production signing requires Actions and never falls back to ad-hoc signing.
+
+Hosted Actions runners have no interactive Trust Settings session. The signer temporarily permits installing the single public code-signing certificate on that disposable runner, then restores the exact previous authorization rule in `finally`. This path is never used for local builds. All keychain commands have a timeout and never print credentials.
