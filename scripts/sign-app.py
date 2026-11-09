@@ -22,7 +22,11 @@ def run(*args, input=None):
     if args[0] in ('security', 'sudo'):
         operation = args[1] if args[0] == 'security' else 'install CI public trust'
         print('Signing: ' + operation, flush=True)
-    result = subprocess.run(args, input=input, capture_output=True, timeout=60)
+    try:
+        result = subprocess.run(args, input=input, capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        # TimeoutExpired includes command arguments in its default message.
+        raise RuntimeError(f'{args[0]} operation timed out') from None
     if result.returncode:
         # Arguments may contain passwords. Do not echo command lines or output.
         raise RuntimeError(f'{args[0]} operation failed (exit {result.returncode})')
