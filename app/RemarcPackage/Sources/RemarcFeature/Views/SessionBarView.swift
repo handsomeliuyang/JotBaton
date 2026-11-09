@@ -3,14 +3,9 @@ import SwiftUI
 // MARK: - Session Bar View
 
 /// Horizontal pill bar for switching between active sessions.
-/// A fixed "All" pill switches the list to every session; the scrolling strip
-/// holds one capsule per session. Hovering an overflowing strip reveals page
+/// The scrolling strip holds one capsule per session. Hovering it reveals page
 /// arrows, and a pinned "+" and session menu sit after it.
 struct SessionBarView: View {
-    @Binding var showsAllSessions: Bool
-    /// Outstanding comments across every listed session, shown on the "All" pill.
-    var allSessionsCount: Int
-
     @ObservedObject private var persistence = PersistenceManager.shared
     @ObservedObject private var popoverController = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -32,15 +27,6 @@ struct SessionBarView: View {
     var body: some View {
         let counts = commentCountsBySession
         HStack(spacing: 0) {
-            AllSessionsPillView(
-                isActive: showsAllSessions,
-                count: allSessionsCount,
-                colorScheme: colorScheme,
-                onTap: selectAllSessions
-            )
-            .padding(.leading, 14)
-            .padding(.trailing, 2)
-
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -119,6 +105,7 @@ struct SessionBarView: View {
                     .padding(.leading, 2)
             }
         }
+        .padding(.leading, 10)
         .padding(.trailing, 8)
     }
 
@@ -137,14 +124,8 @@ struct SessionBarView: View {
 
     // MARK: - Selection
 
-    private func selectAllSessions() {
-        commitActiveRename()
-        showsAllSessions = true
-    }
-
     private func select(_ session: Session) {
         commitActiveRename()
-        showsAllSessions = false
         persistence.setActiveSession(session.id)
     }
 
@@ -152,12 +133,8 @@ struct SessionBarView: View {
 
     private func sessionMenu(counts: [UUID: Int]) -> some View {
         Menu {
-            Toggle(isOn: Binding(get: { showsAllSessions }, set: { _ in selectAllSessions() })) {
-                Text("All (\(allSessionsCount))")
-            }
-            Divider()
             ForEach(persistence.activeSessions) { session in
-                let isCurrent = !showsAllSessions && persistence.appState.activeSessionID == session.id
+                let isCurrent = persistence.appState.activeSessionID == session.id
                 Toggle(isOn: Binding(get: { isCurrent }, set: { _ in select(session) })) {
                     Text("\(session.name) (\(counts[session.id] ?? 0))")
                 }
@@ -172,13 +149,13 @@ struct SessionBarView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("All sessions")
+        .help("Switch session")
     }
 
     // MARK: - Session Pill
 
     private func sessionPill(for session: Session, counts: [UUID: Int] = [:]) -> some View {
-        let isActive = !showsAllSessions && persistence.appState.activeSessionID == session.id
+        let isActive = persistence.appState.activeSessionID == session.id
         let count = counts[session.id] ?? 0
 
         return SessionPillView(
@@ -303,57 +280,9 @@ struct SessionBarView: View {
     private func createNewSession() {
         let name = SessionNaming.nextName()
         guard let session = persistence.createSession(name: name) else { return }
-        showsAllSessions = false
         persistence.setActiveSession(session.id)
         pendingNewSessionID = session.id
         beginRename(session)
-    }
-}
-
-// MARK: - All Sessions Pill
-
-/// Fixed pill that switches the list to every session at once.
-private struct AllSessionsPillView: View {
-    let isActive: Bool
-    let count: Int
-    let colorScheme: ColorScheme
-    let onTap: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        let brandColor = Color.remarcPrimary(for: colorScheme)
-
-        Button(action: onTap) {
-            HStack(spacing: 4) {
-                Image(systemName: "square.stack")
-                    .font(.system(size: 10, weight: .medium))
-                Text("All")
-                    .font(.system(size: 11, weight: isActive ? .semibold : .medium))
-                Text("\(count)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .opacity(0.7)
-            }
-            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.6))
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(isActive ? brandColor.opacity(0.25) : Color.clear, lineWidth: 1)
-            )
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .animation(.easeInOut(duration: 0.15), value: isActive)
-        .help("Comments from every session")
     }
 }
 

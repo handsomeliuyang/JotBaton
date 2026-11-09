@@ -42,7 +42,6 @@ struct PopoverContentView: View {
     @State private var critModeActive = false
     @State private var showCritModeOnboarding = false
     @State private var historyTab: HistoryTab = .comments
-    @AppStorage("commentListShowsAllSessions") private var showsAllSessions = false
     /// Selected status chips, comma-separated; empty shows every status.
     @AppStorage("commentListStatusFilters") private var statusFilterStorage = ""
     @State private var searchHiddenAt: Date?
@@ -51,7 +50,6 @@ struct PopoverContentView: View {
 
     /// Reopening the panel within this window resumes the previous search.
     private static let searchRetention: TimeInterval = 60
-    private static let cardListSpace = "remarcCardList"
 
     private var statusFilters: Set<CommentStatusFilter> {
         CommentStatusFilter.selection(from: statusFilterStorage)
@@ -78,36 +76,17 @@ struct PopoverContentView: View {
         /// Comments to show, in on-screen order.
         var comments: [Comment] = []
         var counts: [CommentStatusFilter: Int] = [:]
-        /// Search hits in other sessions while a single session is shown.
-        var otherSessionMatches = 0
         var scopeIsEmpty = true
-    }
-
-    private var sessionNames: [UUID: String] {
-        Dictionary(persistence.appState.sessions.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
     }
 
     private var searchTerms: [String] {
         isSearching ? CommentListQuery.searchTerms(from: searchText) : []
     }
 
-    /// Comments in every session shown in the session bar.
-    private var listedComments: [Comment] {
-        let listed = Set(persistence.activeSessions.map(\.id))
-        return persistence.allComments.filter { listed.contains($0.sessionID) }
-    }
-
-    /// Outstanding comments across every listed session; matches the "All" pill.
-    private var allSessionsOutstandingCount: Int {
-        CommentCountPolicy.unresolvedCount(in: listedComments)
-    }
-
     private var listModel: ListModel {
-        let names = sessionNames
         let terms = searchTerms
-        let activeID = persistence.appState.activeSessionID
-        let pool = listedComments
-        let scoped = showsAllSessions ? pool : persistence.activeComments
+        let scoped = persistence.activeComments
+        let sessionName = persistence.activeSession?.name
 
         var model = ListModel()
         model.scopeIsEmpty = scoped.isEmpty
@@ -115,21 +94,12 @@ struct PopoverContentView: View {
 
         // A search looks across every status; the cards show each one's status.
         let matched = CommentListQuery.sorted(
-            scoped.filter { CommentListQuery.matches($0, terms: terms, sessionName: names[$0.sessionID]) },
+            scoped.filter { CommentListQuery.matches($0, terms: terms, sessionName: sessionName) },
             newestFirst: sortNewestFirst
         )
-        let visible = CommentListQuery.unresolvedFirst(
+        model.comments = CommentListQuery.unresolvedFirst(
             terms.isEmpty ? CommentListQuery.filtered(matched, statuses: statusFilters) : matched
         )
-        model.comments = showsAllSessions
-            ? CommentListQuery.grouped(visible, sessions: persistence.activeSessions).flatMap(\.comments)
-            : visible
-
-        if !terms.isEmpty && !showsAllSessions {
-            model.otherSessionMatches = pool.filter {
-                $0.sessionID != activeID && CommentListQuery.matches($0, terms: terms, sessionName: names[$0.sessionID])
-            }.count
-        }
         return model
     }
 
@@ -167,15 +137,18 @@ struct PopoverContentView: View {
                     }
                 } else {
                     let model = listModel
+                    SessionBarView()
+                        .padding(.trailing, popoverController.isDetached ? 32 : 0)
+                        // Extend the top band's wash into the popover arrow strip.
+                        .background((colorScheme == .light ? Color.black.opacity(0.04) : Color.clear).padding(.top, -topInset))
+
+                    Divider()
+
                     if isSearching {
                         searchHeader(model: model)
                     } else {
                         normalHeader(counts: model.counts)
                     }
-
-                    Divider()
-
-                    SessionBarView(showsAllSessions: $showsAllSessions, allSessionsCount: allSessionsOutstandingCount)
 
                     if model.scopeIsEmpty && !isSearching {
                         emptyState
@@ -255,9 +228,6 @@ struct PopoverContentView: View {
         .onRemarcChange(of: persistence.appState.activeSessionID) { _ in
             popoverController.resizeAfterLayoutSettles()
         }
-        .onRemarcChange(of: showsAllSessions) { _ in
-            popoverController.resizeAfterLayoutSettles()
-        }
         .onRemarcChange(of: statusFilterStorage) { _ in
             popoverController.resizeAfterLayoutSettles()
         }
@@ -274,10 +244,10 @@ struct PopoverContentView: View {
 
     private func normalHeader(counts: [CommentStatusFilter: Int]) -> some View {
         HStack(spacing: 8) {
-            HStack(spacing: 2) {
+            HStack(spacing: 6) {
                 ForEach(CommentStatusFilter.allCases, id: \.self) { filter in
                     StatusFilterChip(
-                        title: filter.title,
+                        filter: filter,
                         count: counts[filter] ?? 0,
                         isSelected: statusFilters.contains(filter),
                         colorScheme: colorScheme
@@ -286,7 +256,7 @@ struct PopoverContentView: View {
                             toggleStatusFilter(filter)
                         }
                     }
-                    .help("\(filter.help). Click to toggle; with none selected, every status shows.")
+                    .help("\(filter.title): \(filter.help). Click to toggle; with none selected, every status shows.")
                 }
             }
 
@@ -296,10 +266,7 @@ struct PopoverContentView: View {
         }
         .padding(.leading, 10)
         .padding(.trailing, 14)
-        .padding(.vertical, 10)
-        // Negative top padding extends the wash into the arrow strip (topInset) so the
-        // arrow reads as part of this band; inert when topInset is 0 (detached window).
-        .background((colorScheme == .light ? Color.black.opacity(0.04) : Color.clear).padding(.top, -topInset))
+        .padding(.vertical, 8)
         .background(searchShortcut)
     }
 
@@ -497,7 +464,7 @@ struct PopoverContentView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
 
-            TextField("Search titles, text, quotes, apps, sessions", text: $searchText)
+            TextField("Search this session", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($isSearchFieldFocused)
@@ -571,46 +538,16 @@ struct PopoverContentView: View {
     private func cardList(_ model: ListModel) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
-                if showsAllSessions {
-                    // Lazy only here: pinned section headers need it, and the
-                    // single-session list keeps its plain stack.
-                    LazyVStack(spacing: 8, pinnedViews: [.sectionHeaders]) {
-                        ForEach(CommentListQuery.grouped(model.comments, sessions: persistence.activeSessions)) { group in
-                            Section {
-                                ForEach(group.comments) { comment in
-                                    commentCard(for: comment)
-                                        .padding(.horizontal, 10)
-                                }
-                            } header: {
-                                SessionGroupHeader(
-                                    group: group,
-                                    colorScheme: colorScheme,
-                                    coordinateSpace: Self.cardListSpace
-                                ) {
-                                    showsAllSessions = false
-                                    persistence.setActiveSession(group.session.id)
-                                }
-                            }
-                        }
-                        cardListFooter(model)
-                            .padding(.horizontal, 10)
+                VStack(spacing: 8) {
+                    ForEach(model.comments) { comment in
+                        commentCard(for: comment)
                     }
-                    // Headers rest below the top edge, so reaching it means pinned.
-                    .padding(.top, 4)
-                    .padding(.bottom, 8)
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(model.comments) { comment in
-                            commentCard(for: comment)
-                        }
-                        cardListFooter(model)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
+                    cardListFooter(model)
                 }
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
             }
-            .coordinateSpace(name: Self.cardListSpace)
             .scrollIndicators(.never)
             .background(ScrollerHider())
             .onRemarcChange(of: keyboardScrollTarget) { target in
@@ -626,10 +563,6 @@ struct PopoverContentView: View {
     private func cardListFooter(_ model: ListModel) -> some View {
         if model.comments.isEmpty {
             filteredEmptyState
-        }
-
-        if model.otherSessionMatches > 0 {
-            otherSessionMatchesHint(count: model.otherSessionMatches)
         }
     }
 
@@ -647,29 +580,6 @@ struct PopoverContentView: View {
             return only.emptyStateTitle
         }
         return "No matching comments"
-    }
-
-    private func otherSessionMatchesHint(count: Int) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                showsAllSessions = true
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text("\(count) more in other sessions")
-                Text("Show All")
-                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-            }
-            .font(.system(size: 11))
-            .foregroundStyle(.primary.opacity(0.5))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private func commentCard(for comment: Comment) -> some View {
@@ -691,10 +601,9 @@ struct PopoverContentView: View {
 
     // MARK: - Footer
 
-    /// Session-wide actions act on the active session only, so they are off
-    /// while the list mixes sessions or is narrowed by a search.
+    /// Session-wide actions are off while searching or viewing history.
     private var sessionActionsDisabled: Bool {
-        !hasComments || isSearching || showingHistory || showsAllSessions
+        !hasComments || isSearching || showingHistory
     }
 
     private var footer: some View {
@@ -702,7 +611,7 @@ struct PopoverContentView: View {
             primaryFooterButton(icon: "doc.on.doc", title: "Copy All") {
                 copyAll()
             }
-            .help(showsAllSessions ? "Select a session to copy its comments" : "Copy all comments in this session")
+            .help("Copy all comments in this session")
             .disabled(sessionActionsDisabled)
 
             mcpButton
@@ -763,7 +672,7 @@ struct PopoverContentView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(showsAllSessions ? "More (bulk actions apply to a single session)" : "More")
+        .help("More")
         .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
             resolveAllConfirmation
         }
@@ -1385,64 +1294,10 @@ struct PopoverContentView: View {
     }
 }
 
-// MARK: - Session Group Header
-
-/// Divider-style section header for the "All" view: session name, count and a
-/// hairline across the row. It pins to the top while its section scrolls and
-/// only takes a blurred backing once pinned, so it reads as plain text at rest.
-private struct SessionGroupHeader: View {
-    let group: CommentGroup
-    let colorScheme: ColorScheme
-    let coordinateSpace: String
-    let onOpen: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        let brandColor = Color.remarcPrimary(for: colorScheme)
-
-        Button(action: onOpen) {
-            HStack(spacing: 6) {
-                SessionOriginBadge(origin: group.session.origin)
-                Text(group.session.name.uppercased())
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(0.6)
-                    .lineLimit(1)
-                    .foregroundStyle(isHovered ? brandColor : .primary.opacity(0.55))
-                Text("\(group.comments.count)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.4))
-                Rectangle()
-                    .fill(Color.primary.opacity(0.12))
-                    .frame(height: 0.5)
-                    .frame(maxWidth: .infinity)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundStyle(isHovered ? brandColor : .primary.opacity(0.35))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(
-            GeometryReader { proxy in
-                let isPinned = proxy.frame(in: .named(coordinateSpace)).minY <= 0.5
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .opacity(isPinned ? 1 : 0)
-            }
-        )
-        .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .help("Switch to \(group.session.name)")
-    }
-}
-
 // MARK: - Status Filter Chip
 
 private struct StatusFilterChip: View {
-    let title: String
+    let filter: CommentStatusFilter
     let count: Int
     let isSelected: Bool
     let colorScheme: ColorScheme
@@ -1450,31 +1305,46 @@ private struct StatusFilterChip: View {
 
     @State private var isHovered = false
 
+    private var status: CommentStatus {
+        switch filter {
+        case .open: return .open
+        case .inProgress: return .inProgress
+        case .resolved: return .resolved
+        }
+    }
+
     var body: some View {
-        let brandColor = Color.remarcPrimary(for: colorScheme)
+        let statusColor = CommentStatus.color(for: status, colorScheme: colorScheme)
 
         Button(action: action) {
-            HStack(spacing: 3) {
-                Text(title)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+            HStack(spacing: 5) {
+                Image(systemName: status.iconName)
+                    .font(.system(size: 13, weight: .medium))
                 Text("\(count)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .opacity(0.7)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .medium, design: .rounded))
+                    .monospacedDigit()
             }
             .lineLimit(1)
             .fixedSize()
-            .foregroundStyle(isSelected ? brandColor : .primary.opacity(0.55))
+            .foregroundStyle(statusColor)
             .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .frame(minWidth: 42, minHeight: 28)
             .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isSelected ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.05 : 0))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(statusColor.opacity(isSelected ? 0.12 : (isHovered ? 0.06 : 0)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(statusColor.opacity(isSelected ? 0.3 : 0), lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(filter.title), \(count) comments"))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
