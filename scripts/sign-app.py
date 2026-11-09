@@ -19,10 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(*args, input=None):
-    result = subprocess.run(args, input=input, capture_output=True)
+    if args[0] in ('security', 'sudo'):
+        operation = args[1] if args[0] == 'security' else 'install CI public trust'
+        print('Signing: ' + operation, flush=True)
+    result = subprocess.run(args, input=input, capture_output=True, timeout=60)
     if result.returncode:
         # Arguments may contain passwords. Do not echo command lines or output.
-        raise RuntimeError(f'{args[0]} failed (exit {result.returncode})')
+        raise RuntimeError(f'{args[0]} operation failed (exit {result.returncode})')
     return result.stdout
 
 
@@ -84,7 +87,13 @@ def main():
             digest = run('/usr/bin/openssl', 'x509', '-noout', '-fingerprint', '-sha1', '-in', str(cert_file)).decode().strip().split('=')[-1].replace(':', '')
             if digest != expected['sha1']:
                 raise ValueError('Imported certificate fingerprint does not match the pinned identity')
-            run('security', 'add-trusted-cert', '-r', 'trustRoot', '-p', 'codeSign', '-k', keychain, str(cert_file))
+            if os.environ.get('GITHUB_ACTIONS') == 'true':
+                # Hosted runners have no interactive user Trust Settings session.
+                # Trust only this public certificate on the disposable CI machine.
+                run('sudo', '-n', 'security', 'add-trusted-cert', '-d', '-r', 'trustRoot',
+                    '-p', 'codeSign', '-k', '/Library/Keychains/System.keychain', str(cert_file))
+            else:
+                run('security', 'add-trusted-cert', '-r', 'trustRoot', '-p', 'codeSign', '-k', keychain, str(cert_file))
             run('security', 'list-keychains', '-d', 'user', '-s', *dict.fromkeys([*original, keychain]))
             # Sign nested code from the inside out, preserving independent bundle IDs.
             for path in sorted(app.rglob('*'), key=lambda p: len(p.parts), reverse=True):
