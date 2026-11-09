@@ -7,7 +7,9 @@ CACHE_PATH="$(cd "$PACKAGE/.." && pwd)/DerivedData/PackageCache"
 mkdir -p "$CACHE_PATH"
 RESOLVE_LOG="$(mktemp -t remarc-resolve)"
 trap 'rm -f "$RESOLVE_LOG"' EXIT
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 for attempt in 1 2 3; do
+  python3 "$SCRIPT_DIR/cache-binary-artifacts.py" "$CACHE_PATH"
   if swift package --package-path "$PACKAGE" --cache-path "$CACHE_PATH" resolve >"$RESOLVE_LOG" 2>&1; then
     cat "$RESOLVE_LOG"
     exit 0
