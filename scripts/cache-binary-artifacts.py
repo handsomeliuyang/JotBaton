@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed the pinned Sparkle ZIP cache using curl and its upstream SHA-256.
+"""Seed the pinned Sparkle ZIP cache using a checked download and its upstream SHA-256.
 
 SwiftPM 6.2's download-to-cache path can collide with its own destination on
 hosted runners. A verified existing cache entry bypasses that download path.
@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import urllib.request
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -29,8 +30,14 @@ if not destination.is_file() or hashlib.sha256(destination.read_bytes()).hexdige
     with tempfile.NamedTemporaryFile(dir=directory, prefix='.sparkle-', delete=False) as handle:
         temporary = Path(handle.name)
     try:
-        subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location', '--retry', '3',
-                        '--connect-timeout', '20', '--max-time', '180', '--output', str(temporary), url], check=True)
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response, temporary.open('wb') as output:
+                while chunk := response.read(1024 * 1024):
+                    output.write(chunk)
+        except Exception:
+            subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location', '--retry', '3',
+                            '--retry-all-errors', '--connect-timeout', '20', '--max-time', '180',
+                            '--output', str(temporary), url], check=True)
         if hashlib.sha256(temporary.read_bytes()).hexdigest() != checksum:
             raise ValueError('Sparkle artifact checksum mismatch; refusing to seed cache')
         os.replace(temporary, destination)
