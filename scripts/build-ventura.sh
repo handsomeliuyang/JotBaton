@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+export REMARC_SIGNING_IN_BUILDER=1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export REMARC_VENTURA=1

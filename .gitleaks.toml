@@ -5,6 +5,8 @@ useDefault = true
 [allowlist]
 description = "Known non-secrets"
 paths = [
+  # Deliberately shared development-only identity; production keys remain in Secrets.
+  '''^signing/development\.p12$''',
   # Webhook signing tests use whsec_dGVzdHNlY3JldA== - base64 of the literal
   # string "testsecret", a deliberate fixture, not a credential.
   '''app/RemarcPackage/Tests/RemarcFeatureTests/WebhookTests\.swift''',

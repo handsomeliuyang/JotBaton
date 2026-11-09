@@ -188,7 +188,7 @@ public final class OnboardingWindowController: NSObject, ObservableObject {
         window.isMovableByWindowBackground = true
         window.hasShadow = true
         window.isReleasedWhenClosed = false
-        window.title = "Remarc Permissions"
+        window.title = "\(AppIdentity.current.displayName) Permissions"
 
         let size = NSSize(width: width, height: height)
         window.minSize = size

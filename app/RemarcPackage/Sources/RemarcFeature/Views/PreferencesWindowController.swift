@@ -131,7 +131,7 @@ public final class PreferencesWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.contentView = hostingView
-        window.title = "Remarc Settings"
+        window.title = "\(AppIdentity.current.displayName) Settings"
         window.isReleasedWhenClosed = false
         window.center()
         self.window = window
@@ -2691,7 +2691,7 @@ struct PreferencesView: View {
                     .frame(width: 96, height: 96)
             }
 
-            Text("Remarc")
+            Text(AppIdentity.current.displayName)
                 .font(.system(size: 24, weight: .semibold))
 
             Text("Contextual comments on any text selection")
