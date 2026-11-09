@@ -58,7 +58,7 @@ final class SnapshotSyncManager: ObservableObject {
             || state.sessions.contains { !$0.isInbox }
         return SnapshotComparison.compare(localHash: localContentHash, localTime: localUpdatedAt, cloud: cloudData,
             baselineID: currentVersion?.id, localEdits: hasLocalChanges && (receipt != nil || meaningful),
-            multipleCloudHeads: cloudHeads.count > 1)
+            multipleCloudHeads: cloudHeads.count > 1, baselineHash: receipt?.contentHash)
     }
     var shortStatus: String {
         if !isEnabled { return "Off" }

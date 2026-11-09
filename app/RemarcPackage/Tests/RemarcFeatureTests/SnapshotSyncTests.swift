@@ -25,6 +25,75 @@ final class SnapshotSyncTests {
         try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office Mac", parentID: parent)
     }
 
+    /// Build a version-1 wire fixture without the receiving OS re-encoding it.
+    private func wireVersion(stateData: Data, contentHash: String? = nil) throws -> SnapshotVersion {
+        let stage = directory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: stage) }
+        let inventoryData = Data("{}".utf8)
+        try stateData.write(to: stage.appendingPathComponent("state.json"))
+        try inventoryData.write(to: stage.appendingPathComponent("inventory.json"))
+        let id = UUID()
+        let archive = directory.appendingPathComponent("\(id).zip")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        process.arguments = ["-c", "-k", "--norsrc", stage.path, archive.path]
+        try process.run()
+        process.waitUntilExit()
+        #expect(process.terminationStatus == 0)
+        var identity = stateData
+        identity.append(inventoryData)
+        return SnapshotVersion(formatVersion: 1, id: id, parentID: nil, deviceID: UUID(),
+            deviceName: "Ventura Mac", createdAt: Date(), commentCount: 1, imageCount: 0,
+            contentHash: contentHash ?? SnapshotArchive.digest(identity), archiveHash: try SnapshotArchive.fileDigest(archive))
+    }
+
+    @Test func testVenturaNumberSpellingVerifiesOriginalBytesAndTracksLocalFingerprint() throws {
+        var original = state()
+        original.comments[0].updatedAt = Date(timeIntervalSinceReferenceDate: 815627460.203401)
+        let prepared = try SnapshotArchive.prepare(original, root: directory)
+        let localJSON = String(decoding: try SnapshotArchive.encode(prepared.state), as: UTF8.self)
+        // Both spellings denote the same IEEE-754 value. Ventura emitted the
+        // longer spelling in the real office snapshot that failed to apply.
+        let localNumber = String(decoding: try SnapshotArchive.encode(original.comments[0].updatedAt), as: UTF8.self)
+        for spelling in ["815627460.20340097", "815627460.203401"] {
+            let sourceData = Data(localJSON.replacingOccurrences(of: localNumber, with: spelling).utf8)
+            let version = try wireVersion(stateData: sourceData)
+            let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
+            #expect(restored.state == prepared.state)
+            #expect(restored.hash == prepared.hash)
+            let installed = try SnapshotArchive.installFiles(restored, root: directory)
+            #expect(try SnapshotArchive.prepare(installed.state, root: directory).hash == restored.hash)
+            #expect(SnapshotComparison.compare(localHash: restored.hash, localTime: nil, cloud: version,
+                baselineID: version.id, localEdits: false, multipleCloudHeads: false,
+                baselineHash: restored.hash) == .same)
+        }
+    }
+
+    @Test func testContentHashMismatchIsRejectedEvenWithMatchingArchiveHash() throws {
+        let prepared = try SnapshotArchive.prepare(state(), root: directory)
+        var changed = prepared.state
+        changed.comments[0].commentText = "changed after the content hash was recorded"
+        let version = try wireVersion(stateData: SnapshotArchive.encode(changed), contentHash: prepared.hash)
+        #expect(throws: (any Error).self) {
+            try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
+        }
+    }
+
+    @Test func testLocalFingerprintBaselineDoesNotHideEditsOrOtherCloudVersions() throws {
+        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        func compare(_ local: String?, baseline: UUID?, multiple: Bool = false) -> SnapshotComparison {
+            SnapshotComparison.compare(localHash: local, localTime: nil, cloud: version,
+                baselineID: baseline, localEdits: local != "local encoding", multipleCloudHeads: multiple,
+                baselineHash: "local encoding")
+        }
+        #expect(compare("local encoding", baseline: version.id) == .same)
+        #expect(compare("edited", baseline: version.id) == .publish)
+        #expect(compare("local encoding", baseline: UUID()) == .receive)
+        #expect(compare("local encoding", baseline: version.id, multiple: true) == .choose)
+        #expect(compare(nil, baseline: version.id) == .publish)
+    }
+
     @Test func testCompleteSnapshotRoundTripIncludesDeletionAndEditableImages() throws {
         let image = directory.appendingPathComponent("external.png")
         try Data("rendered png".utf8).write(to: image)

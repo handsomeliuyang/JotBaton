@@ -22,6 +22,8 @@ struct SnapshotVersion: Codable, Identifiable, Equatable, Sendable {
 
 struct SnapshotReceipt: Codable, Sendable {
     let version: SnapshotVersion
+    /// This Mac's encoded fingerprint; the source OS may spell JSON numbers
+    /// differently without changing their decoded values.
     let contentHash: String
     var appliedAt: Date? = nil
 }
@@ -173,8 +175,14 @@ enum SnapshotArchive {
             throw SnapshotError.message("The snapshot contains invalid file entries.")
         }
         let stateData = try command("/usr/bin/unzip", ["-p", archive.path, "state.json"], limit: 64_000_000)
-        let inventory = try JSONDecoder().decode([String: String].self, from:
-            command("/usr/bin/unzip", ["-p", archive.path, "inventory.json"], limit: 8_000_000))
+        let inventoryData = try command("/usr/bin/unzip", ["-p", archive.path, "inventory.json"], limit: 8_000_000)
+        // Version 1 hashes the exact JSON bytes written by the publishing Mac.
+        // JSONEncoder.sortedKeys does not canonicalize floating-point spelling
+        // across Foundation versions (notably Ventura and newer macOS).
+        var sourceIdentity = stateData
+        sourceIdentity.append(inventoryData)
+        guard digest(sourceIdentity) == version.contentHash else { throw SnapshotError.message("Snapshot content verification failed.") }
+        let inventory = try JSONDecoder().decode([String: String].self, from: inventoryData)
         var state = try JSONDecoder().decode(AppState.self, from: stateData)
         guard Set(entries.filter { !$0.hasSuffix("/") }) == Set(["state.json", "inventory.json"] + inventory.keys.map { "files/\($0)" }) else {
             throw SnapshotError.message("The snapshot file inventory is incomplete.")
@@ -205,8 +213,9 @@ enum SnapshotArchive {
         for index in state.comments.indices { state.comments[index].wakeRequestedAt = nil }
         var identity = try encode(state)
         identity.append(try encode(inventory))
-        guard digest(identity) == version.contentHash else { throw SnapshotError.message("Snapshot content verification failed.") }
-        return Prepared(state: state, files: files, hash: version.contentHash)
+        // Keep the source hash in version metadata, and track local edits with
+        // the receiving Mac's encoding, just as prepare() does after install.
+        return Prepared(state: state, files: files, hash: digest(identity))
     }
 
     private static func validEntry(_ entry: String) -> Bool {

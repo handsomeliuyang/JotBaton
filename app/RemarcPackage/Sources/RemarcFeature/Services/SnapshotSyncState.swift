@@ -126,10 +126,14 @@ enum SnapshotComparison: Equatable {
     case same, publish, receive, choose
 
     static func compare(localHash: String?, localTime: Date?, cloud: SnapshotVersion?,
-                        baselineID: UUID?, localEdits: Bool, multipleCloudHeads: Bool) -> Self {
+                        baselineID: UUID?, localEdits: Bool, multipleCloudHeads: Bool,
+                        baselineHash: String? = nil) -> Self {
         if multipleCloudHeads { return .choose }
         guard let cloud else { return .publish }
         if localHash == cloud.contentHash { return .same }
+        // An applied cross-OS snapshot has a source fingerprint and a local
+        // fingerprint. Only the exact applied version can use this baseline.
+        if baselineID == cloud.id, let localHash, localHash == baselineHash { return .same }
         let cloudChanged = baselineID != cloud.id
         if localEdits && cloudChanged { return .choose }
         if localEdits && !cloudChanged { return .publish }
