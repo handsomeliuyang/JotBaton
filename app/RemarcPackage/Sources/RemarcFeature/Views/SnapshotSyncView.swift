@@ -152,98 +152,59 @@ struct SnapshotSyncControls: View {
     @State private var detailsExpanded = false
     @State private var reviewToken = UUID()
 
-    private var tone: Color {
-        switch sync.presentation.tone {
-        case .success: return Color.remarcSuccess(for: colorScheme)
-        case .warning: return Color.remarcWarning(for: colorScheme)
-        case .error: return Color.remarcError(for: colorScheme)
-        case .neutral: return Color.remarcPrimary(for: colorScheme)
-        }
-    }
-    private var primaryTitle: String {
-        switch sync.presentation.action {
-        case .enable: return "Enable"
-        case .publish: return "Publish This Mac"
-        case .retry: return "Retry"
-        case .authorize: return "Authorize"
-        case .check: return "Check"
-        case .apply: return "Apply to This Mac"
-        case .choose: return "Choose"
-        }
-    }
+    @State private var showingDetails = false
 
-    private var canChooseData: Bool {
-        sync.isEnabled && sync.folder != nil && !sync.isBusy && sync.publication?.isPending != true
-            && !sync.cloudTransfer.blocksReplacement && (sync.issue == nil || sync.presentation.action == .choose)
-    }
-    private var canApplyCloud: Bool {
-        canChooseData && !sync.cloudHeads.isEmpty && (sync.comparison == .receive || sync.comparison == .choose)
-    }
-    private var canPublishLocal: Bool {
-        canChooseData && (sync.comparison == .publish || sync.comparison == .choose || sync.presentation.action == .choose)
-    }
-    private var cloudStatus: String {
-        if !sync.isEnabled { return "Enable sync to check iCloud data." }
-        if sync.folder == nil { return "Check iCloud access first." }
-        if sync.publication?.isPending == true { return "Showing the last confirmed cloud data." }
-        if sync.cloudTransfer.blocksReplacement { return "Check the transfer status before applying cloud data." }
-        if sync.cloudHeads.isEmpty { return "Nothing published yet." }
-        switch sync.comparison {
-        case .same: return "Matches this Mac."
-        case .publish: return "Already applied on this Mac."
-        case .receive: return "Cloud changes are ready to apply."
-        case .choose: return "Different data · choose which copy to keep."
-        }
-    }
-    private var localStatus: String {
-        if !sync.isEnabled { return "Stored on this Mac." }
-        if sync.publication?.isPending == true {
-            return sync.hasSavedCurrentSnapshot ? "Saved · cloud upload is not confirmed." : "New edits made · finish the pending upload first."
-        }
-        if sync.folder == nil { return "Check iCloud to compare your data." }
-        if sync.cloudTransfer.blocksReplacement { return "Local data is kept while iCloud updates." }
-        switch sync.comparison {
-        case .same: return "Up to date with iCloud."
-        case .publish: return "Unpublished changes · ready to publish."
-        case .receive: return "Cloud changes have not been applied here."
-        case .choose: return "Local and cloud data differ."
-        }
-    }
-    private var needsRecovery: Bool {
-        [.enable, .authorize, .retry].contains(sync.presentation.action)
-    }
-    private var showOperationStatus: Bool {
-        !sync.isEnabled || sync.folder == nil || sync.isBusy || sync.issue != nil || sync.publication?.isPending == true
+    private var cards: SnapshotSyncCardPresentation {
+        SnapshotSyncCardPresentation.make(enabled: sync.isEnabled, directoryReady: sync.folder != nil,
+            busy: sync.isBusy, transfer: sync.cloudTransfer, comparison: sync.comparison,
+            publication: sync.publication, issue: sync.issue, presentation: sync.presentation,
+            cloudCount: sync.cloudHeads.count)
     }
 
     private var cloudRecovery: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Divider()
             if let issue = sync.issue, sync.isEnabled {
+                Text(issue.message).font(.system(size: compact ? 11 : 12, weight: .medium))
                 Text(issue.recovery).font(.system(size: compact ? 10 : 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if sync.cloudTransfer == .failed {
+                Text("iCloud transfer could not be confirmed. Check again or open iCloud settings.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            if sync.isEnabled && (sync.issue != nil || sync.publication?.isPending == true || sync.cloudTransfer == .failed) {
                 HStack(spacing: 8) {
-                    if issue.needsAuthorization && sync.presentation.action != .authorize {
-                        Button("Authorize Access…") { Task { await sync.authorizeAccess() } }
+                    iconAction("Retry the pending operation", symbol: "arrow.clockwise") { Task { await sync.retry() } }
+                    if sync.issue?.needsAuthorization == true {
+                        iconAction("Authorize iCloud Drive access", symbol: "folder.badge.plus") { Task { await sync.authorizeAccess() } }
                     }
-                    if issue.needsICloudSettings {
-                        Button(issue.kind == .quota ? "Manage iCloud Storage…" : "Open iCloud Settings…") { sync.openICloudSettings() }
+                    if sync.issue?.needsICloudSettings == true || sync.cloudTransfer == .failed {
+                        iconAction("Open iCloud settings", symbol: "gearshape") { sync.openICloudSettings() }
                     }
-                }.font(.system(size: compact ? 10 : 12)).disabled(sync.isBusy)
+                }.disabled(sync.isBusy)
+            }
+            if let message = sync.uploadMessage, sync.publication?.isPending == true {
+                Text(message).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            if let notice = sync.notice { Text(notice).font(.system(size: compact ? 10 : 12)).foregroundStyle(.secondary) }
+            dataRow("Content", value: contentTime(sync.cloudData?.contentModifiedAt))
+            dataRow("Published", value: contentTime(sync.cloudData?.createdAt))
+            dataRow("Transfer", value: sync.cloudTransferTitle)
+            dataRow("Checked", value: contentTime(sync.lastCheckedAt))
+            dataRow("Local", value: contentTime(sync.localUpdatedAt))
+            if let issue = sync.issue {
                 DisclosureGroup("Diagnostic Details", isExpanded: $detailsExpanded) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .top) {
                         Text(issue.diagnostic).font(.system(size: compact ? 9 : 11, design: .monospaced))
                             .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                        Button("Copy Details") {
+                        Spacer(minLength: 4)
+                        iconAction("Copy diagnostic details", symbol: "doc.on.doc") {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(issue.diagnostic, forType: .string)
                         }
                     }
                 }.font(.system(size: compact ? 10 : 11))
             }
-            if let message = sync.uploadMessage, sync.publication?.isPending == true {
-                Text(message).font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-            if let notice = sync.notice { Text(notice).font(.system(size: compact ? 10 : 12)).foregroundStyle(.secondary) }
         }
     }
     private var cloudChoices: some View {
@@ -256,7 +217,7 @@ struct SnapshotSyncControls: View {
                         HStack(alignment: .top) {
                             SnapshotVersionLabel(version: version)
                             Spacer(minLength: 4)
-                            Button("Use") { versionToApply = version }
+                            iconAction("Review and apply this copy", symbol: "arrow.down.circle") { versionToApply = version }
                                 .disabled(sync.isBusy)
                                 .accessibilityIdentifier("sync.quickApply.\(version.shortID)")
                         }
@@ -264,85 +225,71 @@ struct SnapshotSyncControls: View {
                 }
             }.frame(maxHeight: compact ? 130 : 220)
             HStack {
-                Button("Use Local Instead…") { confirmPublish = true }.disabled(sync.isBusy)
-                Button("Cancel") { choosing = false }
+                iconAction("Publish this Mac's copy instead", symbol: "arrow.up.circle") { confirmPublish = true }.disabled(sync.isBusy)
+                Spacer()
+                iconAction("Close version review", symbol: "xmark") { choosing = false }
             }.font(.system(size: 11))
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let state = cards
+        VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Label("iCloud Data", systemImage: "icloud").font(.system(size: 12, weight: .semibold))
                     Spacer()
                     Menu {
+                        if sync.isEnabled {
+                            Button { Task { await sync.check() } } label: {
+                                Label("Refresh iCloud Status", systemImage: "arrow.clockwise")
+                            }.disabled(sync.isBusy)
+                        }
+                        Button { showingDetails.toggle() } label: {
+                            Label(showingDetails ? "Hide Sync Details" : "Show Sync Details", systemImage: "info.circle")
+                        }
+                        Divider()
                         Button("Sync Settings and History…") { PreferencesWindowController.shared.show(tab: "iCloud Sync") }
                         if let folder = sync.folder { Button("Show in Finder") { NSWorkspace.shared.open(folder) } }
                         if sync.isEnabled {
-                            Button("Authorize iCloud Drive Access…") { Task { await sync.authorizeAccess() } }
+                            Button("Authorize iCloud Drive Access…") { Task { await sync.authorizeAccess() } }.disabled(sync.isBusy)
                             Button("Open iCloud Settings…") { sync.openICloudSettings() }
                         }
                     } label: { Image(systemName: "ellipsis") }
-                    .menuStyle(.borderlessButton).fixedSize()
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .help("iCloud actions and details")
+                    .accessibilityLabel("iCloud actions and details")
                     .accessibilityIdentifier("sync.more")
                 }
-                dataRow("Source", value: !sync.isEnabled ? "Not enabled" : sync.folder == nil ? "Not checked" : sync.cloudSource)
-                dataRow("Published", value: sync.cloudData.map { contentTime($0.createdAt) } ?? "—")
-                    .help("The time recorded for this publication. iCloud delivery may finish later.")
-                dataRow("Transfer", value: sync.cloudTransferTitle)
-                    .help("The latest snapshot files' transfer state reported on this Mac. Other Macs may discover changes later.")
-                Text(cloudStatus).font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("sync.cloudStatus")
-                if showOperationStatus {
-                    HStack(alignment: .top, spacing: 7) {
-                        if sync.isBusy { ProgressView().controlSize(.mini) }
-                        else { Image(systemName: sync.issue != nil ? "exclamationmark.circle" : "info.circle").foregroundStyle(tone) }
-                        Text(sync.summary).font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(tone).fixedSize(horizontal: false, vertical: true)
-                            .accessibilityIdentifier("sync.status")
-                    }
-                }
-                HStack {
-                    if needsRecovery {
-                        Button(primaryTitle, action: primaryAction)
-                            .disabled(sync.isBusy)
-                            .accessibilityIdentifier("sync.primary")
-                    } else {
-                        Button(sync.cloudHeads.count > 1 ? "Choose Cloud Data…" : "Apply to This Mac…", action: applyCloud)
-                            .disabled(!canApplyCloud)
-                            .accessibilityIdentifier("sync.applyCloud")
-                    }
-                    if sync.isEnabled {
-                        Button("Check Updates") { Task { await sync.check() } }
-                            .disabled(sync.isBusy)
-                            .accessibilityIdentifier("sync.check")
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(!sync.isEnabled ? "Not enabled" : sync.folder == nil ? "Not checked" : sync.cloudSource)
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("sync.data.Source")
+                        if state.showsContentTimes, let date = sync.cloudData?.contentModifiedAt {
+                            contentUpdated(date).accessibilityIdentifier("sync.cloudUpdated")
+                        }
                     }
                     Spacer(minLength: 0)
-                }.controlSize(.small)
-                if let checked = sync.lastCheckedAt {
-                    Text("Last checked: \(contentTime(checked))")
-                        .font(.system(size: 10)).foregroundStyle(.secondary)
-                        .accessibilityIdentifier("sync.lastChecked")
+                    SnapshotSyncStatusControl(control: state.cloud, action: perform)
+                        .accessibilityIdentifier("sync.cloudStatus")
                 }
-                if sync.issue != nil || sync.publication?.isPending == true || sync.notice != nil { cloudRecovery }
+                if showingDetails { cloudRecovery }
                 if choosing { cloudChoices }
             }.padding(12)
                 .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
 
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Local Data", systemImage: "internaldrive").font(.system(size: 12, weight: .semibold))
-                dataRow("Updated", value: contentTime(sync.localUpdatedAt))
-                Text(localStatus).font(.system(size: 11)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Local Data", systemImage: "internaldrive").font(.system(size: 12, weight: .semibold))
+                    if state.showsContentTimes, let date = sync.localUpdatedAt {
+                        contentUpdated(date).accessibilityIdentifier("sync.localUpdated")
+                    }
+                }
+                Spacer(minLength: 0)
+                SnapshotSyncStatusControl(control: state.local, action: perform)
                     .accessibilityIdentifier("sync.localStatus")
-                HStack {
-                    Button("Publish to iCloud…", action: publishLocal)
-                        .disabled(!canPublishLocal)
-                        .accessibilityIdentifier("sync.publish")
-                    Spacer(minLength: 0)
-                }.controlSize(.small)
             }.padding(12)
                 .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
         }
@@ -389,16 +336,81 @@ struct SnapshotSyncControls: View {
     private func publishLocal() {
         confirmPublish = true
     }
-    private func primaryAction() {
-        switch sync.presentation.action {
+    private func perform(_ action: SnapshotSyncCardPresentation.Action) {
+        guard !sync.isBusy else { return }
+        switch action {
         case .enable: confirmEnable = true
         case .publish: publishLocal()
         case .retry: Task { await sync.retry() }
-        case .authorize: Task { await sync.authorizeAccess() }
         case .check: Task { await sync.check() }
         case .apply: applyCloud()
         case .choose: choosing.toggle()
+        case .recover: showingDetails.toggle()
         }
+    }
+
+    private func contentUpdated(_ date: Date) -> some View {
+        let time = Calendar.current.isDateInToday(date)
+            ? "today at \(date.formatted(date: .omitted, time: .shortened))"
+            : date.formatted(.dateTime.month(.abbreviated).day().hour().minute())
+        return Text("Updated \(time)")
+            .font(.system(size: 10)).foregroundStyle(.secondary)
+            .help("Content updated: \(contentTime(date))")
+    }
+
+    private func iconAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: symbol).labelStyle(.iconOnly)
+                .frame(width: 26, height: 26).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+        .help(title)
+    }
+
+}
+
+/// Passive states stay readable without becoming permanently disabled buttons.
+private struct SnapshotSyncStatusControl: View {
+    let control: SnapshotSyncCardPresentation.Control
+    let action: (SnapshotSyncCardPresentation.Action) -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    private var tint: Color {
+        switch control.tone {
+        case .success: return .remarcSuccess(for: colorScheme)
+        case .warning: return .remarcWarning(for: colorScheme)
+        case .error: return .remarcError(for: colorScheme)
+        case .neutral: return control.action == nil ? .primary.opacity(0.45) : .remarcPrimary(for: colorScheme)
+        }
+    }
+
+    var body: some View {
+        Group {
+            if control.isWorking {
+                ProgressView().controlSize(.small)
+                    .frame(width: 30, height: 30)
+                    .accessibilityLabel(control.description)
+            } else if let operation = control.action {
+                Button { action(operation) } label: {
+                    Label(control.description, systemImage: control.symbol)
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 18))
+                        .frame(width: 30, height: 30)
+                        .background(tint.opacity(isHovered ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { isHovered = $0 }
+            } else {
+                Image(systemName: control.symbol)
+                    .font(.system(size: 18)).frame(width: 30, height: 30)
+                    .accessibilityLabel(control.description)
+            }
+        }
+        .foregroundStyle(tint)
+        .help(control.description)
     }
 }
 
@@ -407,9 +419,17 @@ struct SnapshotSyncToolbarButton: View {
     @ObservedObject private var panel = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showing = false
+    @State private var isHovered = false
+
+    private var cards: SnapshotSyncCardPresentation {
+        SnapshotSyncCardPresentation.make(enabled: sync.isEnabled, directoryReady: sync.folder != nil,
+            busy: sync.isBusy, transfer: sync.cloudTransfer, comparison: sync.comparison,
+            publication: sync.publication, issue: sync.issue, presentation: sync.presentation,
+            cloudCount: sync.cloudHeads.count)
+    }
 
     private var tint: Color {
-        switch sync.presentation.tone {
+        switch cards.cloud.tone {
         case .success: return .remarcSuccess(for: colorScheme)
         case .warning: return .remarcWarning(for: colorScheme)
         case .error: return .remarcError(for: colorScheme)
@@ -417,14 +437,20 @@ struct SnapshotSyncToolbarButton: View {
         }
     }
     var body: some View {
+        let state = cards
         Button { showing.toggle() } label: {
-            VStack(spacing: 1) {
-                Image(systemName: sync.issue != nil ? "icloud.badge.exclamationmark" : "icloud")
+            ZStack {
+                Image(systemName: state.toolbarSymbol)
                     .font(.system(size: 12))
-                Text(sync.shortStatus).font(.system(size: 8, weight: .medium))
-            }.foregroundStyle(tint).frame(width: 38, height: 28).contentShape(Rectangle())
+                    .opacity(state.cloud.isWorking ? 0 : 1)
+                if state.cloud.isWorking { ProgressView().controlSize(.mini) }
+            }
+            .foregroundStyle(tint).frame(width: 26, height: 26)
+            .background(tint.opacity(isHovered ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 5))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
         .help("iCloud · \(sync.summary)")
         .accessibilityLabel("iCloud · \(sync.shortStatus)")
         .accessibilityIdentifier("sync.toolbar")

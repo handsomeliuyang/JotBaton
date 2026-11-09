@@ -182,6 +182,80 @@ final class SnapshotSyncTests {
         }
     }
 
+    private func cardState(_ comparison: SnapshotComparison = .same,
+                           transfer: SnapshotCloudTransfer = .ready,
+                           publication: SnapshotPublication? = nil,
+                           issue: SnapshotSyncIssue? = nil,
+                           busy: Bool = false, enabled: Bool = true,
+                           directoryReady: Bool = true) -> SnapshotSyncCardPresentation {
+        let presentation = SnapshotSyncPresentation.make(enabled: enabled, directoryReady: directoryReady,
+            progress: busy ? "Checking iCloud…" : nil, issue: issue, publication: publication,
+            hasLocalChanges: comparison == .publish, remoteCount: 1, comparison: comparison)
+        return .make(enabled: enabled, directoryReady: directoryReady, busy: busy,
+            transfer: transfer, comparison: comparison, publication: publication, issue: issue,
+            presentation: presentation, cloudCount: 1)
+    }
+
+    @Test func testMatchingCardsRefreshInsteadOfPublishingAndHideContentTimes() {
+        let cards = cardState()
+        #expect(cards.cloud.action == .check)
+        #expect(cards.local.action == .check)
+        #expect(cards.cloud.tone == .success)
+        #expect(!cards.showsContentTimes)
+        #expect(cardState(busy: true).cloud.isWorking)
+        #expect(!cardState(busy: true).showsContentTimes)
+    }
+
+    @Test func testDifferentContentOffersOnlyTheRelevantOperation() {
+        let incoming = cardState(.receive)
+        #expect(incoming.cloud.action == .apply)
+        #expect(incoming.local.action == nil)
+        #expect(incoming.showsContentTimes)
+        let outgoing = cardState(.publish)
+        #expect(outgoing.cloud.action == nil)
+        #expect(outgoing.local.action == .publish)
+        #expect(outgoing.showsContentTimes)
+        let divergent = cardState(.choose)
+        #expect(divergent.cloud.action == .choose)
+        #expect(divergent.local.action == .choose)
+    }
+
+    @Test func testTransfersAndChecksCannotOfferDataReplacement() {
+        for comparison in [SnapshotComparison.same, .publish, .receive, .choose] {
+            for transfer in [SnapshotCloudTransfer.uploading, .downloading, .transferring, .waiting, .failed] {
+                let cards = cardState(comparison, transfer: transfer)
+                #expect(cards.cloud.action != .apply && cards.cloud.action != .choose)
+                #expect(cards.local.action != .publish && cards.local.action != .choose)
+                #expect(cards.cloud.tone != .success && cards.local.tone != .success)
+            }
+            let busy = cardState(comparison, busy: true)
+            #expect(busy.cloud.action == nil && busy.local.action == nil)
+        }
+    }
+
+    @Test func testUnconfirmedPublicationNeverLooksSyncedOrOffersAnotherPublish() throws {
+        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        for phase in [SnapshotPublication.Phase.savedLocally, .awaitingUpload, .unconfirmed] {
+            let pending = SnapshotPublication(version: version, phase: phase)
+            let cards = cardState(publication: pending)
+            #expect(cards.cloud.tone != .success && cards.local.tone != .success)
+            #expect(cards.cloud.action == (phase == .savedLocally ? .retry : .check))
+            #expect(cards.local.action == nil)
+            #expect(cardState(transfer: .failed, publication: pending).cloud.action == .recover)
+        }
+        #expect(cardState(publication: SnapshotPublication(version: version, phase: .confirmed)).cloud.tone == .success)
+    }
+
+    @Test func testConnectionAndRecoveryDoNotExposePublishOrApply() {
+        #expect(cardState(enabled: false).cloud.action == .enable)
+        #expect(cardState(enabled: false).local.action == nil)
+        #expect(cardState(directoryReady: false).cloud.action == .check)
+        #expect(!cardState(directoryReady: false).showsContentTimes)
+        let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError), stage: .connection)
+        #expect(cardState(.receive, issue: issue).cloud.action == .recover)
+        #expect(cardState(.publish, issue: issue).local.action == nil)
+    }
+
     @Test func testAbsoluteAndRelativeImageLocationsProduceTheSameContentIdentity() throws {
         var original = state()
         let name = "\(UUID()).png"
