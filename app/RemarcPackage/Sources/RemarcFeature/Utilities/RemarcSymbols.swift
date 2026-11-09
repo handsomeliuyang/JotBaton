@@ -5,6 +5,7 @@ import AppKit
 enum RemarcSymbols {
     static let quickNote = name("bubble.and.pencil", fallback: "square.and.pencil")
     static let moveToSession = name("arrow.forward.folder", fallback: "folder")
+    static let history = name("clock.arrow.trianglehead.counterclockwise.rotate.90", fallback: "clock.arrow.circlepath")
 
     private static func name(_ preferred: String, fallback: String) -> String {
         NSImage(systemSymbolName: preferred, accessibilityDescription: nil) == nil ? fallback : preferred

@@ -19,8 +19,6 @@ struct CommentCardView: View {
     var isFocused: Bool = false
     /// Active search terms; matches are highlighted in the title and text.
     var searchTerms: [String] = []
-    /// Shown in the metadata row when the list mixes sessions without group headers.
-    var sessionName: String?
     var onFocusChange: ((Bool) -> Void)?
 
     @ObservedObject private var persistence = PersistenceManager.shared
@@ -81,7 +79,7 @@ struct CommentCardView: View {
                         .onTapGesture {
                             FloatingEditorController.shared.showForEdit(comment: comment)
                         }
-                        .help("打开详情")
+                        .help("Open details")
                 } else {
                     contextBadges
                     referenceView
@@ -145,9 +143,9 @@ struct CommentCardView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(isCollapsed ? "展开已解决的评论" : "收起已解决的评论")
+                .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
                 .accessibilityLabel(comment.taskTitle)
-                .accessibilityValue(isCollapsed ? "已收起" : "已展开")
+                .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
             } else {
                 headerTitle
                     .onTapGesture(count: 2, perform: beginRenaming)
@@ -249,16 +247,16 @@ struct CommentCardView: View {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.writeObjects([nsImage])
-                            ToastManager.shared.show("图片已复制")
+                            ToastManager.shared.show("Image copied")
                         }
                     } label: {
-                        Label("复制图片", systemImage: "doc.on.doc")
+                        Label("Copy Image", systemImage: "doc.on.doc")
                     }
 
                     Button {
                         saveScreenshotAs(imagePath: imagePath)
                     } label: {
-                        Label("图片另存为\u{2026}", systemImage: "square.and.arrow.down")
+                        Label("Save Image As\u{2026}", systemImage: "square.and.arrow.down")
                     }
                 }
 
@@ -298,12 +296,12 @@ struct CommentCardView: View {
             do {
                 try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
                 Task { @MainActor in
-                    ToastManager.shared.show("图片已保存")
+                    ToastManager.shared.show("Image saved")
                 }
             } catch {
                 debugLog("Failed to save screenshot: \(error.localizedDescription)")
                 Task { @MainActor in
-                    ToastManager.shared.show("图片保存失败")
+                    ToastManager.shared.show("Failed to save image")
                 }
             }
         }
@@ -345,7 +343,7 @@ struct CommentCardView: View {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(comment.shortID, forType: .string)
-                    ToastManager.shared.show("ID 已复制")
+                    ToastManager.shared.show("ID copied")
                 }
 
             Spacer(minLength: 0)
@@ -364,8 +362,10 @@ struct CommentCardView: View {
             use24Hour: settings.timeFormat.use24Hour,
             now: now
         )
-        let parts = [sessionName, appDisplayName(for: comment), date].compactMap { $0 }
-        return parts.joined(separator: " · ")
+        if let app = appDisplayName(for: comment) {
+            return "\(app) · \(date)"
+        }
+        return date
     }
 
     /// Show move button when there are other sessions to move to, or room to create a new one.
@@ -378,25 +378,25 @@ struct CommentCardView: View {
 
     private var cardActions: some View {
         HStack(spacing: 4) {
-            cardActionButton(icon: "doc.on.doc", tooltip: "复制", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "doc.on.doc", tooltip: "Copy", tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentToClipboard(comment) != nil {
-                    ToastManager.shared.show("已复制")
+                    ToastManager.shared.show("Copied to clipboard")
                 } else {
-                    ToastManager.shared.show("复制失败")
+                    ToastManager.shared.show("Couldn’t copy comment")
                 }
             }
             cardActionButton(icon: "play.fill", tooltip: "复制并开发", tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
-                    ToastManager.shared.show("已复制，已标记为进行中")
+                    ToastManager.shared.show("已复制，已标记为正在开发中")
                 } else {
                     ToastManager.shared.show("复制失败，状态未修改")
                 }
             }
-            cardActionButton(icon: "pencil", tooltip: "编辑", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "pencil", tooltip: "Edit", tint: Color.remarcPrimary(for: colorScheme)) {
                 FloatingEditorController.shared.showForEdit(comment: comment)
             }
             if !enabledWebhooks.isEmpty {
-                cardActionButton(icon: "paperplane", tooltip: "发送到 Webhook", tint: Color.remarcPrimary(for: colorScheme)) {
+                cardActionButton(icon: "paperplane", tooltip: "Send to webhook", tint: Color.remarcPrimary(for: colorScheme)) {
                     if enabledWebhooks.count == 1 {
                         WebhookService.shared.sendManually(enabledWebhooks[0], comment: comment)
                     } else if isWebhookDropdownOpen {
@@ -408,7 +408,7 @@ struct CommentCardView: View {
                 .overlay(DropdownAnchor(ref: webhookAnchorRef).allowsHitTesting(false))
             }
             if canMoveComment {
-                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: "移动到其他 session", tint: Color.remarcPrimary(for: colorScheme)) {
+                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: "Move to session", tint: Color.remarcPrimary(for: colorScheme)) {
                     if isMoveDropdownOpen {
                         DropdownPanelController.shared.dismiss()
                     } else {
@@ -417,7 +417,7 @@ struct CommentCardView: View {
                 }
                 .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             }
-            cardActionButton(icon: "trash", tooltip: "删除", tint: Color.remarcError(for: colorScheme)) {
+            cardActionButton(icon: "trash", tooltip: "Delete", tint: Color.remarcError(for: colorScheme)) {
                 showDeleteConfirmation = true
             }
             .popover(isPresented: $showDeleteConfirmation, arrowEdge: .bottom) {
@@ -451,7 +451,7 @@ struct CommentCardView: View {
             ) { targetSessionID, targetSessionName in
                 PersistenceManager.shared.moveComment(commentID, to: targetSessionID)
                 DropdownPanelController.shared.dismiss()
-                ToastManager.shared.show("已移动到 \(targetSessionName)", undo: {
+                ToastManager.shared.show("Moved to \(targetSessionName)", undo: {
                     PersistenceManager.shared.moveComment(commentID, to: oldSessionID)
                 })
             } onNewSession: {
@@ -459,7 +459,7 @@ struct CommentCardView: View {
                 if let newSession = PersistenceManager.shared.createSession(name: name) {
                     PersistenceManager.shared.moveComment(commentID, to: newSession.id)
                     DropdownPanelController.shared.dismiss()
-                    ToastManager.shared.show("已移动到 \(newSession.name)", undo: {
+                    ToastManager.shared.show("Moved to \(newSession.name)", undo: {
                         PersistenceManager.shared.moveComment(commentID, to: oldSessionID)
                     })
                 }
@@ -500,19 +500,19 @@ struct CommentCardView: View {
 
     private var deleteConfirmationPopover: some View {
         VStack(spacing: 8) {
-            Text("删除这条评论？")
+            Text("Delete this comment?")
                 .font(.system(size: 12, weight: .medium))
             HStack(spacing: 8) {
-                ConfirmationButton(label: "取消", role: .cancel) {
+                ConfirmationButton(label: "Cancel", role: .cancel) {
                     showDeleteConfirmation = false
                 }
-                ConfirmationButton(label: "删除", role: .destructive) {
+                ConfirmationButton(label: "Delete", role: .destructive) {
                     showDeleteConfirmation = false
                     let commentID = comment.id
                     let originalSessionID = comment.sessionID
                     PersistenceManager.shared.deleteComment(commentID)
-                    ToastManager.shared.show("已删除", undo: {
-                        // The card may come from another session in the "全部" view,
+                    ToastManager.shared.show("Deleted", undo: {
+                        // The card may come from another session in the "All" view,
                         // so restore it where it was rather than into the active one.
                         let persistence = PersistenceManager.shared
                         let sessionID = persistence.activeSessions.contains { $0.id == originalSessionID }
@@ -1049,7 +1049,7 @@ private struct MoveDropdownPanel: View {
             }
             if canCreateNew {
                 MoveSessionRow(
-                    name: "新建 Session\u{2026}",
+                    name: "New Session\u{2026}",
                     icon: "plus",
                     colorScheme: colorScheme,
                     onSelect: onNewSession

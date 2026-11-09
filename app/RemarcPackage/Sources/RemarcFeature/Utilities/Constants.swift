@@ -165,7 +165,6 @@ public enum AppConstants {
     public static let defaultHistoryRetentionDays: Int = 1
     public static let defaultImageRetentionDays: Int = 7
     public static let defaultTranscriptionRetentionDays: Int = 7
-    public static let historyIcon = "clock.arrow.trianglehead.counterclockwise.rotate.90"
 
     // Chrome extension
     public static let chromeExtensionURL = URL(string: "https://remarc.app/chrome-extension")!

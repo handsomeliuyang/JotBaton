@@ -3,12 +3,12 @@ import SwiftUI
 // MARK: - Session Bar View
 
 /// Horizontal pill bar for switching between active sessions.
-/// A fixed "全部" pill switches the list to every session; the scrolling strip
-/// holds one capsule per session plus a "+" button, and a trailing menu lists
-/// every session for when the strip overflows.
+/// A fixed "All" pill switches the list to every session; the scrolling strip
+/// holds one capsule per session. Hovering an overflowing strip reveals page
+/// arrows, and a pinned "+" and session menu sit after it.
 struct SessionBarView: View {
     @Binding var showsAllSessions: Bool
-    /// Outstanding comments across every listed session, shown on the "全部" pill.
+    /// Outstanding comments across every listed session, shown on the "All" pill.
     var allSessionsCount: Int
 
     @ObservedObject private var persistence = PersistenceManager.shared
@@ -21,6 +21,8 @@ struct SessionBarView: View {
     @State private var deletingSessionIDs: Set<UUID> = []
     @State private var canScrollLeft = false
     @State private var canScrollRight = false
+    @State private var isStripHovered = false
+    @State private var stripScroller = HorizontalStripScroller()
 
     /// Pre-compute comment counts per session once per render instead of O(s*n) per pill.
     private var commentCountsBySession: [UUID: Int] {
@@ -51,11 +53,8 @@ struct SessionBarView: View {
                                     .id(session.id)
                             }
                         }
-
-                        newSessionButton
                     }
-                    .padding(.leading, 4)
-                    .padding(.trailing, 14)
+                    .padding(.horizontal, 4)
                     .padding(.vertical, 8)
                     .background {
                         // Tap empty space in the bar to dismiss active rename
@@ -66,13 +65,34 @@ struct SessionBarView: View {
                             }
                     }
                     .background(
-                        HorizontalWheelScrollBridge { left, right in
+                        HorizontalWheelScrollBridge(scroller: stripScroller) { left, right in
                             canScrollLeft = left
                             canScrollRight = right
                         }
                     )
                 }
                 .mask(edgeFadeMask)
+                .overlay(alignment: .leading) {
+                    if isStripHovered && canScrollLeft {
+                        StripPageButton(direction: -1, colorScheme: colorScheme) {
+                            stripScroller.page(-1)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .overlay(alignment: .trailing) {
+                    if isStripHovered && canScrollRight {
+                        StripPageButton(direction: 1, colorScheme: colorScheme) {
+                            stripScroller.page(1)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .onHover { hovering in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isStripHovered = hovering
+                    }
+                }
                 .onAppear {
                     if let activeID = persistence.appState.activeSessionID {
                         proxy.scrollTo(activeID, anchor: .center)
@@ -91,11 +111,15 @@ struct SessionBarView: View {
                 }
             }
 
+            newSessionButton
+                .padding(.leading, 4)
+
             if persistence.activeSessions.count > 1 {
                 sessionMenu(counts: counts)
-                    .padding(.trailing, 8)
+                    .padding(.leading, 2)
             }
         }
+        .padding(.trailing, 8)
     }
 
     /// Fades whichever edge still has pills hidden behind it.
@@ -129,7 +153,7 @@ struct SessionBarView: View {
     private func sessionMenu(counts: [UUID: Int]) -> some View {
         Menu {
             Toggle(isOn: Binding(get: { showsAllSessions }, set: { _ in selectAllSessions() })) {
-                Text("全部 (\(allSessionsCount))")
+                Text("All (\(allSessionsCount))")
             }
             Divider()
             ForEach(persistence.activeSessions) { session in
@@ -148,7 +172,7 @@ struct SessionBarView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("所有 session")
+        .help("All sessions")
     }
 
     // MARK: - Session Pill
@@ -184,12 +208,12 @@ struct SessionBarView: View {
             Button {
                 beginRename(session)
             } label: {
-                Label("重命名", systemImage: "pencil")
+                Label("Rename", systemImage: "pencil")
             }
             Button(role: .destructive) {
                 animateDeleteSession(session.id)
             } label: {
-                Label("删除", systemImage: "trash")
+                Label("Delete", systemImage: "trash")
             }
         }
     }
@@ -304,7 +328,7 @@ private struct AllSessionsPillView: View {
             HStack(spacing: 4) {
                 Image(systemName: "square.stack")
                     .font(.system(size: 10, weight: .medium))
-                Text("全部")
+                Text("All")
                     .font(.system(size: 11, weight: isActive ? .semibold : .medium))
                 Text("\(count)")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -329,11 +353,21 @@ private struct AllSessionsPillView: View {
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .animation(.easeInOut(duration: 0.15), value: isActive)
-        .help("所有 session 的评论")
+        .help("Comments from every session")
     }
 }
 
 // MARK: - Mouse Wheel Bridge
+
+/// Handle the page arrows use to reach the strip's AppKit scroll view.
+@MainActor
+final class HorizontalStripScroller {
+    fileprivate weak var bridge: HorizontalWheelScrollBridge.BridgeView?
+
+    func page(_ direction: Int) {
+        bridge?.page(direction)
+    }
+}
 
 /// Lets a plain mouse wheel scroll the horizontal session strip, and reports
 /// which edges still hide pills.
@@ -343,14 +377,18 @@ private struct AllSessionsPillView: View {
 /// only be moved with a trackpad or Shift+wheel. Trackpads and other devices
 /// with precise deltas keep their native behavior.
 private struct HorizontalWheelScrollBridge: NSViewRepresentable {
+    let scroller: HorizontalStripScroller
     var onEdgesChange: (_ canScrollLeft: Bool, _ canScrollRight: Bool) -> Void
 
     func makeNSView(context: Context) -> BridgeView {
-        BridgeView(onEdgesChange: onEdgesChange)
+        let view = BridgeView(onEdgesChange: onEdgesChange)
+        scroller.bridge = view
+        return view
     }
 
     func updateNSView(_ view: BridgeView, context: Context) {
         view.onEdgesChange = onEdgesChange
+        scroller.bridge = view
         view.reportEdges()
     }
 
@@ -434,6 +472,22 @@ private struct HorizontalWheelScrollBridge: NSViewRepresentable {
             clipView.scroll(to: origin)
             scrollView.reflectScrolledClipView(clipView)
             return true
+        }
+
+        /// Scrolls most of a visible width in `direction` (-1 left, 1 right), animated.
+        func page(_ direction: Int) {
+            guard let scrollView = observedScrollView, let documentView = scrollView.documentView else { return }
+            let clipView = scrollView.contentView
+            let maxX = documentView.frame.width - clipView.bounds.width
+            guard maxX > 0 else { return }
+            var origin = clipView.bounds.origin
+            origin.x = min(max(origin.x + CGFloat(direction) * clipView.bounds.width * 0.7, 0), maxX)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.25
+                context.allowsImplicitAnimation = true
+                clipView.animator().setBoundsOrigin(origin)
+            }
+            scrollView.reflectScrolledClipView(clipView)
         }
 
         func reportEdges() {
@@ -629,8 +683,8 @@ private struct SessionRenameField: View {
 
 // MARK: - New Session Pill Button
 
-/// "+" button that expands on hover to reveal "New Session" label.
-/// At the session limit, stays compact with muted styling and shows a toast on click.
+/// Compact "+" pinned after the session strip so it never scrolls out of view.
+/// At the session limit it stays muted and shows a toast on click.
 private struct NewSessionPillButton: View {
     let colorScheme: ColorScheme
     let canCreate: Bool
@@ -639,7 +693,7 @@ private struct NewSessionPillButton: View {
 
     @State private var isHovered = false
 
-    private var effectiveHover: Bool { isHovered && !suppressHover }
+    private var effectiveHover: Bool { isHovered && !suppressHover && canCreate }
 
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
@@ -648,46 +702,64 @@ private struct NewSessionPillButton: View {
             if canCreate {
                 onCreate()
             } else {
-                ToastManager.shared.show("Session 数量已达上限")
+                ToastManager.shared.show("Session limit reached")
             }
         } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .semibold))
-
-                if canCreate {
-                    Text("新建 Session")
-                        .font(.system(size: 10, weight: .medium))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .opacity(effectiveHover ? 1 : 0)
-                        .frame(width: effectiveHover ? nil : 0, alignment: .leading)
-                        .clipped()
-                }
-            }
-            .foregroundStyle(canCreate
-                ? (effectiveHover ? brandColor : .primary.opacity(0.45))
-                : .primary.opacity(0.2))
-            .padding(.horizontal, canCreate && effectiveHover ? 10 : 6)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(effectiveHover && canCreate ? brandColor.opacity(0.12) : .clear)
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(brandColor.opacity(effectiveHover && canCreate ? 0.25 : 0), lineWidth: 0.5)
-            )
-            .contentShape(Capsule())
+            Image(systemName: "plus")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(canCreate
+                    ? (effectiveHover ? brandColor : .primary.opacity(0.55))
+                    : .primary.opacity(0.2))
+                .frame(width: 22, height: 22)
+                .background(
+                    Circle()
+                        .fill(effectiveHover ? brandColor.opacity(0.12) : Color.primary.opacity(0.05))
+                )
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                isHovered = hovering
-            }
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: effectiveHover)
+        .help(canCreate ? "New session" : "Session limit reached")
+    }
+}
+
+// MARK: - Strip Page Button
+
+/// Arrow shown over an overflowing strip edge while the pointer is on the
+/// strip, so a mouse user can tell there is more to scroll and page to it.
+private struct StripPageButton: View {
+    /// -1 pages left, 1 pages right.
+    let direction: Int
+    let colorScheme: ColorScheme
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        let brandColor = Color.remarcPrimary(for: colorScheme)
+
+        Button(action: action) {
+            Image(systemName: direction < 0 ? "chevron.left" : "chevron.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(isHovered ? brandColor : .primary.opacity(0.7))
+                .frame(width: 20, height: 20)
+                .background(
+                    Circle()
+                        .fill(Color.remarcDropdownBackground(for: colorScheme))
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(isHovered ? brandColor.opacity(0.35) : Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                .contentShape(Circle())
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: suppressHover)
-        .help("新建 session")
+        .buttonStyle(.plain)
+        .padding(.horizontal, 2)
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .help(direction < 0 ? "Scroll left" : "Scroll right")
     }
 }
 

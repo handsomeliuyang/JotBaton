@@ -19,17 +19,18 @@ struct CommentListQueryTests {
         )
     }
 
-    @Test("Status buckets: in progress covers handed off, outstanding excludes resolved")
+    @Test("Status buckets: in progress covers handed off; every status lands in exactly one bucket")
     func statusBuckets() {
         #expect(CommentStatusFilter.inProgress.includes(.handedOff))
         #expect(CommentStatusFilter.inProgress.includes(.inProgress))
         #expect(!CommentStatusFilter.open.includes(.handedOff))
-        #expect(!CommentStatusFilter.outstanding.includes(.resolved))
+        for status in CommentStatus.allCases {
+            #expect(CommentStatusFilter.allCases.filter { $0.includes(status) }.count == 1)
+        }
         let counts = CommentListQuery.counts(of: [
             comment(status: .open), comment(status: .handedOff),
             comment(status: .inProgress), comment(status: .resolved),
         ])
-        #expect(counts[.outstanding] == 3)
         #expect(counts[.open] == 1)
         #expect(counts[.inProgress] == 2)
         #expect(counts[.resolved] == 1)

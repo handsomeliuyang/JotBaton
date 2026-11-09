@@ -2,35 +2,40 @@ import Foundation
 
 /// Status buckets offered by the comment list filter bar.
 ///
-/// `handedOff` sits under "in progress": the comment has been delivered to an
+/// `handedOff` sits under "In Progress": the comment has been delivered to an
 /// agent session, so somebody is already working on it.
 public enum CommentStatusFilter: String, CaseIterable, Sendable {
-    case outstanding
     case open
     case inProgress
     case resolved
 
     public var title: String {
         switch self {
-        case .outstanding: return "未完成"
-        case .open: return "待处理"
-        case .inProgress: return "进行中"
-        case .resolved: return "已解决"
+        case .open: return "Open"
+        case .inProgress: return "In Progress"
+        case .resolved: return "Resolved"
         }
     }
 
     public var help: String {
         switch self {
-        case .outstanding: return "待处理、已转交和进行中的评论"
-        case .open: return "还没有开始处理的评论"
-        case .inProgress: return "已转交或正在开发中的评论"
-        case .resolved: return "已解决的评论"
+        case .open: return "Comments nobody has started on"
+        case .inProgress: return "Comments handed off or in development"
+        case .resolved: return "Resolved comments"
+        }
+    }
+
+    /// Phrase for empty states, e.g. "No in-progress comments".
+    public var emptyStateTitle: String {
+        switch self {
+        case .open: return "No open comments"
+        case .inProgress: return "No in-progress comments"
+        case .resolved: return "No resolved comments"
         }
     }
 
     public func includes(_ status: CommentStatus) -> Bool {
         switch self {
-        case .outstanding: return status != .resolved
         case .open: return status == .open
         case .inProgress: return status == .inProgress || status == .handedOff
         case .resolved: return status == .resolved
