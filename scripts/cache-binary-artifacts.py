@@ -30,11 +30,24 @@ if not destination.is_file() or hashlib.sha256(destination.read_bytes()).hexdige
     with tempfile.NamedTemporaryFile(dir=directory, prefix='.sparkle-', delete=False) as handle:
         temporary = Path(handle.name)
     try:
-        try:
-            with urllib.request.urlopen(url, timeout=60) as response, temporary.open('wb') as output:
-                while chunk := response.read(1024 * 1024):
-                    output.write(chunk)
-        except Exception:
+        downloaded = False
+        # Both endpoints serve the same immutable asset. The API route avoids
+        # transient 504 responses seen on GitHub's browser download redirects.
+        for endpoint in ['https://api.github.com/repos/sparkle-project/Sparkle/releases/assets/494187701', url]:
+            try:
+                request = urllib.request.Request(endpoint, headers={
+                    'Accept': 'application/octet-stream', 'User-Agent': 'Remarc-Build',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                })
+                with urllib.request.urlopen(request, timeout=60) as response, temporary.open('wb') as output:
+                    while chunk := response.read(1024 * 1024):
+                        output.write(chunk)
+                if hashlib.sha256(temporary.read_bytes()).hexdigest() == checksum:
+                    downloaded = True
+                    break
+            except Exception:
+                print('Artifact download route unavailable; trying the next checked route', flush=True)
+        if not downloaded:
             subprocess.run(['curl', '--fail', '--silent', '--show-error', '--location', '--retry', '3',
                             '--retry-all-errors', '--connect-timeout', '20', '--max-time', '180',
                             '--output', str(temporary), url], check=True)
