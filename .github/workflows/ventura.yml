@@ -50,8 +50,6 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.source_ref || github.sha }}
-      - name: Clear stale Sparkle artifact cache
-        run: rm -rf "$HOME/Library/Caches/org.swift.swiftpm/artifacts/https___github_com_sparkle_project_Sparkle_releases_download_2_9_5_Sparkle_for_Swift_Package_Manager_zip"
       - name: Build and launch Ventura app
         run: bash scripts/build-ventura.sh
       - name: Package app
@@ -92,9 +90,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.source_ref || github.sha }}
-      - name: Clear stale Sparkle artifact cache
-        run: rm -rf "$HOME/Library/Caches/org.swift.swiftpm/artifacts/https___github_com_sparkle_project_Sparkle_releases_download_2_9_5_Sparkle_for_Swift_Package_Manager_zip"
       - name: Run full Swift suite
         run: |
           cd app/RemarcPackage
+          bash ../../scripts/resolve-packages.sh "$(pwd)"
           env -u THREADS_ACCESS_TOKEN swift test

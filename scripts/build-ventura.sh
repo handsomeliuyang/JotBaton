@@ -29,7 +29,7 @@ restore_locks() {
   rm -rf "$PIN_BACKUP_DIR"
 }
 trap restore_locks EXIT
-swift package --package-path RemarcPackage resolve
+bash "$REPO_ROOT/scripts/resolve-packages.sh" "$REPO_ROOT/app/RemarcPackage"
 python3 - "$PIN_BACKUP" RemarcPackage/Package.resolved <<'PY'
 import json, sys
 original, resolved = [json.load(open(path))['pins'] for path in sys.argv[1:]]

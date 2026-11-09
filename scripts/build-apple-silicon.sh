@@ -9,6 +9,7 @@ CHANNEL=production
 APP_NAME=Remarc
 if [[ "$CONFIGURATION" = Debug ]]; then CHANNEL=development; APP_NAME="Remarc Dev"; fi
 cd "$REPO_ROOT/app"
+bash "$REPO_ROOT/scripts/resolve-packages.sh" "$REPO_ROOT/app/RemarcPackage"
 xcodebuild clean build \
   -workspace "$REPO_ROOT/app/Remarc.xcworkspace" \
   -scheme Remarc -configuration "$CONFIGURATION" \
