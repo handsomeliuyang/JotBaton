@@ -1,6 +1,7 @@
 import Foundation
 
-/// Status buckets offered by the comment list filter bar.
+/// Status buckets offered by the comment list filter bar. The chips toggle
+/// independently; with none selected every status is shown.
 ///
 /// `handedOff` sits under "In Progress": the comment has been delivered to an
 /// agent session, so somebody is already working on it.
@@ -40,6 +41,15 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
         case .inProgress: return status == .inProgress || status == .handedOff
         case .resolved: return status == .resolved
         }
+    }
+
+    /// Reads a selection persisted by `storageValue(of:)`, ignoring unknown entries.
+    public static func selection(from storageValue: String) -> Set<CommentStatusFilter> {
+        Set(storageValue.split(separator: ",").compactMap { CommentStatusFilter(rawValue: String($0)) })
+    }
+
+    public static func storageValue(of selection: Set<CommentStatusFilter>) -> String {
+        allCases.filter { selection.contains($0) }.map(\.rawValue).joined(separator: ",")
     }
 }
 
@@ -84,6 +94,17 @@ public enum CommentListQuery {
             }
         }
         return ranges
+    }
+
+    /// Comments whose status falls in any selected bucket; an empty selection keeps all.
+    public static func filtered(_ comments: [Comment], statuses: Set<CommentStatusFilter>) -> [Comment] {
+        guard !statuses.isEmpty else { return comments }
+        return comments.filter { comment in statuses.contains { $0.includes(comment.status) } }
+    }
+
+    /// Outstanding comments before resolved ones, keeping each part's order.
+    public static func unresolvedFirst(_ comments: [Comment]) -> [Comment] {
+        comments.filter { $0.status != .resolved } + comments.filter { $0.status == .resolved }
     }
 
     public static func sorted(_ comments: [Comment], newestFirst: Bool) -> [Comment] {

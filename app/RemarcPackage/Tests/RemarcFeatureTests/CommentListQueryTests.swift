@@ -36,6 +36,31 @@ struct CommentListQueryTests {
         #expect(counts[.resolved] == 1)
     }
 
+    @Test("Chips combine; selecting none shows every status")
+    func multiSelectFilter() {
+        let items = [comment("o", status: .open), comment("h", status: .handedOff),
+                     comment("p", status: .inProgress), comment("r", status: .resolved)]
+        #expect(CommentListQuery.filtered(items, statuses: []).count == 4)
+        #expect(CommentListQuery.filtered(items, statuses: [.open]).map(\.commentText) == ["o"])
+        #expect(CommentListQuery.filtered(items, statuses: [.open, .inProgress]).map(\.commentText) == ["o", "h", "p"])
+    }
+
+    @Test("Selection round-trips through storage and ignores retired values")
+    func selectionStorage() {
+        let value = CommentStatusFilter.storageValue(of: [.resolved, .open])
+        #expect(value == "open,resolved")
+        #expect(CommentStatusFilter.selection(from: value) == [.open, .resolved])
+        #expect(CommentStatusFilter.selection(from: "outstanding,inProgress") == [.inProgress])
+        #expect(CommentStatusFilter.selection(from: "").isEmpty)
+    }
+
+    @Test("Resolved comments sink below outstanding ones, order kept within each")
+    func unresolvedFirst() {
+        let items = [comment("r1", status: .resolved), comment("o1"), comment("r2", status: .resolved),
+                     comment("p1", status: .inProgress)]
+        #expect(CommentListQuery.unresolvedFirst(items).map(\.commentText) == ["o1", "p1", "r1", "r2"])
+    }
+
     @Test("Search matches the custom task title shown on the card")
     func titleIsSearchable() {
         let item = comment("无关正文", title: "PromptSite的web站点可以独立git仓库")
