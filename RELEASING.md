@@ -70,7 +70,11 @@ Missing or mismatched credentials fail signing; there is no ad-hoc fallback.
 1. Download both packages and verify `shasum -a 256 -c SHA256SUMS`.
 2. On Intel, extract the ZIP with Archive Utility or `ditto`. On Apple Silicon,
    open the DMG. Keep both downloads for transfer between Macs.
-3. Quit only the matching app, back it up, then replace `/Applications/Remarc.app`.
+3. From a source checkout, use `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`.
+   It verifies the signature and native architecture, backs up the matching app and
+   local data, trusts only its embedded public code-signing certificate, installs
+   and relaunches. Use `--reset-permissions` only for a deliberate certificate migration.
+   For manual installation, quit only the matching app, back it up, then replace `/Applications/Remarc.app`.
    Preserve `~/Library/Application Support/Remarc` and `iCloud Drive/Remarc`.
 4. Relaunch the installed app. No local re-signing is necessary. The first
    migration to this new certificate requires granting Accessibility and Screen

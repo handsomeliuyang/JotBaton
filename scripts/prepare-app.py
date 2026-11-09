@@ -29,7 +29,7 @@ if dev:
         'remarc-claude-': 'remarc-dev-claude-',
     }
     for old, new in replacements.items():
-        if old not in source:
+        if old not in source and new not in source:
             raise ValueError('Bundled MCP storage contract changed: ' + old)
         source = source.replace(old, new)
     script.write_text(source)
@@ -38,7 +38,12 @@ if dev:
     popclip = args.app / 'Contents/Resources/Remarc.popclipext/Config.ts'
     if popclip.exists():
         content = popclip.read_text().replace('com.metepolat.remarc.popclip', 'com.metepolat.remarc.dev.popclip')
-        content = content.replace('com.metepolat.Remarc', 'com.metepolat.Remarc.dev')
-        content = content.replace('// name: Remarc', '// name: Remarc Dev').replace('name: Remarc,', 'name: Remarc Dev,')
+        content = content.replace('["com.metepolat.Remarc"]', '["com.metepolat.Remarc.dev"]')
+        content = content.replace('// name: Remarc\n', '// name: Remarc Dev\n').replace('name: Remarc,', 'name: Remarc Dev,')
         content = content.replace('remarc://comment', 'remarc-dev://comment')
         popclip.write_text(content)
+
+    skill = args.app / 'Contents/Resources/remarc-skill.md'
+    if skill.exists():
+        skill.write_text(skill.read_text().replace('name: remarc\n', 'name: remarc-dev\n')
+                         .replace('# Remarc Comments', '# Remarc Dev Comments'))

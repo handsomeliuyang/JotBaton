@@ -18,13 +18,4 @@ else
   bash "$REPO_ROOT/scripts/build-apple-silicon.sh"
 fi
 APP="$REPO_ROOT/app/DerivedData/Build/Products/Debug/Remarc Dev.app"
-DEST="/Applications/Remarc Dev.app"
-if [[ -d "$DEST" ]]; then
-  BACKUP="$HOME/Library/Application Support/Remarc Dev/app-backups/$(date +%Y%m%d-%H%M%S).app"
-  mkdir -p "$(dirname "$BACKUP")"
-  ditto "$DEST" "$BACKUP"
-fi
-pkill -x RemarcDev || true
-if [[ -d "$DEST" ]]; then rm -rf "$DEST"; fi
-ditto "$APP" "$DEST"
-python3 "$REPO_ROOT/scripts/relaunch-app.py" "$DEST"
+python3 "$REPO_ROOT/scripts/install-app.py" "$APP" --channel development
