@@ -7,7 +7,6 @@ import platform
 import plistlib
 import shutil
 import subprocess
-import tempfile
 import time
 import uuid
 from datetime import datetime
@@ -43,12 +42,6 @@ data = Path.home() / 'Library/Application Support' / name
 if data.exists():
     subprocess.run(['ditto', str(data), str(backup / 'user-data')], check=True)
 
-# Import only the embedded PUBLIC certificate. The production private key stays in Actions.
-with tempfile.TemporaryDirectory(prefix='remarc-public-cert-') as directory:
-    prefix = str(Path(directory) / 'certificate-')
-    subprocess.run(['codesign', '-d', '--extract-certificates', prefix, str(app)], check=True, stdout=subprocess.DEVNULL)
-    subprocess.run(['security', 'add-trusted-cert', '-r', 'trustRoot', '-p', 'codeSign',
-                    '-k', str(Path.home() / 'Library/Keychains/login.keychain-db'), prefix + '0'], check=True)
 
 stage = destination.parent / ('.remarc-install-' + str(uuid.uuid4()) + '.app')
 previous = destination.parent / ('.remarc-previous-' + str(uuid.uuid4()) + '.app')

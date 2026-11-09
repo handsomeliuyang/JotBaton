@@ -91,20 +91,8 @@ def main():
             digest = run('/usr/bin/openssl', 'x509', '-noout', '-fingerprint', '-sha1', '-in', str(cert_file)).decode().strip().split('=')[-1].replace(':', '')
             if digest != expected['sha1']:
                 raise ValueError('Imported certificate fingerprint does not match the pinned identity')
-            if os.environ.get('GITHUB_ACTIONS') == 'true':
-                # Hosted runners have no interactive user Trust Settings session.
-                # Trust only this public certificate on the disposable CI machine.
-                rule = 'com.apple.trust-settings.admin'
-                authorization = run('sudo', '-n', 'security', 'authorizationdb', 'read', rule)
-                try:
-                    run('sudo', '-n', 'security', 'authorizationdb', 'write', rule, 'allow')
-                    run('sudo', '-n', 'security', 'add-trusted-cert', '-d', '-r', 'trustRoot',
-                        '-p', 'codeSign', '-k', '/Library/Keychains/System.keychain', str(cert_file))
-                finally:
-                    # Restore the EXACT previous authorization rule, even on failure.
-                    run('sudo', '-n', 'security', 'authorizationdb', 'write', rule, input=authorization)
-            else:
-                run('security', 'add-trusted-cert', '-r', 'trustRoot', '-p', 'codeSign', '-k', keychain, str(cert_file))
+            # Selecting the identity by fingerprint signs and verifies self-signed
+            # code without modifying user/system certificate trust settings.
             run('security', 'list-keychains', '-d', 'user', '-s', *dict.fromkeys([*original, keychain]))
             # Sign nested code from the inside out, preserving independent bundle IDs.
             for path in sorted(app.rglob('*'), key=lambda p: len(p.parts), reverse=True):

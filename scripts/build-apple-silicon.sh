@@ -16,6 +16,7 @@ xcodebuild clean build \
   -destination 'generic/platform=macOS' \
   -derivedDataPath "$(pwd)/DerivedData" \
   -onlyUsePackageVersionsFromResolvedFile \
+  -packageCachePath "$REPO_ROOT/app/DerivedData/PackageCache" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
 APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/$APP_NAME.app"

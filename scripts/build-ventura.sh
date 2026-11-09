@@ -54,6 +54,7 @@ xcodebuild clean build \
   -derivedDataPath "$(pwd)/DerivedData" \
   -xcconfig "$REPO_ROOT/app/Config/Ventura.xcconfig" \
   -onlyUsePackageVersionsFromResolvedFile \
+  -packageCachePath "$REPO_ROOT/app/DerivedData/PackageCache" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/$APP_NAME.app"
 python3 "$REPO_ROOT/scripts/prepare-app.py" "$APP" --channel "$CHANNEL"

@@ -64,7 +64,7 @@ jobs:
       - name: Run compatibility behavior tests on Intel
         run: |
           cd app/RemarcPackage
-          env -u THREADS_ACCESS_TOKEN swift test --filter VenturaCompatibilityTests
+          env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache" --filter VenturaCompatibilityTests
       - name: Test packaged MCP image delivery
         run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app/Contents/Resources/remarc-mcp.js" "$REMARC_CHANNEL"
       - name: Upload app
@@ -94,4 +94,4 @@ jobs:
         run: |
           cd app/RemarcPackage
           bash ../../scripts/resolve-packages.sh "$(pwd)"
-          env -u THREADS_ACCESS_TOKEN swift test
+          env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache"

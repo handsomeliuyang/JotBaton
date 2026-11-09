@@ -72,7 +72,7 @@ Missing or mismatched credentials fail signing; there is no ad-hoc fallback.
    open the DMG. Keep both downloads for transfer between Macs.
 3. From a source checkout, use `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`.
    It verifies the signature and native architecture, backs up the matching app and
-   local data, trusts only its embedded public code-signing certificate, installs
+   local data, installs
    and relaunches. Use `--reset-permissions` only for a deliberate certificate migration.
    For manual installation, quit only the matching app, back it up, then replace `/Applications/Remarc.app`.
    Preserve `~/Library/Application Support/Remarc` and `iCloud Drive/Remarc`.
@@ -93,7 +93,7 @@ Xcode 14 must use the cloud-built Intel development artifact.
 `signing/development.p12` and `signing/development-password.txt` are deliberately
 shared test credentials. Both Macs use these exact bytes; do not regenerate them
 per machine or build. `scripts/sign-app.py` uses a temporary dedicated keychain,
-trusts the selected self-signed certificate for code signing, restores the original
+selects the exact certificate by fingerprint, restores the original
 keychain search list, and removes the temporary keychain. No login keychain or
 production signing credentials are needed for development.
 

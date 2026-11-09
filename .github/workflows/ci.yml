@@ -112,7 +112,7 @@ jobs:
         set -euo pipefail
         cd app/RemarcPackage
         bash ../../scripts/resolve-packages.sh "$(pwd)"
-        env -u THREADS_ACCESS_TOKEN swift test
+        env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache"
 
     - name: Build, sign and relaunch development app
       run: |
