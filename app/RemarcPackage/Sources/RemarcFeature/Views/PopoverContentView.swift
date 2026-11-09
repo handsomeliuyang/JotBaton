@@ -42,6 +42,15 @@ struct PopoverContentView: View {
     @State private var critModeActive = false
     @State private var showCritModeOnboarding = false
     @State private var historyTab: HistoryTab = .comments
+    @AppStorage("commentListShowsAllSessions") private var showsAllSessions = false
+    @AppStorage("commentListStatusFilter") private var statusFilter: CommentStatusFilter = .outstanding
+    @State private var showsResolvedSection = false
+    @State private var searchHiddenAt: Date?
+    @State private var keyboardScrollTarget: UUID?
+    @FocusState private var isSearchFieldFocused: Bool
+
+    /// Reopening the panel within this window resumes the previous search.
+    private static let searchRetention: TimeInterval = 60
 
     private enum HistoryTab {
         case comments, transcriptions
@@ -49,47 +58,72 @@ struct PopoverContentView: View {
 
     // MARK: - Computed Comments
 
-    private var comments: [Comment] {
-        // Search globally across all sessions; otherwise show active session only
-        var result = isSearching ? persistence.allComments : persistence.activeComments
+    /// What the card list shows, derived once per render.
+    private struct ListModel {
+        /// Comments matching the status filter, in on-screen order.
+        var primary: [Comment] = []
+        /// Resolved matches folded under the list while "未完成" is selected.
+        var resolved: [Comment] = []
+        var counts: [CommentStatusFilter: Int] = [:]
+        /// Search hits in other sessions while a single session is shown.
+        var otherSessionMatches = 0
+        var scopeIsEmpty = true
 
-        if sortNewestFirst {
-            result.sort { $0.createdAt > $1.createdAt }
-        } else {
-            result.sort { $0.createdAt < $1.createdAt }
+        func visibleComments(showsResolved: Bool) -> [Comment] {
+            primary + (showsResolved ? resolved : [])
         }
+    }
 
-        if !searchText.isEmpty {
-            let query = searchText.lowercased()
-            let sessionNames: [UUID: String] = {
-                var map = [UUID: String]()
-                for s in persistence.appState.sessions {
-                    map[s.id] = s.name.lowercased()
-                }
-                return map
-            }()
-            result = result.filter { comment in
-                if comment.id.uuidString.localizedStandardContains(query) {
-                    return true
-                }
-                if let displayText = comment.type.displayText,
-                   displayText.lowercased().contains(query) {
-                    return true
-                }
-                if comment.commentText.lowercased().contains(query) {
-                    return true
-                }
-                if comment.source.lowercased().contains(query) {
-                    return true
-                }
-                if sessionNames[comment.sessionID]?.contains(query) == true {
-                    return true
-                }
-                return false
-            }
+    private var sessionNames: [UUID: String] {
+        Dictionary(persistence.appState.sessions.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var searchTerms: [String] {
+        isSearching ? CommentListQuery.searchTerms(from: searchText) : []
+    }
+
+    /// Comments in every session shown in the session bar.
+    private var listedComments: [Comment] {
+        let listed = Set(persistence.activeSessions.map(\.id))
+        return persistence.allComments.filter { listed.contains($0.sessionID) }
+    }
+
+    /// Outstanding comments across every listed session; matches the "全部" pill.
+    private var allSessionsOutstandingCount: Int {
+        CommentCountPolicy.unresolvedCount(in: listedComments)
+    }
+
+    private var scopeOutstandingCount: Int {
+        showsAllSessions ? allSessionsOutstandingCount : CommentCountPolicy.unresolvedCount(in: persistence.activeComments)
+    }
+
+    private var listModel: ListModel {
+        let names = sessionNames
+        let terms = searchTerms
+        let activeID = persistence.appState.activeSessionID
+        let pool = listedComments
+        let scoped = showsAllSessions ? pool : persistence.activeComments
+        let matched = CommentListQuery.sorted(
+            scoped.filter { CommentListQuery.matches($0, terms: terms, sessionName: names[$0.sessionID]) },
+            newestFirst: sortNewestFirst
+        )
+
+        var model = ListModel()
+        model.scopeIsEmpty = scoped.isEmpty
+        model.counts = CommentListQuery.counts(of: matched)
+        let primary = matched.filter { statusFilter.includes($0.status) }
+        model.primary = showsAllSessions
+            ? CommentListQuery.grouped(primary, sessions: persistence.activeSessions).flatMap(\.comments)
+            : primary
+        if statusFilter == .outstanding {
+            model.resolved = matched.filter { $0.status == .resolved }
         }
-
-        return result
+        if !terms.isEmpty && !showsAllSessions {
+            model.otherSessionMatches = pool.filter {
+                $0.sessionID != activeID && CommentListQuery.matches($0, terms: terms, sessionName: names[$0.sessionID])
+            }.count
+        }
+        return model
     }
 
     private var hasComments: Bool {
@@ -125,22 +159,22 @@ struct PopoverContentView: View {
                         CommentHistoryView(showingHistory: $showingHistory, restoredCommentID: $restoredCommentID, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
                     }
                 } else {
+                    let model = listModel
                     if isSearching {
-                        searchHeader
+                        searchHeader(model: model)
                     } else {
                         normalHeader
                     }
 
                     Divider()
 
-                    if !isSearching {
-                        SessionBarView()
-                    }
+                    SessionBarView(showsAllSessions: $showsAllSessions, allSessionsCount: allSessionsOutstandingCount)
 
-                    if comments.isEmpty && !isSearching {
+                    if model.scopeIsEmpty && !isSearching {
                         emptyState
                     } else {
-                        cardList
+                        statusFilterBar(counts: model.counts)
+                        cardList(model)
                     }
 
                     if hasComments && !isSearching {
@@ -190,10 +224,14 @@ struct PopoverContentView: View {
         .onRemarcChange(of: popoverController.isVisible) { visible in
             if visible {
                 Task { await SnapshotSyncManager.shared.checkIfNeeded() }
+                if let hiddenAt = searchHiddenAt, Date().timeIntervalSince(hiddenAt) > Self.searchRetention {
+                    searchText = ""
+                    isSearching = false
+                }
+                searchHiddenAt = nil
             }
             if !visible {
-                searchText = ""
-                isSearching = false
+                searchHiddenAt = Date()
                 showingHistory = false
                 historySearchText = ""
                 isHistorySearching = false
@@ -211,6 +249,15 @@ struct PopoverContentView: View {
         .onRemarcChange(of: persistence.appState.activeSessionID) { _ in
             popoverController.resizeAfterLayoutSettles()
         }
+        .onRemarcChange(of: showsAllSessions) { _ in
+            popoverController.resizeAfterLayoutSettles()
+        }
+        .onRemarcChange(of: statusFilter) { _ in
+            popoverController.resizeAfterLayoutSettles()
+        }
+        .onRemarcChange(of: showsResolvedSection) { _ in
+            popoverController.resizeAfterLayoutSettles()
+        }
         .onRemarcChange(of: popoverController.requestCritMode) { requested in
             if requested {
                 popoverController.requestCritMode = false
@@ -223,15 +270,33 @@ struct PopoverContentView: View {
 
     private var normalHeader: some View {
         HStack(spacing: 8) {
-            HStack(spacing: 0) {
-                let unresolvedCount = persistence.unresolvedCommentCount
-                Text("\(unresolvedCount) ")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.remarcAccent(for: colorScheme))
-                Text(unresolvedCount == 1 ? "Comment" : "Comments")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showsAllSessions = true
+                    statusFilter = .outstanding
+                }
+            } label: {
+                HStack(spacing: 0) {
+                    let scopeCount = scopeOutstandingCount
+                    let totalCount = allSessionsOutstandingCount
+                    Text("\(scopeCount) ")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.remarcAccent(for: colorScheme))
+                    Text("条未完成")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                    if !showsAllSessions && totalCount != scopeCount {
+                        Text(" · 共 \(totalCount)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.45))
+                    }
+                }
+                .lineLimit(1)
+                .fixedSize()
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .help("查看所有 session 的未完成评论")
 
             HStack(spacing: 8) {
                 headerButton(icon: "magnifyingglass") {
@@ -239,13 +304,14 @@ struct PopoverContentView: View {
                         isSearching = true
                     }
                 }
-                .help("Search comments")
+                .keyboardShortcut("f", modifiers: .command)
+                .help("搜索 (⌘F)")
 
                 headerButton(icon: AppConstants.historyIcon) {
                     withAnimation(.easeInOut(duration: 0.15)) { showingHistory = true }
                     popoverController.resizeAfterLayoutSettles()
                 }
-                .help("Comment history")
+                .help("评论历史")
             }
 
             Spacer()
@@ -253,7 +319,7 @@ struct PopoverContentView: View {
             creationButton(icon: RemarcSymbols.quickNote) {
                 FloatingEditorController.shared.showForQuickNote()
             }
-            .help("New quick note")
+            .help("新建快速笔记")
 
             creationButton(icon: "camera.viewfinder") {
                 MenuBarPopoverController.shared.dismiss()
@@ -266,7 +332,7 @@ struct PopoverContentView: View {
                     }
                 )
             }
-            .help("Screenshot comment")
+            .help("截图评论")
 
             if #available(macOS 26, *) {
                 creationButton(icon: "mic.fill") {
@@ -421,30 +487,84 @@ struct PopoverContentView: View {
 
     // MARK: - Search Header
 
-    private var searchHeader: some View {
+    private func searchHeader(model: ListModel) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
 
-            TextField("Search all comments...", text: $searchText)
+            TextField("搜索标题、正文、引用、来源或 session", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
+                .focused($isSearchFieldFocused)
+                .onSubmit { openSelectedComment(in: model) }
+                .onExitCommand(perform: closeSearch)
+                .modifier(SearchFieldArrowKeys(onMove: moveFocus(direction:)))
 
-            Button(action: {
-                searchText = ""
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isSearching = false
-                }
-            }) {
+            Button(action: closeSearch) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.6))
             }
             .buttonStyle(.plain)
+            .help("关闭搜索 (Esc)")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .onAppear {
+            // Non-activating panels don't become key on their own, and the
+            // field editor needs a key window to take focus.
+            MenuBarPopoverController.shared.makeKey()
+            DispatchQueue.main.async {
+                isSearchFieldFocused = true
+            }
+        }
+    }
+
+    private func closeSearch() {
+        searchText = ""
+        withAnimation(.easeInOut(duration: 0.15)) {
+            isSearching = false
+        }
+    }
+
+    /// Enter in the search field opens the keyboard-selected card, or the first hit.
+    private func openSelectedComment(in model: ListModel) {
+        let visible = model.visibleComments(showsResolved: showsResolvedSection)
+        let target = visible.first { $0.id == focusedCommentID } ?? visible.first
+        if let target {
+            FloatingEditorController.shared.showForEdit(comment: target)
+        }
+    }
+
+    // MARK: - Status Filter
+
+    private func statusFilterBar(counts: [CommentStatusFilter: Int]) -> some View {
+        HStack(spacing: 4) {
+            ForEach(CommentStatusFilter.allCases, id: \.self) { filter in
+                StatusFilterChip(
+                    title: filter.title,
+                    count: counts[filter] ?? 0,
+                    isSelected: statusFilter == filter,
+                    colorScheme: colorScheme
+                ) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        statusFilter = filter
+                    }
+                }
+                .help(filter.help)
+            }
+
+            Spacer(minLength: 0)
+
+            headerButton(icon: sortNewestFirst ? "arrow.down" : "arrow.up") {
+                sortNewestFirst.toggle()
+            }
+            .help(sortNewestFirst ? "最新在前，点击改为最早在前" : "最早在前，点击改为最新在前")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.bottom, 2)
     }
 
     // MARK: - Empty State
@@ -473,25 +593,143 @@ struct PopoverContentView: View {
 
     // MARK: - Card List
 
-    private var cardList: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                ForEach(comments) { comment in
-                    commentCard(for: comment)
+    private func cardList(_ model: ListModel) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 8) {
+                    if showsAllSessions {
+                        ForEach(CommentListQuery.grouped(model.primary, sessions: persistence.activeSessions)) { group in
+                            sessionGroupHeader(group)
+                            ForEach(group.comments) { comment in
+                                commentCard(for: comment)
+                            }
+                        }
+                    } else {
+                        ForEach(model.primary) { comment in
+                            commentCard(for: comment)
+                        }
+                    }
+
+                    if model.primary.isEmpty {
+                        filteredEmptyState
+                    }
+
+                    if !model.resolved.isEmpty {
+                        resolvedSectionToggle(count: model.resolved.count)
+                        if showsResolvedSection {
+                            ForEach(model.resolved) { comment in
+                                commentCard(for: comment, showsSessionName: showsAllSessions)
+                            }
+                        }
+                    }
+
+                    if model.otherSessionMatches > 0 {
+                        otherSessionMatchesHint(count: model.otherSessionMatches)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 8)
+            }
+            .scrollIndicators(.never)
+            .background(ScrollerHider())
+            .onRemarcChange(of: keyboardScrollTarget) { target in
+                guard let target else { return }
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    proxy.scrollTo(target)
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 14)
-            .padding(.bottom, 8)
         }
-        .scrollIndicators(.never)
-        .background(ScrollerHider())
     }
 
-    private func commentCard(for comment: Comment) -> some View {
+    private func sessionGroupHeader(_ group: CommentGroup) -> some View {
+        Button {
+            showsAllSessions = false
+            persistence.setActiveSession(group.session.id)
+        } label: {
+            HStack(spacing: 4) {
+                SessionOriginBadge(origin: group.session.origin)
+                Text(group.session.name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+                Text("\(group.comments.count)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .opacity(0.6)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .opacity(0.5)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.primary.opacity(0.6))
+            .padding(.horizontal, 4)
+            .padding(.top, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("切换到 \(group.session.name)")
+    }
+
+    private func resolvedSectionToggle(count: Int) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showsResolvedSection.toggle()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: showsResolvedSection ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                Image(systemName: CommentStatus.resolved.iconName)
+                    .font(.system(size: 10))
+                Text("已解决 \(count) 条")
+                    .font(.system(size: 11, weight: .medium))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.primary.opacity(0.5))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(showsResolvedSection ? "收起已解决的评论" : "显示已解决的评论")
+    }
+
+    private var filteredEmptyState: some View {
+        Text(searchTerms.isEmpty ? "没有\(statusFilter.title)的评论" : "没有匹配的\(statusFilter.title)评论")
+            .font(.system(size: 12))
+            .foregroundStyle(.primary.opacity(0.45))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+    }
+
+    private func otherSessionMatchesHint(count: Int) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showsAllSessions = true
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text("其他 session 还有 \(count) 条匹配")
+                Text("查看全部")
+                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(.primary.opacity(0.5))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func commentCard(for comment: Comment, showsSessionName: Bool = false) -> some View {
         CommentCardView(
             comment: comment,
             isFocused: focusedCommentID == comment.id,
+            searchTerms: searchTerms,
+            sessionName: showsSessionName ? sessionNames[comment.sessionID] : nil,
             onFocusChange: { focused in
                 focusedCommentID = focused ? comment.id : nil
             }
@@ -506,51 +744,78 @@ struct PopoverContentView: View {
 
     // MARK: - Footer
 
+    /// Session-wide actions act on the active session only, so they are off
+    /// while the list mixes sessions or is narrowed by a search.
+    private var sessionActionsDisabled: Bool {
+        !hasComments || isSearching || showingHistory || showsAllSessions
+    }
+
     private var footer: some View {
         HStack(spacing: 6) {
-            primaryFooterButton(icon: "doc.on.doc", title: "Copy All") {
+            primaryFooterButton(icon: "doc.on.doc", title: "复制全部") {
                 copyAll()
             }
-            .help("Copy all comments in this session")
-            .disabled(!hasComments || isSearching || showingHistory)
+            .help(showsAllSessions ? "选择一个 session 后可复制" : "复制当前 session 的全部评论")
+            .disabled(sessionActionsDisabled)
 
             mcpButton
 
             Spacer()
 
-            Group {
-                iconFooterButton(icon: "checkmark.bubble") {
-                    showResolveAllConfirmation = true
-                }
-                .help("Resolve all comments in this session")
-                .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
-                    resolveAllConfirmation
-                }
-
-                iconFooterButton(icon: "trash") {
-                    showDeleteAllConfirmation = true
-                }
-                .help("Delete all comments in this session")
-                .popover(isPresented: $showDeleteAllConfirmation, arrowEdge: .top) {
-                    deleteAllConfirmation
-                }
-
-                iconFooterButton(icon: "arrow.down.doc") {
-                    exportToFile()
-                }
-                .help("Export to file")
-            }.disabled(!hasComments || isSearching || showingHistory)
+            sessionActionsMenu
+                .disabled(sessionActionsDisabled)
 
             SnapshotSyncToolbarButton()
 
             iconFooterButton(icon: "gearshape") {
                 PreferencesWindowController.shared.show()
             }
-            .help("Settings")
+            .help("设置")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(colorScheme == .light ? Color.black.opacity(0.04) : Color.clear)
+    }
+
+    /// Bulk actions for the active session, grouped so the footer stays readable.
+    private var sessionActionsMenu: some View {
+        Menu {
+            Button {
+                showResolveAllConfirmation = true
+            } label: {
+                Label("全部标为已解决", systemImage: "checkmark.bubble")
+            }
+            .disabled(unresolvedCommentCount == 0)
+
+            Button {
+                exportToFile()
+            } label: {
+                Label("导出到文件\u{2026}", systemImage: "arrow.down.doc")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                showDeleteAllConfirmation = true
+            } label: {
+                Label("删除全部评论", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(showsAllSessions ? "选择一个 session 后可批量操作" : "批量操作当前 session")
+        .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
+            resolveAllConfirmation
+        }
+        .background(
+            Color.clear
+                .popover(isPresented: $showDeleteAllConfirmation, arrowEdge: .top) {
+                    deleteAllConfirmation
+                }
+        )
     }
 
     // MARK: - Clear Prompt (shown after Copy All / Export)
@@ -558,13 +823,13 @@ struct PopoverContentView: View {
     private var clearPrompt: some View {
         VStack(spacing: 6) {
             HStack {
-                Text("Clear exported comments?")
+                Text("清除已导出的评论？")
                     .font(.system(size: 11))
                 Spacer()
-                ConfirmationButton(label: "Keep", role: .cancel) {
+                ConfirmationButton(label: "保留", role: .cancel) {
                     dismissClearPrompt()
                 }
-                ConfirmationButton(label: "Clear", role: .destructive) {
+                ConfirmationButton(label: "清除", role: .destructive) {
                     clearPromptCancelled = true
                     exportClearGeneration = UUID()
                     let receipt = pendingExportReceipt
@@ -575,7 +840,7 @@ struct PopoverContentView: View {
                     if let receipt {
                         Task { @MainActor in
                             if case .failure = persistence.clearExportedComments(receipt) {
-                                ToastManager.shared.show("Couldn’t clear exported comments")
+                                ToastManager.shared.show("清除失败")
                             }
                         }
                     }
@@ -586,7 +851,7 @@ struct PopoverContentView: View {
                     PreferencesWindowController.shared.show(tab: "Export")
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Adjust copy all behavior in settings")
+                        Text("在设置中调整复制全部后的行为")
                         Image(systemName: "gearshape")
                     }
                     .font(.system(size: 10))
@@ -640,7 +905,7 @@ struct PopoverContentView: View {
     private var autoClearCountdown: some View {
         HStack {
             let count = pendingExportReceipt?.count ?? 0
-            Text("Clearing \(count) comment\(count == 1 ? "" : "s")...")
+            Text("正在清除 \(count) 条评论…")
                 .font(.system(size: 11))
             Spacer()
             Button("Undo") {
@@ -676,9 +941,9 @@ struct PopoverContentView: View {
             Task { @MainActor in
                 switch persistence.clearExportedComments(receipt) {
                 case .success(let clearedIDs):
-                    ToastManager.shared.show("Cleared \(clearedIDs.count) comment\(clearedIDs.count == 1 ? "" : "s")")
+                    ToastManager.shared.show("已清除 \(clearedIDs.count) 条评论")
                 case .failure:
-                    ToastManager.shared.show("Couldn’t clear exported comments")
+                    ToastManager.shared.show("清除失败")
                 }
             }
         }
@@ -699,17 +964,17 @@ struct PopoverContentView: View {
     private var deleteAllConfirmation: some View {
         let sessionName = persistence.activeSession?.name ?? "Inbox"
         return VStack(spacing: 8) {
-            Text("Delete all comments in \(sessionName)?")
+            Text("删除 \(sessionName) 中的全部评论？")
                 .font(.system(size: 12, weight: .medium))
             HStack(spacing: 8) {
-                ConfirmationButton(label: "Cancel", role: .cancel) {
+                ConfirmationButton(label: "取消", role: .cancel) {
                     showDeleteAllConfirmation = false
                 }
-                ConfirmationButton(label: "Delete All", role: .destructive) {
+                ConfirmationButton(label: "全部删除", role: .destructive) {
                     if let sessionID = persistence.appState.activeSessionID {
                         let clearedIDs = persistence.clearAllComments(in: sessionID)
                         showDeleteAllConfirmation = false
-                        ToastManager.shared.show("All comments deleted", undo: {
+                        ToastManager.shared.show("已删除全部评论", undo: {
                             persistence.restoreComments(clearedIDs)
                         }, duration: 5.0)
                     }
@@ -725,14 +990,14 @@ struct PopoverContentView: View {
         let sessionName = persistence.activeSession?.name ?? "Inbox"
         let unresolvedCount = unresolvedCommentCount
         return VStack(spacing: 8) {
-            Text("Resolve all \(unresolvedCount) comments in \(sessionName)?")
+            Text("将 \(sessionName) 中的 \(unresolvedCount) 条评论全部标为已解决？")
                 .font(.system(size: 12, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                ConfirmationButton(label: "Cancel", role: .cancel) {
+                ConfirmationButton(label: "取消", role: .cancel) {
                     showResolveAllConfirmation = false
                 }
-                ConfirmationButton(label: "Resolve All", role: .confirm) {
+                ConfirmationButton(label: "全部解决", role: .confirm) {
                     if let sessionID = persistence.appState.activeSessionID {
                         let comments = persistence.comments(for: sessionID)
                             .filter { $0.status != .resolved }
@@ -740,7 +1005,7 @@ struct PopoverContentView: View {
                             persistence.setCommentStatus(comment.id, to: .resolved)
                         }
                         showResolveAllConfirmation = false
-                        ToastManager.shared.show("\(comments.count) comments resolved", undo: {
+                        ToastManager.shared.show("已解决 \(comments.count) 条评论", undo: {
                             for comment in comments {
                                 persistence.setCommentStatus(comment.id, to: comment.status)
                             }
@@ -1046,10 +1311,10 @@ struct PopoverContentView: View {
             comments: allComments,
             format: .markdown
         ) else {
-            ToastManager.shared.show("Couldn’t copy comments")
+            ToastManager.shared.show("复制失败")
             return
         }
-        ToastManager.shared.show("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s")")
+        ToastManager.shared.show("已复制 \(receipt.count) 条评论")
         presentPostExportAction(for: receipt)
     }
 
@@ -1091,7 +1356,7 @@ struct PopoverContentView: View {
             format: SettingsManager.shared.outputFormat
         ) { receipt in
             guard let receipt else { return }
-            ToastManager.shared.show("Exported \(receipt.count) comment\(receipt.count == 1 ? "" : "s")")
+            ToastManager.shared.show("已导出 \(receipt.count) 条评论")
             presentPostExportAction(for: receipt)
         }
     }
@@ -1099,7 +1364,7 @@ struct PopoverContentView: View {
     // MARK: - Keyboard Navigation
 
     private func moveFocus(direction: Int) {
-        let list = comments
+        let list = listModel.visibleComments(showsResolved: showsResolvedSection)
         guard !list.isEmpty else { return }
         if let current = focusedCommentID,
            let idx = list.firstIndex(where: { $0.id == current }) {
@@ -1108,6 +1373,7 @@ struct PopoverContentView: View {
         } else {
             focusedCommentID = direction > 0 ? list.first?.id : list.last?.id
         }
+        keyboardScrollTarget = focusedCommentID
     }
 
     // MARK: - Helpers
@@ -1159,6 +1425,69 @@ struct PopoverContentView: View {
             hoverColor: Color.remarcPrimary(for: colorScheme),
             action: action
         )
+    }
+}
+
+// MARK: - Status Filter Chip
+
+private struct StatusFilterChip: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let colorScheme: ColorScheme
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        let brandColor = Color.remarcPrimary(for: colorScheme)
+
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Text(title)
+                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .opacity(0.7)
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(isSelected ? brandColor : .primary.opacity(0.55))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(isSelected ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.05 : 0))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+    }
+}
+
+// MARK: - Search Field Arrow Keys
+
+/// Up/Down in the search field move the card selection instead of the caret.
+/// Ventura keeps plain text-field behavior; `onKeyPress` is macOS 14+.
+private struct SearchFieldArrowKeys: ViewModifier {
+    let onMove: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(macOS 14, *) {
+            content
+                .onKeyPress(.downArrow) {
+                    onMove(1)
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    onMove(-1)
+                    return .handled
+                }
+        } else {
+            content
+        }
     }
 }
 

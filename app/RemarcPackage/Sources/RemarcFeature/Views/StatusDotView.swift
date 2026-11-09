@@ -23,7 +23,7 @@ struct StatusDotView: View {
             HStack(spacing: 4) {
                 Image(systemName: comment.status.iconName)
                     .font(.system(size: 10, weight: .semibold))
-                Text(comment.status.label)
+                Text(comment.status.displayLabel)
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
@@ -51,9 +51,9 @@ struct StatusDotView: View {
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: comment.status)
-        .accessibilityLabel("Change status")
-        .accessibilityValue(comment.status.label)
-        .help(comment.status == .resolved ? (comment.resolutionSummary ?? "Change status") : "Change status")
+        .accessibilityLabel("修改状态")
+        .accessibilityValue(comment.status.displayLabel)
+        .help(comment.status == .resolved ? (comment.resolutionSummary ?? "修改状态") : "修改状态")
     }
 
     private func showDropdown() {
@@ -128,7 +128,7 @@ private struct StatusOptionRow: View {
                 Image(systemName: status.iconName)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(dotColor)
-                Text(status.label)
+                Text(status.displayLabel)
                     .font(.system(size: 12))
                     .lineLimit(1)
                 Spacer(minLength: 0)

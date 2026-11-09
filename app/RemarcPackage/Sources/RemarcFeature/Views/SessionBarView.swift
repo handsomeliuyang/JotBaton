@@ -3,8 +3,14 @@ import SwiftUI
 // MARK: - Session Bar View
 
 /// Horizontal pill bar for switching between active sessions.
-/// Shows capsule-shaped pills for each session, with a "+" button to create new ones.
+/// A fixed "全部" pill switches the list to every session; the scrolling strip
+/// holds one capsule per session plus a "+" button, and a trailing menu lists
+/// every session for when the strip overflows.
 struct SessionBarView: View {
+    @Binding var showsAllSessions: Bool
+    /// Outstanding comments across every listed session, shown on the "全部" pill.
+    var allSessionsCount: Int
+
     @ObservedObject private var persistence = PersistenceManager.shared
     @ObservedObject private var popoverController = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -13,6 +19,8 @@ struct SessionBarView: View {
     @State private var renameText: String = ""
     @State private var pendingNewSessionID: UUID?
     @State private var deletingSessionIDs: Set<UUID> = []
+    @State private var canScrollLeft = false
+    @State private var canScrollRight = false
 
     /// Pre-compute comment counts per session once per render instead of O(s*n) per pill.
     private var commentCountsBySession: [UUID: Int] {
@@ -21,56 +29,132 @@ struct SessionBarView: View {
 
     var body: some View {
         let counts = commentCountsBySession
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(persistence.activeSessions) { session in
-                        if renamingSessionID == session.id {
-                            inlineRenameField(for: session)
-                                .id(session.id)
-                        } else {
-                            sessionPill(for: session, counts: counts)
-                                .id(session.id)
-                        }
-                    }
+        HStack(spacing: 0) {
+            AllSessionsPillView(
+                isActive: showsAllSessions,
+                count: allSessionsCount,
+                colorScheme: colorScheme,
+                onTap: selectAllSessions
+            )
+            .padding(.leading, 14)
+            .padding(.trailing, 2)
 
-                    newSessionButton
-                }
-                .padding(.leading, 14)
-                .padding(.trailing, 80)
-                .padding(.vertical, 8)
-                .background {
-                    // Tap empty space in the bar to dismiss active rename
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            commitActiveRename()
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(persistence.activeSessions) { session in
+                            if renamingSessionID == session.id {
+                                inlineRenameField(for: session)
+                                    .id(session.id)
+                            } else {
+                                sessionPill(for: session, counts: counts)
+                                    .id(session.id)
+                            }
                         }
+
+                        newSessionButton
+                    }
+                    .padding(.leading, 4)
+                    .padding(.trailing, 14)
+                    .padding(.vertical, 8)
+                    .background {
+                        // Tap empty space in the bar to dismiss active rename
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                commitActiveRename()
+                            }
+                    }
+                    .background(
+                        HorizontalWheelScrollBridge { left, right in
+                            canScrollLeft = left
+                            canScrollRight = right
+                        }
+                    )
+                }
+                .mask(edgeFadeMask)
+                .onAppear {
+                    if let activeID = persistence.appState.activeSessionID {
+                        proxy.scrollTo(activeID, anchor: .center)
+                    }
+                }
+                .onRemarcChange(of: popoverController.isVisible) { visible in
+                    if visible, let activeID = persistence.appState.activeSessionID {
+                        proxy.scrollTo(activeID, anchor: .center)
+                    }
+                }
+                .onRemarcChange(of: persistence.appState.activeSessionID) { newID in
+                    guard let newID else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newID, anchor: .center)
+                    }
                 }
             }
-            .onAppear {
-                if let activeID = persistence.appState.activeSessionID {
-                    proxy.scrollTo(activeID, anchor: .center)
-                }
-            }
-            .onRemarcChange(of: popoverController.isVisible) { visible in
-                if visible, let activeID = persistence.appState.activeSessionID {
-                    proxy.scrollTo(activeID, anchor: .center)
-                }
-            }
-            .onRemarcChange(of: persistence.appState.activeSessionID) { newID in
-                guard let newID else { return }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    proxy.scrollTo(newID, anchor: .center)
-                }
+
+            if persistence.activeSessions.count > 1 {
+                sessionMenu(counts: counts)
+                    .padding(.trailing, 8)
             }
         }
+    }
+
+    /// Fades whichever edge still has pills hidden behind it.
+    private var edgeFadeMask: some View {
+        HStack(spacing: 0) {
+            LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                .frame(width: canScrollLeft ? 20 : 0)
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: canScrollRight ? 20 : 0)
+        }
+        .animation(.easeInOut(duration: 0.15), value: canScrollLeft)
+        .animation(.easeInOut(duration: 0.15), value: canScrollRight)
+    }
+
+    // MARK: - Selection
+
+    private func selectAllSessions() {
+        commitActiveRename()
+        showsAllSessions = true
+    }
+
+    private func select(_ session: Session) {
+        commitActiveRename()
+        showsAllSessions = false
+        persistence.setActiveSession(session.id)
+    }
+
+    // MARK: - Session Menu
+
+    private func sessionMenu(counts: [UUID: Int]) -> some View {
+        Menu {
+            Toggle(isOn: Binding(get: { showsAllSessions }, set: { _ in selectAllSessions() })) {
+                Text("全部 (\(allSessionsCount))")
+            }
+            Divider()
+            ForEach(persistence.activeSessions) { session in
+                let isCurrent = !showsAllSessions && persistence.appState.activeSessionID == session.id
+                Toggle(isOn: Binding(get: { isCurrent }, set: { _ in select(session) })) {
+                    Text("\(session.name) (\(counts[session.id] ?? 0))")
+                }
+            }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.primary.opacity(0.5))
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("所有 session")
     }
 
     // MARK: - Session Pill
 
     private func sessionPill(for session: Session, counts: [UUID: Int] = [:]) -> some View {
-        let isActive = persistence.appState.activeSessionID == session.id
+        let isActive = !showsAllSessions && persistence.appState.activeSessionID == session.id
         let count = counts[session.id] ?? 0
 
         return SessionPillView(
@@ -80,8 +164,7 @@ struct SessionBarView: View {
             colorScheme: colorScheme,
             isBeingDeleted: deletingSessionIDs.contains(session.id),
             onTap: {
-                commitActiveRename()
-                persistence.setActiveSession(session.id)
+                select(session)
             },
             onDoubleClick: {
                 guard !session.isInbox else { return }
@@ -101,12 +184,12 @@ struct SessionBarView: View {
             Button {
                 beginRename(session)
             } label: {
-                Label("Rename", systemImage: "pencil")
+                Label("重命名", systemImage: "pencil")
             }
             Button(role: .destructive) {
                 animateDeleteSession(session.id)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("删除", systemImage: "trash")
             }
         }
     }
@@ -196,9 +279,174 @@ struct SessionBarView: View {
     private func createNewSession() {
         let name = SessionNaming.nextName()
         guard let session = persistence.createSession(name: name) else { return }
+        showsAllSessions = false
         persistence.setActiveSession(session.id)
         pendingNewSessionID = session.id
         beginRename(session)
+    }
+}
+
+// MARK: - All Sessions Pill
+
+/// Fixed pill that switches the list to every session at once.
+private struct AllSessionsPillView: View {
+    let isActive: Bool
+    let count: Int
+    let colorScheme: ColorScheme
+    let onTap: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        let brandColor = Color.remarcPrimary(for: colorScheme)
+
+        Button(action: onTap) {
+            HStack(spacing: 4) {
+                Image(systemName: "square.stack")
+                    .font(.system(size: 10, weight: .medium))
+                Text("全部")
+                    .font(.system(size: 11, weight: isActive ? .semibold : .medium))
+                Text("\(count)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .opacity(0.7)
+            }
+            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.6))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isActive ? brandColor.opacity(0.25) : Color.clear, lineWidth: 1)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .animation(.easeInOut(duration: 0.15), value: isActive)
+        .help("所有 session 的评论")
+    }
+}
+
+// MARK: - Mouse Wheel Bridge
+
+/// Lets a plain mouse wheel scroll the horizontal session strip, and reports
+/// which edges still hide pills.
+///
+/// A SwiftUI horizontal `ScrollView` on macOS only follows horizontal deltas.
+/// A classic wheel only produces vertical ones, so without this the strip can
+/// only be moved with a trackpad or Shift+wheel. Trackpads and other devices
+/// with precise deltas keep their native behavior.
+private struct HorizontalWheelScrollBridge: NSViewRepresentable {
+    var onEdgesChange: (_ canScrollLeft: Bool, _ canScrollRight: Bool) -> Void
+
+    func makeNSView(context: Context) -> BridgeView {
+        BridgeView(onEdgesChange: onEdgesChange)
+    }
+
+    func updateNSView(_ view: BridgeView, context: Context) {
+        view.onEdgesChange = onEdgesChange
+        view.reportEdges()
+    }
+
+    static func dismantleNSView(_ view: BridgeView, coordinator: ()) {
+        view.stopMonitoring()
+    }
+
+    final class BridgeView: NSView {
+        var onEdgesChange: (Bool, Bool) -> Void
+        private var monitor: Any?
+        private weak var observedScrollView: NSScrollView?
+        private var reportedEdges: (left: Bool, right: Bool)?
+
+        /// Points scrolled per wheel line.
+        private static let lineStep: CGFloat = 16
+
+        init(onEdgesChange: @escaping (Bool, Bool) -> Void) {
+            self.onEdgesChange = onEdgesChange
+            super.init(frame: .zero)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopMonitoring()
+            guard window != nil, let scrollView = enclosingScrollView else { return }
+            observedScrollView = scrollView
+            scrollView.contentView.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(geometryChanged),
+                name: NSView.boundsDidChangeNotification, object: scrollView.contentView
+            )
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(geometryChanged),
+                name: NSView.frameDidChangeNotification, object: scrollView.documentView
+            )
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, self.scrollHorizontally(with: event) else { return event }
+                return nil
+            }
+            reportEdges()
+        }
+
+        override func layout() {
+            super.layout()
+            reportEdges()
+        }
+
+        func stopMonitoring() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+            NotificationCenter.default.removeObserver(self)
+            observedScrollView = nil
+        }
+
+        @objc private func geometryChanged(_ notification: Notification) {
+            reportEdges()
+        }
+
+        /// Returns true when the event was consumed.
+        private func scrollHorizontally(with event: NSEvent) -> Bool {
+            guard let scrollView = observedScrollView, let window,
+                  event.window === window, !isHiddenOrHasHiddenAncestor,
+                  !event.hasPreciseScrollingDeltas,
+                  abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX),
+                  let documentView = scrollView.documentView
+            else { return false }
+            let pointer = scrollView.convert(event.locationInWindow, from: nil)
+            guard scrollView.bounds.contains(pointer) else { return false }
+            let clipView = scrollView.contentView
+            let maxX = documentView.frame.width - clipView.bounds.width
+            guard maxX > 0 else { return false }
+            var origin = clipView.bounds.origin
+            origin.x = min(max(origin.x - event.scrollingDeltaY * Self.lineStep, 0), maxX)
+            clipView.scroll(to: origin)
+            scrollView.reflectScrolledClipView(clipView)
+            return true
+        }
+
+        func reportEdges() {
+            guard let scrollView = observedScrollView, let documentView = scrollView.documentView else { return }
+            let visible = scrollView.contentView.bounds
+            let edges = (left: visible.minX > 1, right: visible.maxX < documentView.frame.width - 1)
+            guard reportedEdges?.left != edges.left || reportedEdges?.right != edges.right else { return }
+            reportedEdges = edges
+            // Deferred: this can run inside a SwiftUI update pass.
+            DispatchQueue.main.async { [weak self] in
+                self?.onEdgesChange(edges.left, edges.right)
+            }
+        }
     }
 }
 
@@ -400,7 +648,7 @@ private struct NewSessionPillButton: View {
             if canCreate {
                 onCreate()
             } else {
-                ToastManager.shared.show("Session limit reached")
+                ToastManager.shared.show("Session 数量已达上限")
             }
         } label: {
             HStack(spacing: 4) {
@@ -408,7 +656,7 @@ private struct NewSessionPillButton: View {
                     .font(.system(size: 10, weight: .semibold))
 
                 if canCreate {
-                    Text("New Session")
+                    Text("新建 Session")
                         .font(.system(size: 10, weight: .medium))
                         .lineLimit(1)
                         .fixedSize()
@@ -439,7 +687,7 @@ private struct NewSessionPillButton: View {
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: suppressHover)
-        .help("New session")
+        .help("新建 session")
     }
 }
 

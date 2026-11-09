@@ -16,6 +16,17 @@ public enum CommentStatus: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Label shown in the comment panel. `label` stays as-is because exports
+    /// handed to agents already depend on it.
+    public var displayLabel: String {
+        switch self {
+        case .open: return "待处理"
+        case .handedOff: return "已转交"
+        case .inProgress: return "进行中"
+        case .resolved: return "已解决"
+        }
+    }
+
     /// Shape cue so statuses stay distinguishable without relying on color alone.
     public var iconName: String {
         switch self {
