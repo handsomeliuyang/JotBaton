@@ -16,6 +16,15 @@ Independently maintained macOS menu bar app (SwiftUI + AppKit) for contextual co
 2. For local delivery, detect the current machine's architecture with `uname -m` and download the matching package from the exact release: the Apple Silicon DMG for `arm64`, or the Ventura Intel ZIP for `x86_64`. Verify its checksum and pinned production certificate with `scripts/sign-app.py --channel production --verify-only`. Install with `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`; it backs up the matching app and user data, installs without re-signing, and relaunches `/Applications/Remarc.app`. Retain both native downloads.
 3. Development installs use `--channel development` and `/Applications/Remarc Dev.app`. Relaunch only the corresponding executable; never kill the other channel as part of a build or install.
 
+### Development Previews: This Mac Only
+
+A development (dev) preview builds **only the package for the current Mac** and runs it there. Do not build both architectures for a preview.
+
+- Run `bash scripts/dev-preview.sh`. On a host that can compile the package (Xcode 26.2+, or the CLT macOS 26.5 SDK) it builds locally through `scripts/run-local.sh`. Otherwise (this Ventura Intel Mac with Xcode 14) it dispatches the **Development** workflow for this Mac's package only (`target` from `uname -m`, tests skipped), waits, downloads and checksums the artifact, verifies the development identity, installs it with `install-app.py --channel development` and relaunches `Remarc Dev`.
+- The cloud path builds the pushed branch head, so commit and push before running it; the script refuses uncommitted or unpushed work. Downloads are kept in `app/DerivedData/DevPreview/<run-id>/`.
+- `--with-tests` runs the Swift suites in the cloud preview; `--cloud` forces the cloud path on a local-capable Mac.
+- Both-architecture builds remain the rule for deliverables (Release workflow), not for previews.
+
 ## Build
 
 When working on UI changes in SwiftUI, always do a clean build after layout changes to avoid stale build cache issues. Use `xcodebuild clean` or delete DerivedData when builds behave unexpectedly.
@@ -36,8 +45,8 @@ When working on UI changes in SwiftUI, always do a clean build after layout chan
 - Production certificate plus private key exist exclusively in GitHub Actions Secrets `REMARC_SIGNING_P12_BASE64`; its password is `REMARC_SIGNING_P12_PASSWORD`. Never commit, log, retain, or download production private material for local signing. Only the public fingerprint is in `signing/identities.json`.
 - Both Intel and Apple Silicon production packages use that same production identity. Both development packages and both Macs' local builds use the other, shared test identity. Select and verify identities by pinned fingerprint, not just certificate name.
 - `scripts/sign-app.py` imports into a temporary dedicated keychain, restores the original keychain search list and deletes the temporary keychain. Signing does not require changing user/system certificate trust or authorization rules. Keep command failures and timeout messages free of credentials.
-- `scripts/run-local.sh` clean-builds the development app on supported hosts, signs, installs and relaunches it. Preserve its CLT/macOS 26.5 SDK preview path, including development icons and identity. Xcode 14 / Swift 5.8 on Ventura cannot compile this package; use the paired **Development** artifacts there. Direct Xcode Debug builds are finalized by the scheme post-build action; builders set `REMARC_SIGNING_IN_BUILDER=1` and finalize once themselves.
-- The **Development** workflow builds both architectures from one exact commit. Its Actions artifacts are development output, not a published production Release. Versioned production delivery still requires the **Release** workflow and both published assets.
+- `scripts/run-local.sh` clean-builds the development app on supported hosts, signs, installs and relaunches it. Preserve its CLT/macOS 26.5 SDK preview path, including development icons and identity. Xcode 14 / Swift 5.8 on Ventura cannot compile this package (Xcode 16+ needs macOS 14.5+); there `scripts/dev-preview.sh` builds this Mac's package in the cloud and installs it. Direct Xcode Debug builds are finalized by the scheme post-build action; builders set `REMARC_SIGNING_IN_BUILDER=1` and finalize once themselves.
+- The **Development** workflow builds one exact commit. Its `target` input selects `both` (default), `ventura-intel` or `apple-silicon`, and `skip_tests` skips the Swift suites for quick previews; `scripts/dev-preview.sh` sets both. Its Actions artifacts are development output, not a published production Release. Versioned production delivery still requires the **Release** workflow and both published assets.
 - Use `AppIdentity.current` (the app's Bundle ID) for persistent paths and routing. A DEBUG compilation flag alone does not identify the installed channel. Keep local comments, images, model caches, settings, sync records/outbox/backups, agent markers and reload notifications isolated.
 - Cloud connection, creation and authorization must all use the same channel's child directory. Accept iCloud Drive root or that channel's folder; reject the other channel's folder and symbolic links. Never automatically migrate, merge, publish or apply data between channels. Keep production paths unchanged for existing data.
 - Production uses `remarc://`, browser port `9274`, MCP entry `remarc`, and Control+Option shortcuts. Development uses `remarc-dev://`, port `9275`, MCP entry `remarc-dev`, and Control+Option+Shift defaults. Stock browser/marketplace integrations target production; the development bundled MCP uses development storage.
@@ -67,7 +76,7 @@ This repository is independently developed and released at `handsomeliuyang/Rema
 - Use a temporary branch only when isolation is needed or requested. Integrate accepted changes into `main` and remove the temporary branch after verification.
 - Keep `origin` as the only remote, pointing to `git@github.com:handsomeliuyang/Remarc.git`. Local `main` tracks `origin/main`.
 - Do not configure an `upstream` remote, synchronize from the original project, or submit changes or pull requests to it. Development and release do not depend on the original project's review or merge process.
-- Use this repository's cloud **Release** workflow for deliverables. Local source previews are available through `scripts/run-local.sh` on supported development machines; Xcode 14 on Ventura cannot build the Swift 6 package locally.
+- Use this repository's cloud **Release** workflow for deliverables. Development previews use `scripts/dev-preview.sh`: a local build on supported machines, and a cloud build of only this Mac's package on Ventura, where Xcode 14 cannot build the Swift 6 package.
 
 For an explicitly requested worktree, use `.worktrees/<name>`. Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable).
 

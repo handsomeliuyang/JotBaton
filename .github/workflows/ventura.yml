@@ -14,6 +14,10 @@ on:
       configuration:
         type: string
         default: Release
+      # Quick development previews only. Release keeps the default and runs every suite.
+      skip_tests:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       configuration:
@@ -62,6 +66,7 @@ jobs:
       # Intel hosted VMs lack a usable Metal device for Core Image tests.
       # Run keyboard/toast/backend behavior here; the full suite runs below.
       - name: Run compatibility behavior tests on Intel
+        if: ${{ inputs.skip_tests != true }}
         run: |
           cd app/RemarcPackage
           env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache" --filter VenturaCompatibilityTests
@@ -77,6 +82,7 @@ jobs:
           retention-days: 14
 
   package-tests:
+    if: ${{ inputs.skip_tests != true }}
     runs-on: macos-26
     timeout-minutes: 45
     strategy:

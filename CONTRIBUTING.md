@@ -6,17 +6,19 @@ Thanks for your interest in improving Remarc.
 
 - Xcode 26.2 / Swift 6.2 on a supported development Mac (or the documented CLT preview SDK).
 - Runtime: macOS 14+ on Apple Silicon; the opt-in Intel build supports macOS 13+.
-- Ventura with Xcode 14 uses the cloud **Development** workflow artifacts.
+- Ventura with Xcode 14 cannot compile the package; `scripts/dev-preview.sh` builds that Mac's package in the cloud **Development** workflow instead (needs an authenticated `gh` and pushed commits).
 
 ## Build and run
 
 ```bash
 git clone https://github.com/handsomeliuyang/Remarc.git
 cd Remarc
-bash scripts/run-local.sh
+bash scripts/dev-preview.sh
 ```
 
-This clean-builds, signs, installs and relaunches `Remarc Dev.app`. Both development
+This builds only the package for the current Mac: locally through
+`scripts/run-local.sh` when the host can compile it, otherwise in the cloud. Either
+way it signs or verifies, installs and relaunches `Remarc Dev.app`. Both development
 Macs reuse the committed test certificate and password in `signing/`; no Apple
 Developer account or per-machine certificate generation is needed. Production
 certificate/private key and password are exclusively in Actions Secrets.

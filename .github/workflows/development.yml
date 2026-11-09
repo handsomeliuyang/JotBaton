@@ -1,6 +1,16 @@
 name: Development
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Packages to build. scripts/dev-preview.sh picks the one matching the calling Mac.
+        type: choice
+        options: [both, ventura-intel, apple-silicon]
+        default: both
+      skip_tests:
+        description: Skip the Swift test suites for a quick preview build.
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -8,11 +18,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   ventura:
+    if: ${{ inputs.target != 'apple-silicon' }}
     uses: ./.github/workflows/ventura.yml
     with:
       source_ref: ${{ github.sha }}
       configuration: Debug
+      skip_tests: ${{ inputs.skip_tests }}
   apple-silicon:
+    if: ${{ inputs.target != 'ventura-intel' }}
     uses: ./.github/workflows/apple-silicon.yml
     with:
       source_ref: ${{ github.sha }}
