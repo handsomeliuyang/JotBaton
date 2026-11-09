@@ -25,6 +25,7 @@ struct AppIdentityTests {
         #expect(dev.urlScheme != release.urlScheme)
         #expect(dev.webSocketPort != release.webSocketPort)
         #expect(dev.menuBarIconName != release.menuBarIconName)
+        #expect(dev.appIconName != release.appIconName)
     }
 
     @Test func cloudChannelsCannotAuthorizeEachOthersFolder() throws {

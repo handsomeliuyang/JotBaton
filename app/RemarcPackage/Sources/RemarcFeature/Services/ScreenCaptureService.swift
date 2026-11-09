@@ -119,6 +119,7 @@ private final class RegionSelectionView: NSView {
         // backdrop stays exactly as it is.
         NSColor.black.withAlphaComponent(0.5).setFill()
         NSBezierPath(rect: bounds).fill()
+        defer { drawDevelopmentIdentity() }
 
         // While a frozen session exists the geometry that drives chrome is the
         // DISPLAY rect, not the live selection.
@@ -152,6 +153,16 @@ private final class RegionSelectionView: NSView {
         if !isAnnotating, case .idle = interactionMode, selectionRect != nil {
             drawHandles(for: rect)
         }
+    }
+
+    private func drawDevelopmentIdentity() {
+        guard AppIdentity.current.isDevelopment else { return }
+        let badge = NSRect(x: bounds.minX + 16, y: bounds.maxY - 54, width: 142, height: 36)
+        NSColor.black.withAlphaComponent(0.82).setFill()
+        NSBezierPath(roundedRect: badge, xRadius: 10, yRadius: 10).fill()
+        RemarcBrandAssets.applicationIcon.draw(in: NSRect(x: badge.minX + 6, y: badge.minY + 4, width: 28, height: 28))
+        ("Remarc Dev" as NSString).draw(at: NSPoint(x: badge.minX + 40, y: badge.minY + 11),
+            withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.white])
     }
 
     private func drawHandles(for rect: NSRect) {

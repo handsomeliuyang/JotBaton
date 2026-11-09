@@ -645,6 +645,7 @@ struct ScreenshotPreviewView: View {
         VStack(spacing: 0) {
             // Header: copy & save (left), close (right)
             HStack(spacing: 4) {
+                DevelopmentIdentityBadge()
                 Button(action: { copyImage() }) {
                     Image(systemName: copySuccess ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 12.5))

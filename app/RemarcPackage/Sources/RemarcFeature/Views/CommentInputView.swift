@@ -23,6 +23,15 @@ struct CommentInputView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
         VStack(spacing: 0) {
+            if AppIdentity.current.isDevelopment {
+                HStack {
+                    DevelopmentIdentityBadge()
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+            }
             // Source reference line
             headerSection
 

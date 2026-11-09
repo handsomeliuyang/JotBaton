@@ -451,6 +451,9 @@ struct PopoverContentView: View {
 
     private var emptyState: some View {
         VStack(spacing: 16) {
+            if AppIdentity.current.isDevelopment {
+                RemarcBrandMark(size: 56)
+            } else {
             ZStack {
                 RemarcLogoShape(part: .outline)
                     .stroke(.primary.opacity(0.15), lineWidth: 1.5)
@@ -458,6 +461,7 @@ struct PopoverContentView: View {
                     .stroke(.primary.opacity(0.15), lineWidth: 1.5)
             }
             .frame(width: 56, height: 56)
+            }
 
             Text("Do something Remarcable")
                 .font(.system(size: 12))

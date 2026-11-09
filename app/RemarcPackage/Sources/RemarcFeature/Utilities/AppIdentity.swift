@@ -20,6 +20,7 @@ public enum AppIdentity: String, Sendable, CaseIterable {
     public var reloadNotification: String { bundleIdentifier + ".reload" }
     public var webSocketPort: UInt16 { isDevelopment ? 9275 : 9274 }
     public var integrationName: String { isDevelopment ? "remarc-dev" : "remarc" }
+    public var appIconName: String { isDevelopment ? "AppIconDev" : "AppIcon" }
     public var menuBarIconName: String { isDevelopment ? "MenuBarIconDev" : "MenuBarIcon" }
     public var cloudDisplayPath: String { "iCloud Drive/" + directoryName }
 

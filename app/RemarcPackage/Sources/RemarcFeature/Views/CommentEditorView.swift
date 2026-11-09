@@ -25,6 +25,9 @@ struct CommentEditorView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .leading, spacing: 8) {
+                if AppIdentity.current.isDevelopment {
+                    DevelopmentIdentityBadge()
+                }
                 // Reference (read-only)
                 if let imagePath = screenshotImagePath {
                     ScreenshotThumbnailView(imagePath: imagePath, maxWidth: 200)

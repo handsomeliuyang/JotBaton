@@ -237,17 +237,20 @@ struct AnnotationToolbarView: View {
     ]
 
     var body: some View {
-        Group {
-            if showsDiscardControls {
-                discardBar
-            } else {
-                switch expansion {
-                case .none: mainBar
-                case .arrows: arrowBar
-                case .shapes: groupBar(Self.shapeTools, title: "Shape")
-                case .redact: groupBar(Self.redactTools, title: "Redact")
-                case .colors: colorBar
-                case .strokes: strokeBar
+        HStack(spacing: AppIdentity.current.isDevelopment ? 6 : 0) {
+            DevelopmentIdentityBadge()
+            Group {
+                if showsDiscardControls {
+                    discardBar
+                } else {
+                    switch expansion {
+                    case .none: mainBar
+                    case .arrows: arrowBar
+                    case .shapes: groupBar(Self.shapeTools, title: "Shape")
+                    case .redact: groupBar(Self.redactTools, title: "Redact")
+                    case .colors: colorBar
+                    case .strokes: strokeBar
+                    }
                 }
             }
         }

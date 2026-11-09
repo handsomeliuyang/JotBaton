@@ -14,6 +14,9 @@ struct AnnotationEntryPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
+                if AppIdentity.current.isDevelopment {
+                    RemarcBrandMark(size: 18)
+                }
                 Image(systemName: "pencil.tip.crop.circle")
                     .font(.system(size: 12.5, weight: .medium))
                 Text("Annotate")
@@ -74,7 +77,7 @@ final class AnnotationEntryPillController {
     private var panel: NSPanel?
     private var hosting: NSHostingView<AnnotationEntryPill>?
 
-    static let size = NSSize(width: 116, height: 28)
+    static let size = NSSize(width: AppIdentity.current.isDevelopment ? 144 : 116, height: 28)
 
     var onActivate: (() -> Void)?
 

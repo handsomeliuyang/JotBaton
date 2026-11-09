@@ -14,22 +14,8 @@ struct SelectionTooltipView: View {
             }
         }) {
             HStack(spacing: 6) {
-                // Remarc R logo in brand gradient circle
-                ZStack {
-                    Circle()
-                        .fill(Color.remarcBrandIndigo)
-                        .frame(width: 16, height: 16)
-                    RemarcLogoShape(part: .outline)
-                        .fill(.white)
-                        .overlay {
-                            RemarcLogoShape(part: .counter)
-                                .fill(.black)
-                                .blendMode(.destinationOut)
-                        }
-                        .compositingGroup()
-                        .frame(width: 8, height: 8)
-                }
-                Text("Comment")
+                RemarcBrandMark()
+                Text(AppIdentity.current.isDevelopment ? "Comment · DEV" : "Comment")
                     .font(.system(size: 11, weight: .medium))
             }
             .padding(.leading, 6)

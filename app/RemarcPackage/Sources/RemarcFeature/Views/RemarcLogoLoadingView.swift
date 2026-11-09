@@ -113,18 +113,23 @@ struct RemarcLogoLoadingView: View {
             Spacer()
 
             ZStack {
-                // Glow layer (blurred copy of stroke)
-                strokeLayer
-                    .blur(radius: 8)
-                    .opacity(0.35)
+                if AppIdentity.current.isDevelopment {
+                    RemarcBrandMark(size: 64)
+                        .opacity(0.65 + strokeProgress * 0.35)
+                } else {
+                    // Glow layer (blurred copy of stroke)
+                    strokeLayer
+                        .blur(radius: 8)
+                        .opacity(0.35)
 
-                // Main stroke
-                strokeLayer
+                    // Main stroke
+                    strokeLayer
 
-                // Fill (for completing mode)
-                if showFill {
-                    fillLayer
-                        .transition(.opacity)
+                    // Fill (for completing mode)
+                    if showFill {
+                        fillLayer
+                            .transition(.opacity)
+                    }
                 }
             }
             .frame(width: 64, height: 64)
