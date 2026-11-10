@@ -1206,7 +1206,7 @@ struct PopoverContentView: View {
         // A development handoff keeps comments for tracking, including when an
         // earlier ordinary Copy All has a delayed clear action still pending.
         resetPostExportAction()
-        ToastManager.shared.show(L10n.tr("Copied \(receipt.count) comments; pending comments set to In Progress"))
+        ToastManager.shared.show(L10n.tr("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s"); pending comments set to In Progress"))
     }
 
     private func resetPostExportAction() {

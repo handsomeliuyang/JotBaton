@@ -41,7 +41,7 @@ final class PermissionOnboardingContractTests: XCTestCase {
         XCTAssertTrue(controller.contains("kAXTrustedCheckOptionPrompt"))
         XCTAssertTrue(controller.contains("public func openAccessibilitySettings()"))
         XCTAssertTrue(content.contains("waitingAction: { controller.openAccessibilitySettings() }"))
-        XCTAssertTrue(content.contains("Text(\"Open Settings\")"))
+        XCTAssertTrue(content.contains("Text(L10n.tr(\"Open Settings\"))"))
     }
 
     func testScreenRecordingUsesSystemRequestAndShipsPurposeString() throws {
