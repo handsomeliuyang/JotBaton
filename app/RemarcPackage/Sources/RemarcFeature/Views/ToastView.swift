@@ -42,8 +42,8 @@ struct ToastOverlay: View {
                 .foregroundStyle(.primary)
             if let undo = toast.undoAction {
                 Button(L10n.tr("Undo")) {
-                    undo()
                     ToastManager.shared.dismiss()
+                    undo()
                 }
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color.remarcPrimary(for: colorScheme))

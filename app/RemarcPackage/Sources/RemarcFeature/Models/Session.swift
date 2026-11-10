@@ -15,6 +15,8 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
     public var deletedAt: Date?
     public var isAutoDismissed: Bool
     public var autoDismissedAt: Date?
+    /// Time this Mac first observed a continuously empty, active session.
+    public var emptySince: Date?
     public var origin: SessionOrigin
     public var claudeCodeSessionId: String?
     /// Session keys written by a newer build, carried through untouched.
@@ -31,7 +33,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, name, createdAt, isDeleted, deletedAt
-        case isAutoDismissed, autoDismissedAt
+        case isAutoDismissed, autoDismissedAt, emptySince
         case origin, claudeCodeSessionId
     }
 
@@ -45,7 +47,8 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         autoDismissedAt: Date? = nil,
         origin: SessionOrigin = .manual,
         claudeCodeSessionId: String? = nil,
-        unknownFields: [String: JSONValue] = [:]
+        unknownFields: [String: JSONValue] = [:],
+        emptySince: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -54,6 +57,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         self.deletedAt = deletedAt
         self.isAutoDismissed = isAutoDismissed
         self.autoDismissedAt = autoDismissedAt
+        self.emptySince = emptySince
         self.origin = origin
         self.claudeCodeSessionId = claudeCodeSessionId
         self.unknownFields = unknownFields
@@ -69,6 +73,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         deletedAt = try container.decodeIfPresent(Date.self, forKey: .deletedAt)
         isAutoDismissed = try container.decode(Bool.self, forKey: .isAutoDismissed)
         autoDismissedAt = try container.decodeIfPresent(Date.self, forKey: .autoDismissedAt)
+        emptySince = try container.decodeIfPresent(Date.self, forKey: .emptySince)
         // Decoded through the raw string, never as the enum directly.
         // `decodeIfPresent` returns nil only for an absent key - a *present*
         // value the enum does not know throws, which would fail the whole
@@ -85,7 +90,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
 
     private static let modelledKeys: Set<String> = [
         "id", "name", "createdAt", "isDeleted", "deletedAt",
-        "isAutoDismissed", "autoDismissedAt", "origin", "claudeCodeSessionId",
+        "isAutoDismissed", "autoDismissedAt", "emptySince", "origin", "claudeCodeSessionId",
     ]
 
     public func encode(to encoder: Encoder) throws {
@@ -97,6 +102,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         try container.encodeIfPresent(deletedAt, forKey: .deletedAt)
         try container.encode(isAutoDismissed, forKey: .isAutoDismissed)
         try container.encodeIfPresent(autoDismissedAt, forKey: .autoDismissedAt)
+        try container.encodeIfPresent(emptySince, forKey: .emptySince)
         // An unrecognised origin round-trips as its original string.
         if let rawOrigin, SessionOrigin(rawValue: rawOrigin) == nil {
             try container.encode(rawOrigin, forKey: .origin)

@@ -623,6 +623,14 @@ struct PopoverContentView: View {
             .disabled(sessionActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
+            primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks")) {
+                completeTasks(scope: .inProgress)
+            }
+            .help(L10n.tr("Mark in-progress tasks as complete (\(inProgressTaskCount))"))
+            .disabled(sessionActionsDisabled || inProgressTaskCount == 0)
+            .opacity(sessionActionsDisabled || inProgressTaskCount == 0 ? 0.4 : 1)
+            .accessibilityIdentifier("remarc.footer.completeInProgress")
+
             mcpButton
 
             Spacer()
@@ -873,24 +881,46 @@ struct PopoverContentView: View {
                     showResolveAllConfirmation = false
                 }
                 ConfirmationButton(label: L10n.tr("Resolve All"), role: .confirm) {
-                    if let sessionID = persistence.appState.activeSessionID {
-                        let comments = persistence.comments(for: sessionID)
-                            .filter { $0.status != .resolved }
-                        for comment in comments {
-                            persistence.setCommentStatus(comment.id, to: .resolved)
-                        }
-                        showResolveAllConfirmation = false
-                        ToastManager.shared.show(L10n.tr("\(comments.count) comments resolved"), undo: {
-                            for comment in comments {
-                                persistence.setCommentStatus(comment.id, to: comment.status)
-                            }
-                        }, duration: 5.0)
-                    }
+                    showResolveAllConfirmation = false
+                    completeTasks(scope: .allUnresolved)
                 }
             }
         }
         .frame(maxWidth: 200)
         .padding(12)
+    }
+
+    private var inProgressTaskCount: Int {
+        persistence.activeComments.filter { $0.status == .inProgress }.count
+    }
+
+    private func completeTasks(scope: CommentCompletionScope) {
+        guard let sessionID = persistence.appState.activeSessionID else { return }
+        switch persistence.completeComments(in: sessionID, scope: scope) {
+        case .failure(let error):
+            ToastManager.shared.show(error.userMessage)
+        case .success(let receipt):
+            guard receipt.count > 0 else {
+                ToastManager.shared.show(L10n.tr("No in-progress comments"))
+                return
+            }
+            resetPostExportAction()
+            ToastManager.shared.show(
+                L10n.tr("Completed \(receipt.count) task\(receipt.count == 1 ? "" : "s")"),
+                undo: {
+                    switch persistence.undoCompletion(receipt) {
+                    case .failure(let error): ToastManager.shared.show(error.userMessage)
+                    case .success(let count):
+                        if count == 0 {
+                            ToastManager.shared.show(L10n.tr("Tasks or their session changed; nothing was undone"))
+                        } else {
+                            ToastManager.shared.show(L10n.tr("Undid completion for \(count) task\(count == 1 ? "" : "s")"))
+                        }
+                    }
+                },
+                duration: 5
+            )
+        }
     }
 
     private var unresolvedCommentCount: Int {

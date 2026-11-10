@@ -494,14 +494,14 @@ struct PreferencesView: View {
                     pickerRow(L10n.tr("Delete resolved"), selection: $settings.resolvedCommentDeletion) { $0.label }
 
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
-                        toggleRow(L10n.tr("Auto-delete inactive sessions"), isOn: $settings.inactiveSessionCleanupEnabled)
-                        Text(L10n.tr("Sessions with no recent activity are moved to History. The Inbox, current session, and sessions with unresolved comments are never deleted."))
+                        toggleRow(L10n.tr("Auto-clean empty sessions"), isOn: $settings.inactiveSessionCleanupEnabled)
+                        Text(L10n.tr("Empty sessions move to History after the selected duration. Retained tasks, including completed tasks, prevent cleanup. The Inbox is always kept."))
                             .settingDescriptionStyle()
                     }
 
                     if settings.inactiveSessionCleanupEnabled {
                         VStack(alignment: .leading, spacing: Self.itemSpacing) {
-                            pickerRow(L10n.tr("Delete after"), selection: $settings.inactiveSessionCleanupInterval) { $0.label }
+                            pickerRow(L10n.tr("Empty for"), selection: $settings.inactiveSessionCleanupInterval) { $0.label }
                         }
                         .nestedSetting()
                     }

@@ -66,7 +66,10 @@ enum SnapshotArchive {
         // Selection and live agent delivery belong to this Mac. They must not
         // make a snapshot dirty or wake a process when a snapshot is applied.
         state.activeSessionID = nil
-        for index in state.sessions.indices { state.sessions[index].claudeCodeSessionId = nil }
+        for index in state.sessions.indices {
+            state.sessions[index].claudeCodeSessionId = nil
+            state.sessions[index].emptySince = nil
+        }
         for index in state.comments.indices { state.comments[index].wakeRequestedAt = nil }
         var files: [String: Data] = [:]
         var paths: [String: String] = [:]
@@ -209,7 +212,10 @@ enum SnapshotArchive {
             throw SnapshotError.message(L10n.tr("The snapshot contains invalid task references."))
         }
         state.activeSessionID = nil
-        for index in state.sessions.indices { state.sessions[index].claudeCodeSessionId = nil }
+        for index in state.sessions.indices {
+            state.sessions[index].claudeCodeSessionId = nil
+            state.sessions[index].emptySince = nil
+        }
         for index in state.comments.indices { state.comments[index].wakeRequestedAt = nil }
         var identity = try encode(state)
         identity.append(try encode(inventory))

@@ -99,6 +99,7 @@ enum AppStateMerge {
         pick(\.deletedAt)
         pick(\.isAutoDismissed)
         pick(\.autoDismissedAt)
+        pick(\.emptySince)
         // Whoever removed it wins, regardless of what the other side changed.
         if theirs.isDeleted || ours.isDeleted {
             out.isDeleted = true

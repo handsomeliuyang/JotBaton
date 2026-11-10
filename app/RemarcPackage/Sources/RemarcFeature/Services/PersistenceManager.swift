@@ -25,6 +25,7 @@ public final class PersistenceManager: ObservableObject {
     private var resolvedDeletionCancellable: AnyCancellable?
     private var inactiveSessionTimer: Timer?
     private var inactiveSessionCancellable: AnyCancellable?
+    private var completionUndoDeadlines: [UUID: Date] = [:]
 
     // MARK: - Document write serialization
     //
@@ -116,6 +117,11 @@ public final class PersistenceManager: ObservableObject {
                 self?.saveToDisk()
             }
 
+        let loaded = appState
+        if EmptySessionCleanupPolicy.reconcile(&appState, previous: loaded, now: Date()) {
+            scheduleSave()
+        }
+
         // Prune expired history on launch
         pruneExpiredHistory()
 
@@ -141,6 +147,7 @@ public final class PersistenceManager: ObservableObject {
             SettingsManager.shared.$inactiveSessionCleanupEnabled,
             SettingsManager.shared.$inactiveSessionCleanupInterval
         )
+        .receive(on: RunLoop.main)
         .sink { [weak self] _, _ in self?.updateInactiveSessionTimer() }
 
         cleanupStaleClaudeCodeMarkers()
@@ -176,7 +183,8 @@ public final class PersistenceManager: ObservableObject {
             return nil
         }
 
-        let session = Session(name: name)
+        var session = Session(name: name)
+        session.emptySince = session.createdAt
         appState.sessions.append(session)
 
         // If this is the only active session, make it active
@@ -568,6 +576,7 @@ public final class PersistenceManager: ObservableObject {
 
             appState = commit.state
             lastPersisted = commit.state
+            if reconcileEmptySessions() { scheduleSave() }
             for id in commit.clearedIDs {
                 if let comment = appState.comments.first(where: { $0.id == id }) {
                     WebhookService.shared.dispatch(.commentDeleted, comment: comment)
@@ -648,6 +657,59 @@ public final class PersistenceManager: ObservableObject {
         if status == .resolved {
             autoDeleteResolvedCommentIfImmediate(id)
         }
+    }
+
+    /// The receipt pins the exact completed versions and original states for Undo.
+    public func completeComments(in sessionID: UUID, scope: CommentCompletionScope = .inProgress) -> Result<CommentCompletionReceipt, PersistenceError> {
+        guard !documentWriteInFlight, !backgroundSaveInFlight else { return .failure(.lockTimeout) }
+        do {
+            let commit = try SessionTaskTransactions.complete(
+                fileURL: fileURL, candidate: appState, baseline: lastPersisted,
+                sessionID: sessionID, scope: scope, now: Date()
+            )
+            appState = commit.state
+            lastPersisted = commit.state
+            let receipt = commit.value
+            let deadline = Date().addingTimeInterval(5.2)
+            for id in receipt.commentIDs { completionUndoDeadlines[id] = deadline }
+            for entry in receipt.entries { WebhookService.shared.dispatch(.commentResolved, comment: entry.completed) }
+            if receipt.count > 0 {
+                let generation = snapshotGeneration
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .milliseconds(5200))
+                    guard let self, self.snapshotGeneration == generation else { return }
+                    for id in receipt.commentIDs where self.completionUndoDeadlines[id] == deadline {
+                        self.completionUndoDeadlines.removeValue(forKey: id)
+                    }
+                    self.autoDeleteResolvedComments()
+                }
+            }
+            return .success(receipt)
+        } catch let error as PersistenceError { return .failure(error) }
+        catch { return .failure(.writeFailed("\(error)")) }
+    }
+
+    public func undoCompletion(_ receipt: CommentCompletionReceipt) -> Result<Int, PersistenceError> {
+        guard !documentWriteInFlight, !backgroundSaveInFlight else { return .failure(.lockTimeout) }
+        do {
+            let commit = try SessionTaskTransactions.undo(
+                fileURL: fileURL, candidate: appState, baseline: lastPersisted, receipt: receipt, now: Date()
+            )
+            appState = commit.state
+            lastPersisted = commit.state
+            for id in commit.value {
+                completionUndoDeadlines.removeValue(forKey: id)
+                if let comment = appState.comments.first(where: { $0.id == id }) {
+                    WebhookService.shared.dispatch(.commentStatusChanged, comment: comment)
+                }
+            }
+            return .success(commit.value.count)
+        } catch let error as PersistenceError { return .failure(error) }
+        catch { return .failure(.writeFailed("\(error)")) }
+    }
+
+    private func isCompletionUndoProtected(_ id: UUID, now: Date) -> Bool {
+        completionUndoDeadlines[id].map { $0 > now } ?? false
     }
 
     // MARK: - Transcription Operations
@@ -745,6 +807,7 @@ public final class PersistenceManager: ObservableObject {
         replacement.unknownFields["_snapshotContentStamp"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(stamp))
         try SnapshotReplacement.commit(replacement, expected: lastPersisted, fileURL: fileURL)
         snapshotGeneration += 1
+        completionUndoDeadlines.removeAll()
         appState = replacement
         lastPersisted = replacement
         backgroundSaveRequested = false
@@ -754,6 +817,7 @@ public final class PersistenceManager: ObservableObject {
     }
 
     private func scheduleSave() {
+        reconcileEmptySessions()
         saveSubject.send()
     }
 
@@ -768,6 +832,7 @@ public final class PersistenceManager: ObservableObject {
     /// Routine save: does the locked read-merge-write on a background actor so
     /// contention with another process never blocks the UI.
     private func saveToDisk() {
+        reconcileEmptySessions()
         // A durable write owns the document. Running now would merge against a
         // baseline it is about to replace, publishing state computed from an
         // older snapshot over the newer one. `saveToDiskBlocking` deliberately
@@ -811,6 +876,7 @@ public final class PersistenceManager: ObservableObject {
                     // merged document is safe and picks up other processes'
                     // commits.
                     if merged != self.appState { self.appState = merged }
+                    if self.reconcileEmptySessions() { self.backgroundSaveRequested = true }
                 } else {
                     // Edits landed mid-save. Keep them and write again rather
                     // than overwriting with the older snapshot.
@@ -829,6 +895,7 @@ public final class PersistenceManager: ObservableObject {
     /// comment must be readable before the change event fires) and termination.
     @discardableResult
     private func saveToDiskBlocking() -> Bool {
+        reconcileEmptySessions()
         do {
             try DocumentLock.withLock(fileURL) {
                 let onDisk: AppState
@@ -845,6 +912,7 @@ public final class PersistenceManager: ObservableObject {
                 try data.write(to: fileURL, options: .atomic)
                 lastPersisted = merged
                 if merged != appState { appState = merged }
+                if reconcileEmptySessions() { scheduleSave() }
             }
             return true
         } catch is DocumentLock.TimedOut {
@@ -1264,6 +1332,9 @@ public final class PersistenceManager: ObservableObject {
         let previousComments = appState.comments
         let previousSessions = appState.sessions
         appState = state
+        if EmptySessionCleanupPolicy.reconcile(&appState, previous: AppState(sessions: previousSessions, comments: previousComments), now: Date()) {
+            scheduleSave()
+        }
         // Adopt the reloaded document as the merge baseline too. Leaving it
         // stale would make the next save treat every externally-made change as
         // a local edit, so "ours wins" could re-assert values we never touched.
@@ -1299,6 +1370,7 @@ public final class PersistenceManager: ObservableObject {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(800))
             guard generation == snapshotGeneration,
+                  !isCompletionUndoProtected(id, now: Date()),
                   let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted && $0.status == .resolved }) else { return }
             let sessionID = appState.comments[index].sessionID
             let now = Date()
@@ -1319,17 +1391,14 @@ public final class PersistenceManager: ObservableObject {
         guard let interval = setting.interval else { return } // .never → no-op
 
         let now = Date()
-        var didDelete = false
-        for index in appState.comments.indices {
-            let comment = appState.comments[index]
-            guard comment.status == .resolved && !comment.isDeleted else { continue }
-            let resolvedAt = comment.resolvedAt ?? comment.updatedAt
-            if now.timeIntervalSince(resolvedAt) >= interval {
-                appState.comments[index].isDeleted = true
-                appState.comments[index].deletedAt = now
-                appState.comments[index].updatedAt = now
-                didDelete = true
-            }
+        let expired = ResolvedCommentDeletionPolicy.expiredIDs(
+            in: appState.comments, interval: interval, protectedUntil: completionUndoDeadlines, now: now
+        )
+        let didDelete = !expired.isEmpty
+        for index in appState.comments.indices where expired.contains(appState.comments[index].id) {
+            appState.comments[index].isDeleted = true
+            appState.comments[index].deletedAt = now
+            appState.comments[index].updatedAt = now
         }
         if didDelete {
             scheduleSave()
@@ -1355,34 +1424,38 @@ public final class PersistenceManager: ObservableObject {
 
     // MARK: - Inactive Session Auto-Deletion
 
-    private func lastActivity(for session: Session) -> Date {
-        let latestComment = appState.comments
-            .filter { $0.sessionID == session.id && !$0.isDeleted }
-            .map { $0.updatedAt }
-            .max()
-        return max(session.createdAt, latestComment ?? .distantPast)
+    @discardableResult
+    private func reconcileEmptySessions() -> Bool {
+        EmptySessionCleanupPolicy.reconcile(&appState, previous: lastPersisted, now: Date())
     }
 
-    /// Exempts only Inbox. Inactivity alone determines deletion — the active session and
-    /// sessions with open comments are NOT exempt, since `activeSessionID` is sticky and
-    /// unresolved comments on an untouched session are stale, not in-flight.
     private func autoDeleteInactiveSessions() {
         let settings = SettingsManager.shared
-        guard settings.inactiveSessionCleanupEnabled else { return }
-        let interval = settings.inactiveSessionCleanupInterval.interval
-
-        let now = Date()
-        let candidateIDs: [UUID] = activeSessions.compactMap { session in
-            guard !session.isInbox else { return nil }
-            guard now.timeIntervalSince(lastActivity(for: session)) >= interval else { return nil }
-            return session.id
-        }
-
-        for id in candidateIDs {
-            deleteSession(id)
-        }
-        if !candidateIDs.isEmpty {
-            debugLog("PersistenceManager: Auto-deleted \(candidateIDs.count) inactive session(s)")
+        guard settings.inactiveSessionCleanupEnabled,
+              !documentWriteInFlight, !backgroundSaveInFlight else { return }
+        var protected = pinnedSessionIDs
+        let input = CommentInputController.shared
+        if input.isVisible, let id = input.targetSessionID ?? appState.activeSessionID { protected.insert(id) }
+        let editor = FloatingEditorController.shared
+        if editor.isVisible, let id = editor.targetSessionID ?? appState.activeSessionID { protected.insert(id) }
+        do {
+            let commit = try SessionTaskTransactions.cleanupEmpty(
+                fileURL: fileURL, candidate: appState, baseline: lastPersisted,
+                interval: settings.inactiveSessionCleanupInterval.interval,
+                excluding: protected, now: Date()
+            )
+            appState = commit.state
+            lastPersisted = commit.state
+            for id in commit.value {
+                if let session = appState.sessions.first(where: { $0.id == id }) {
+                    removeClaudeCodeMarkerFile(for: session)
+                }
+            }
+            if !commit.value.isEmpty {
+                debugLog("PersistenceManager: Auto-cleaned \(commit.value.count) continuously empty session(s)")
+            }
+        } catch {
+            debugLog("PersistenceManager: Empty session cleanup deferred")
         }
     }
 

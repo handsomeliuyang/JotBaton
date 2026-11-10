@@ -12,7 +12,7 @@ import Foundation
 /// commit.
 enum DocumentLock {
     /// Matches the TypeScript side (`plugins/shared/data.ts`).
-    private static let timeout: TimeInterval = 2.0
+    private static let defaultTimeout: TimeInterval = 2.0
     private static let pollInterval: TimeInterval = 0.025
     private static let staleAfter: TimeInterval = 10.0
 
@@ -23,14 +23,14 @@ enum DocumentLock {
     }
 
     /// Run `body` while holding the lock. Always releases, including on throw.
-    static func withLock<T>(_ fileURL: URL, _ body: () throws -> T) throws -> T {
+    static func withLock<T>(_ fileURL: URL, timeout: TimeInterval = defaultTimeout, _ body: () throws -> T) throws -> T {
         let lock = lockURL(for: fileURL)
-        try acquire(lock)
+        try acquire(lock, timeout: timeout)
         defer { release(lock) }
         return try body()
     }
 
-    private static func acquire(_ lock: URL) throws {
+    private static func acquire(_ lock: URL, timeout: TimeInterval) throws {
         let fm = FileManager.default
         let deadline = Date().addingTimeInterval(timeout)
 

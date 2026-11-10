@@ -809,13 +809,13 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .after30Minutes: L10n.tr("After 30 min")
-            case .after1Hour:     L10n.tr("After 1 hour")
-            case .after2Hours:    L10n.tr("After 2 hours")
-            case .after4Hours:    L10n.tr("After 4 hours")
-            case .after6Hours:    L10n.tr("After 6 hours")
-            case .after12Hours:   L10n.tr("After 12 hours")
-            case .after24Hours:   L10n.tr("After 24 hours")
+            case .after30Minutes: L10n.tr("30 min")
+            case .after1Hour:     L10n.tr("1 hour")
+            case .after2Hours:    L10n.tr("2 hours")
+            case .after4Hours:    L10n.tr("4 hours")
+            case .after6Hours:    L10n.tr("6 hours")
+            case .after12Hours:   L10n.tr("12 hours")
+            case .after24Hours:   L10n.tr("24 hours")
             }
         }
 
