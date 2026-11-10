@@ -245,7 +245,7 @@ enum AudioInputDeviceSelector {
         let channelCount = inputChannelCount(for: deviceID)
         guard channelCount > 0 else { return nil }
 
-        let name = stringProperty(kAudioObjectPropertyName, for: deviceID) ?? "Unknown Input"
+        let name = stringProperty(kAudioObjectPropertyName, for: deviceID) ?? L10n.tr("Unknown Input")
         let manufacturer = stringProperty(kAudioObjectPropertyManufacturer, for: deviceID) ?? ""
         let uid = stringProperty(kAudioDevicePropertyDeviceUID, for: deviceID) ?? ""
         let modelUID = stringProperty(kAudioDevicePropertyModelUID, for: deviceID) ?? ""

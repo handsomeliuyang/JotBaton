@@ -28,15 +28,15 @@ public enum PersistenceError: Error, Equatable, Sendable {
     public var userMessage: String {
         switch self {
         case .lockTimeout:
-            return "Another Remarc process is busy writing. Try again."
+            return L10n.tr("Another Remarc process is busy writing. Try again.")
         case .documentUnreadable:
-            return "Could not read the comments file. Nothing was changed."
+            return L10n.tr("Could not read the comments file. Nothing was changed.")
         case .encodeFailed, .writeFailed:
-            return "Could not save the comment to disk."
+            return L10n.tr("Could not save the comment to disk.")
         case .invalidComment:
-            return "Quick Notes need a comment."
+            return L10n.tr("Quick Notes need a comment.")
         case .sessionUnavailable:
-            return "That session was deleted while saving. Nothing was changed."
+            return L10n.tr("That session was deleted while saving. Nothing was changed.")
         }
     }
 }

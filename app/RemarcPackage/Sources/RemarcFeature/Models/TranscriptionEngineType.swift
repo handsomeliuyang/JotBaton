@@ -48,7 +48,7 @@ public enum WhisperKitModelSize: String, CaseIterable, Identifiable, Sendable {
     }
 
     public var label: String {
-        "\(rawValue) (\(formattedSize(downloadSizeMB)))"
+        "\(L10n.lookup(rawValue)) (\(formattedSize(downloadSizeMB)))"
     }
 }
 
@@ -74,6 +74,6 @@ public enum ParakeetModelVersion: String, CaseIterable, Identifiable, Sendable {
     }
 
     public var label: String {
-        "\(rawValue) (~\(formattedSize(downloadSizeMB)))"
+        "\(L10n.lookup(rawValue)) (~\(formattedSize(downloadSizeMB)))"
     }
 }

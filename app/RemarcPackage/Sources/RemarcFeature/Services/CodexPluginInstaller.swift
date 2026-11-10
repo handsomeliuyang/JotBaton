@@ -60,7 +60,7 @@ public enum CodexPluginInstaller {
             message = marketplace.output.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if message.isEmpty {
-            message = "Install failed. Run the commands manually."
+            message = L10n.tr("Install failed. Run the commands manually.")
         }
         return .failed(String(message.prefix(300)))
     }
@@ -95,7 +95,7 @@ public enum CodexPluginInstaller {
             "https://github.com/\(marketplaceSlug).git",
         ]
         if sourceType == "git" && canonical.contains(source) { return .ours }
-        let described = source.isEmpty ? ((remarc["root"] as? String) ?? "unknown source") : source
+        let described = source.isEmpty ? ((remarc["root"] as? String) ?? L10n.tr("unknown source")) : source
         return .foreign(String(described.prefix(120)))
     }
 

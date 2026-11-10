@@ -97,7 +97,7 @@ public enum PluginInstaller {
             message = marketplace.output.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if message.isEmpty {
-            message = "Install failed. Run the commands manually."
+            message = L10n.tr("Install failed. Run the commands manually.")
         }
         return .failed(String(message.prefix(300)))
     }
@@ -126,7 +126,7 @@ public enum PluginInstaller {
         let described = (remarc["repo"] as? String)
             ?? (remarc["installLocation"] as? String)
             ?? (remarc["source"] as? String)
-            ?? "unknown source"
+            ?? L10n.tr("unknown source")
         return .foreign(described)
     }
 

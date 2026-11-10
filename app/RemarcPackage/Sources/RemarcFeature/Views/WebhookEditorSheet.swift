@@ -50,12 +50,12 @@ struct WebhookEditorSheet: View {
                 .font(.system(size: 14, weight: .semibold))
 
             VStack(alignment: .leading, spacing: 10) {
-                labeledField("Name") {
+                labeledField(L10n.tr("Name")) {
                     TextField(L10n.tr("Slack alerts"), text: $draft.name)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12))
                 }
-                labeledField("URL") {
+                labeledField(L10n.tr("URL")) {
                     TextField("https://hooks.example.com/...", text: $draft.url)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12, design: .monospaced))

@@ -333,8 +333,8 @@ struct PopoverContentView: View {
     @available(macOS 26, *)
     private var historyTabPicker: some View {
         HStack(spacing: 0) {
-            historyTabButton("Comments", tab: .comments)
-            historyTabButton("Dictation", tab: .transcriptions)
+            historyTabButton(L10n.tr("Comments"), tab: .comments)
+            historyTabButton(L10n.tr("Dictation"), tab: .transcriptions)
         }
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)

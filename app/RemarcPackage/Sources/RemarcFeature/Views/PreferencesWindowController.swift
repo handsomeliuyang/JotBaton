@@ -626,7 +626,7 @@ struct PreferencesView: View {
                         RemarcDropdown(
                             selection: $settings.transcriptionEngine,
                             options: TranscriptionEngineType.availableCases,
-                            labelFor: { $0.rawValue },
+                            labelFor: { L10n.lookup($0.rawValue) },
                             trailingAccessoryFor: { engine, cs in
                                 switch engine {
                                 case .appleSpeech:
@@ -830,7 +830,7 @@ struct PreferencesView: View {
                         }
                         toggleRow(L10n.tr("Use fn🌐 key"), isOn: $settings.dictationUsesFnKey)
 
-                        pickerRow(L10n.tr("Hands-free mode"), selection: $settings.dictationHandsFreeMode) { $0.rawValue }
+                        pickerRow(L10n.tr("Hands-free mode"), selection: $settings.dictationHandsFreeMode) { L10n.lookup($0.rawValue) }
 
                         if settings.dictationHandsFreeMode == .customShortcut {
                             settingsRow(L10n.tr("Hands-free shortcut")) {
@@ -952,7 +952,7 @@ struct PreferencesView: View {
                         case .downloaded:
                             Text(L10n.tr("Downloaded"))
                         case .downloading(let progress):
-                            Text(L10n.tr("Downloading \(settings.whisperKitModel.rawValue)... \(Int(progress * 100))%"))
+                            Text(L10n.tr("Downloading \(L10n.lookup(settings.whisperKitModel.rawValue))... \(Int(progress * 100))%"))
                         case .preparing:
                             Text(L10n.tr("Preparing model..."))
                         default:
@@ -1485,7 +1485,7 @@ struct PreferencesView: View {
     }
 
     private var extensionStatusText: String {
-        if let error = webSocketService.serverError { return error }
+        if webSocketService.serverError != nil { return L10n.tr("Port \(AppConstants.webSocketPort) unavailable") }
         if !webSocketService.isRunning { return L10n.tr("Starting server\u{2026}") }
         if webSocketService.isClientConnected { return L10n.tr("Extension connected") }
         if settings.hasExtensionEverConnected { return L10n.tr("Extension not connected") }
@@ -1814,7 +1814,7 @@ struct PreferencesView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(Color.remarcWarning(for: colorScheme))
-                .help(L10n.tr("Failed at \(date.interfaceFormatted(date: .omitted, time: .shortened)): \(message)"))
+                .help(L10n.tr("Failed at \(date.interfaceFormatted(date: .omitted, time: .shortened)): \(L10n.lookup(message))"))
         case nil:
             EmptyView()
         }
@@ -1856,7 +1856,7 @@ struct PreferencesView: View {
                 enabled: pluginState.remarcEnabled,
                 healthy: pluginState.remarcInstalled,
                 needsAction: !pluginState.remarcInstalled,
-                actionTitle: "Install",
+                actionTitle: L10n.tr("Install"),
                 installAllowed: true,
                 checked: pluginStateChecked,
                 installing: installingPlugins.contains("remarc"),
@@ -1877,7 +1877,7 @@ struct PreferencesView: View {
                 enabled: pluginState.remarcHooksEnabled,
                 healthy: pluginState.remarcHooksInstalled,
                 needsAction: !pluginState.remarcHooksInstalled,
-                actionTitle: "Install",
+                actionTitle: L10n.tr("Install"),
                 installAllowed: pluginState.remarcInstalled,
                 checked: pluginStateChecked,
                 installing: installingPlugins.contains("remarc-hooks"),
@@ -1988,7 +1988,7 @@ struct PreferencesView: View {
                 enabled: codexPluginState.remarcEnabled,
                 healthy: codexHealthy,
                 needsAction: !codexHealthy,
-                actionTitle: codexPluginState.remarcInstalled ? "Repair" : "Install",
+                actionTitle: codexPluginState.remarcInstalled ? L10n.tr("Repair") : L10n.tr("Install"),
                 installAllowed: true,
                 checked: codexPluginChecked,
                 installing: codexInstalling,
@@ -2029,7 +2029,7 @@ struct PreferencesView: View {
 
     private func pluginRowStatus(checked: Bool, installed: Bool, enabled: Bool, healthy: Bool) -> IntegrationRowStatus {
         if !checked { return .pending(L10n.tr("Checking")) }
-        if installed && enabled && healthy { return .installed("Installed") }
+        if installed && enabled && healthy { return .installed(L10n.tr("Installed")) }
         if installed && enabled { return .warning(L10n.tr("Needs repair")) }
         if installed { return .warning(L10n.tr("Installed (disabled)")) }
         return .inactive(L10n.tr("Not installed"))
@@ -2204,7 +2204,7 @@ struct PreferencesView: View {
 
         switch status {
         case .installed, .updated, .unchanged:
-            return .installed("Installed")
+            return .installed(L10n.tr("Installed"))
         case .notInstalled:
             return .inactive(L10n.tr("Off"))
         case .skippedHarnessAbsent:
@@ -2217,7 +2217,7 @@ struct PreferencesView: View {
     private func mcpStatus(for harness: SkillInstaller.Harness) -> IntegrationRowStatus {
         if harness == .claudeCode {
             if mcpManager.isEnabled {
-                return .installed("Installed")
+                return .installed(L10n.tr("Installed"))
             }
             if mcpManager.nodeStatus == .unchecked || mcpManager.claudeStatus == .unchecked {
                 return harnessManager.isWorking ? .pending(L10n.tr("Checking")) : .pending(L10n.tr("Not checked yet"))
@@ -2240,7 +2240,7 @@ struct PreferencesView: View {
 
         switch status {
         case .installed:
-            return .installed("Installed")
+            return .installed(L10n.tr("Installed"))
         case .notInstalled:
             return .inactive(L10n.tr("Off"))
         case .skippedHarnessAbsent:

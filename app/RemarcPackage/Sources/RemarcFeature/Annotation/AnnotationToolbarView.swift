@@ -352,7 +352,7 @@ struct AnnotationToolbarView: View {
                 .foregroundStyle(.primary.opacity(0.6))
                 .padding(.trailing, 2)
             ForEach(tools, id: \.0) { tool, image, label, key in
-                AnnotationToolButton(systemImage: image, label: label, shortcut: key,
+                AnnotationToolButton(systemImage: image, label: L10n.lookup(label), shortcut: key,
                                      isSelected: session.tool == tool) {
                     session.tool = tool
                     expansion = .none
