@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HistoryCardView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let comment: Comment
     let onRestore: () -> Void
     let onPermanentDelete: () -> Void
@@ -104,7 +105,7 @@ struct HistoryCardView: View {
         HStack(spacing: 4) {
             if let deletedAt = comment.deletedAt {
                 Text({
-                    let date = "Deleted \(deletedAt.formatted(date: .abbreviated, time: .shortened))"
+                    let date = L10n.tr("Deleted \(deletedAt.interfaceFormatted(date: .abbreviated, time: .shortened))")
                     if let app = appDisplayName(for: comment) {
                         return "\(date) \u{00B7} \(app)"
                     }
@@ -123,29 +124,29 @@ struct HistoryCardView: View {
             Spacer(minLength: 0)
 
             HStack(spacing: 2) {
-                CardActionButton(icon: "arrow.uturn.backward", tooltip: "Restore", tint: Color.remarcPrimary(for: colorScheme), action: onRestore)
-                CardActionButton(icon: "trash", tooltip: "Delete permanently", tint: Color.remarcError(for: colorScheme)) {
+                CardActionButton(icon: "arrow.uturn.backward", tooltip: L10n.tr("Restore"), tint: Color.remarcPrimary(for: colorScheme), action: onRestore)
+                CardActionButton(icon: "trash", tooltip: L10n.tr("Delete permanently"), tint: Color.remarcError(for: colorScheme)) {
                     showDeleteConfirmation = true
                 }
                 .popover(isPresented: $showDeleteConfirmation, arrowEdge: .bottom) {
                     VStack(spacing: 8) {
-                        Text("Delete permanently?")
+                        Text(L10n.tr("Delete permanently?"))
                             .font(.system(size: 12, weight: .medium))
                         if comment.type.imagePath != nil || !comment.attachments.isEmpty {
-                            Text("This cannot be undone. Image references in exports may break.")
+                            Text(L10n.tr("This cannot be undone. Image references in exports may break."))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.primary.opacity(0.6))
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
-                            Text("This cannot be undone.")
+                            Text(L10n.tr("This cannot be undone."))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.primary.opacity(0.6))
                         }
                         HStack(spacing: 8) {
-                            ConfirmationButton(label: "Cancel", role: .cancel) {
+                            ConfirmationButton(label: L10n.tr("Cancel"), role: .cancel) {
                                 showDeleteConfirmation = false
                             }
-                            ConfirmationButton(label: "Delete", role: .destructive) {
+                            ConfirmationButton(label: L10n.tr("Delete"), role: .destructive) {
                                 showDeleteConfirmation = false
                                 onPermanentDelete()
                             }

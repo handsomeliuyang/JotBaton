@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct ScreenshotThumbnailView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let imagePath: String
     var maxWidth: CGFloat = 280
     var maxHeight: CGFloat = 200

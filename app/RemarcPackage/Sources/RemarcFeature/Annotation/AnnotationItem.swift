@@ -46,10 +46,10 @@ public enum AnnotationArrowStyle: String, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .straight: return "Arrow"
-        case .curved: return "Curved arrow"
-        case .double: return "Double-headed arrow"
-        case .dashed: return "Dashed arrow"
+        case .straight: return L10n.tr("Arrow")
+        case .curved: return L10n.tr("Curved arrow")
+        case .double: return L10n.tr("Double-headed arrow")
+        case .dashed: return L10n.tr("Dashed arrow")
         }
     }
 

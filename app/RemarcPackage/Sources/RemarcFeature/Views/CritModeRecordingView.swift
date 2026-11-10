@@ -2,6 +2,7 @@ import SwiftUI
 
 @available(macOS 26, *)
 struct CritModeRecordingView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject var service: CritModeService
     let onCancel: () -> Void
     let onComplete: ([Comment]) -> Void
@@ -62,7 +63,7 @@ struct CritModeRecordingView: View {
             ElapsedTimerView(startTime: startTime)
                 .padding(.top, 12)
 
-            Text("Speak your critique — each point becomes a comment")
+            Text(L10n.tr("Speak your critique — each point becomes a comment"))
                 .font(.system(size: 11))
                 .foregroundStyle(.primary.opacity(0.45))
                 .padding(.top, 6)
@@ -74,7 +75,7 @@ struct CritModeRecordingView: View {
                     do {
                         let comments = try await service.stopRecording()
                         if comments.isEmpty {
-                            ToastManager.shared.show("No speech detected")
+                            ToastManager.shared.show(L10n.tr("No speech detected"))
                             onCancel()
                             return
                         }
@@ -89,7 +90,7 @@ struct CritModeRecordingView: View {
                     }
                 }
             }
-            .help("Stop recording")
+            .help(L10n.tr("Stop recording"))
             .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -156,6 +157,7 @@ struct CritModeRecordingView: View {
 
 @available(macOS 26, *)
 struct CritModeHeader: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let onClose: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
@@ -165,7 +167,7 @@ struct CritModeHeader: View {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                Text("Crit Mode")
+                Text(L10n.tr("Crit Mode"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
             }
@@ -184,7 +186,7 @@ struct CritModeHeader: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Cancel")
+            .help(L10n.tr("Cancel"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -195,6 +197,7 @@ struct CritModeHeader: View {
 
 @available(macOS 26, *)
 private struct ElapsedTimerView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let startTime: Date
 
     var body: some View {

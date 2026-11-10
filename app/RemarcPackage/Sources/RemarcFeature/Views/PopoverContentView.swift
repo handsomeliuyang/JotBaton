@@ -5,6 +5,7 @@ import FoundationModels
 #endif
 
 struct PopoverContentView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     var fillWidth: Bool = false
     /// Pushes the content down (used for the menu bar panel's arrow strip) while the
     /// background gradient keeps filling the full view, so the arrow matches the body color.
@@ -182,7 +183,7 @@ struct PopoverContentView: View {
                 headerButton(icon: detachedController.isPinned ? "pin.fill" : "pin") {
                     detachedController.togglePin()
                 }
-                .help(detachedController.isPinned ? "Unpin window" : "Pin window")
+                .help(detachedController.isPinned ? L10n.tr("Unpin window") : L10n.tr("Pin window"))
                 .padding(.top, 4 + topInset)
                 .padding(.trailing, 10)
                 .ignoresSafeArea()
@@ -256,7 +257,7 @@ struct PopoverContentView: View {
                             toggleStatusFilter(filter)
                         }
                     }
-                    .help("\(filter.title): \(filter.help). Click to toggle; with none selected, every status shows.")
+                    .help(L10n.tr("\(filter.title): \(filter.help). Click to toggle; with none selected, every status shows."))
                 }
             }
 
@@ -275,7 +276,7 @@ struct PopoverContentView: View {
         creationButton(icon: RemarcSymbols.quickNote) {
             FloatingEditorController.shared.showForQuickNote()
         }
-        .help("New quick note")
+        .help(L10n.tr("New quick note"))
 
         creationButton(icon: "camera.viewfinder") {
             MenuBarPopoverController.shared.dismiss()
@@ -288,13 +289,13 @@ struct PopoverContentView: View {
                 }
             )
         }
-        .help("Screenshot comment")
+        .help(L10n.tr("Screenshot comment"))
 
         if #available(macOS 26, *) {
             creationButton(icon: "mic.fill") {
                 startCritMode()
             }
-            .help("Crit Mode")
+            .help(L10n.tr("Crit Mode"))
         }
     }
 
@@ -371,7 +372,7 @@ struct PopoverContentView: View {
                     Image(systemName: RemarcSymbols.history)
                         .font(.system(size: 12))
                         .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                    Text("History")
+                    Text(L10n.tr("History"))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                 }
@@ -382,7 +383,7 @@ struct PopoverContentView: View {
                 headerButton(icon: "chevron.left") {
                     dismissHistory()
                 }
-                .help("Back to comments")
+                .help(L10n.tr("Back to comments"))
                 Spacer()
             }
 
@@ -395,7 +396,7 @@ struct PopoverContentView: View {
                             isHistorySearching = true
                         }
                     }
-                    .help("Search history")
+                    .help(L10n.tr("Search history"))
 
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -410,7 +411,7 @@ struct PopoverContentView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help(historySortNewestFirst ? "Sort oldest first" : "Sort newest first")
+                    .help(historySortNewestFirst ? L10n.tr("Sort oldest first") : L10n.tr("Sort newest first"))
                 }
             }
         }
@@ -430,13 +431,13 @@ struct PopoverContentView: View {
             headerButton(icon: "chevron.left") {
                 dismissHistory()
             }
-            .help("Back to comments")
+            .help(L10n.tr("Back to comments"))
 
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
 
-            TextField("Search history...", text: $historySearchText)
+            TextField(L10n.tr("Search history..."), text: $historySearchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
 
@@ -464,7 +465,7 @@ struct PopoverContentView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
 
-            TextField("Search this session", text: $searchText)
+            TextField(L10n.tr("Search this session"), text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($isSearchFieldFocused)
@@ -478,7 +479,7 @@ struct PopoverContentView: View {
                     .foregroundStyle(.primary.opacity(0.6))
             }
             .buttonStyle(.plain)
-            .help("Close search (Esc)")
+            .help(L10n.tr("Close search (Esc)"))
 
             creationButtons
         }
@@ -525,7 +526,7 @@ struct PopoverContentView: View {
             .frame(width: 56, height: 56)
             }
 
-            Text("Do something Remarcable")
+            Text(L10n.tr("Do something Remarcable"))
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.45))
                 .multilineTextAlignment(.center)
@@ -579,7 +580,7 @@ struct PopoverContentView: View {
         if searchTerms.isEmpty, selection.count == 1, let only = selection.first {
             return only.emptyStateTitle
         }
-        return "No matching comments"
+        return L10n.tr("No matching comments")
     }
 
     private func commentCard(for comment: Comment) -> some View {
@@ -608,17 +609,17 @@ struct PopoverContentView: View {
 
     private var footer: some View {
         HStack(spacing: 6) {
-            primaryFooterButton(icon: "doc.on.doc", title: "Copy All") {
+            primaryFooterButton(icon: "doc.on.doc", title: L10n.tr("Copy All")) {
                 copyAll()
             }
-            .help("Copy all comments in this session")
+            .help(L10n.tr("Copy all comments in this session"))
             .disabled(sessionActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAll")
 
-            primaryFooterButton(icon: "play.fill", title: "复制并开始开发") {
+            primaryFooterButton(icon: "play.fill", title: L10n.tr("Copy and Start")) {
                 copyAllAndStartDevelopment()
             }
-            .help("复制当前会话全部评论，并将待处理评论标记为正在开发中；保留评论")
+            .help(L10n.tr("Copy all comments in this session and set pending comments to In Progress; keep comments"))
             .disabled(sessionActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
@@ -633,7 +634,7 @@ struct PopoverContentView: View {
             iconFooterButton(icon: "gearshape") {
                 PreferencesWindowController.shared.show()
             }
-            .help("Settings")
+            .help(L10n.tr("Settings"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -645,33 +646,33 @@ struct PopoverContentView: View {
     private var moreMenu: some View {
         Menu {
             Button(action: startSearch) {
-                Label("Search\u{2026}  \u{2318}F", systemImage: "magnifyingglass")
+                Label(L10n.tr("Search\u{2026}  \u{2318}F"), systemImage: "magnifyingglass")
             }
             Button(action: showHistory) {
-                Label("Comment History", systemImage: RemarcSymbols.history)
+                Label(L10n.tr("Comment History"), systemImage: RemarcSymbols.history)
             }
-            Toggle("Newest First", isOn: $sortNewestFirst)
+            Toggle(L10n.tr("Newest First"), isOn: $sortNewestFirst)
 
             Divider()
 
             Button {
                 showResolveAllConfirmation = true
             } label: {
-                Label("Resolve All", systemImage: "checkmark.bubble")
+                Label(L10n.tr("Resolve All"), systemImage: "checkmark.bubble")
             }
             .disabled(sessionActionsDisabled || unresolvedCommentCount == 0)
 
             Button {
                 exportToFile()
             } label: {
-                Label("Export to File\u{2026}", systemImage: "arrow.down.doc")
+                Label(L10n.tr("Export to File\u{2026}"), systemImage: "arrow.down.doc")
             }
             .disabled(sessionActionsDisabled)
 
             Button(role: .destructive) {
                 showDeleteAllConfirmation = true
             } label: {
-                Label("Delete All", systemImage: "trash")
+                Label(L10n.tr("Delete All"), systemImage: "trash")
             }
             .disabled(sessionActionsDisabled)
         } label: {
@@ -680,7 +681,7 @@ struct PopoverContentView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("More")
+        .help(L10n.tr("More"))
         .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
             resolveAllConfirmation
         }
@@ -697,13 +698,13 @@ struct PopoverContentView: View {
     private var clearPrompt: some View {
         VStack(spacing: 6) {
             HStack {
-                Text("Clear exported comments?")
+                Text(L10n.tr("Clear exported comments?"))
                     .font(.system(size: 11))
                 Spacer()
-                ConfirmationButton(label: "Keep", role: .cancel) {
+                ConfirmationButton(label: L10n.tr("Keep"), role: .cancel) {
                     dismissClearPrompt()
                 }
-                ConfirmationButton(label: "Clear", role: .destructive) {
+                ConfirmationButton(label: L10n.tr("Clear"), role: .destructive) {
                     clearPromptCancelled = true
                     exportClearGeneration = UUID()
                     let receipt = pendingExportReceipt
@@ -714,7 +715,7 @@ struct PopoverContentView: View {
                     if let receipt {
                         Task { @MainActor in
                             if case .failure = persistence.clearExportedComments(receipt) {
-                                ToastManager.shared.show("Couldn’t clear exported comments")
+                                ToastManager.shared.show(L10n.tr("Couldn’t clear exported comments"))
                             }
                         }
                     }
@@ -725,7 +726,7 @@ struct PopoverContentView: View {
                     PreferencesWindowController.shared.show(tab: "Export")
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Adjust copy all behavior in settings")
+                        Text(L10n.tr("Adjust copy all behavior in settings"))
                         Image(systemName: "gearshape")
                     }
                     .font(.system(size: 10))
@@ -779,10 +780,10 @@ struct PopoverContentView: View {
     private var autoClearCountdown: some View {
         HStack {
             let count = pendingExportReceipt?.count ?? 0
-            Text("Clearing \(count) comment\(count == 1 ? "" : "s")...")
+            Text(L10n.tr("Clearing \(count) comment\(count == 1 ? "" : "s")..."))
                 .font(.system(size: 11))
             Spacer()
-            Button("Undo") {
+            Button(L10n.tr("Undo")) {
                 cancelAutoClear()
             }
             .font(.system(size: 11, weight: .medium))
@@ -815,9 +816,9 @@ struct PopoverContentView: View {
             Task { @MainActor in
                 switch persistence.clearExportedComments(receipt) {
                 case .success(let clearedIDs):
-                    ToastManager.shared.show("Cleared \(clearedIDs.count) comment\(clearedIDs.count == 1 ? "" : "s")")
+                    ToastManager.shared.show(L10n.tr("Cleared \(clearedIDs.count) comment\(clearedIDs.count == 1 ? "" : "s")"))
                 case .failure:
-                    ToastManager.shared.show("Couldn’t clear exported comments")
+                    ToastManager.shared.show(L10n.tr("Couldn’t clear exported comments"))
                 }
             }
         }
@@ -838,17 +839,17 @@ struct PopoverContentView: View {
     private var deleteAllConfirmation: some View {
         let sessionName = persistence.activeSession?.name ?? "Inbox"
         return VStack(spacing: 8) {
-            Text("Delete all comments in \(sessionName)?")
+            Text(L10n.tr("Delete all comments in \(sessionName)?"))
                 .font(.system(size: 12, weight: .medium))
             HStack(spacing: 8) {
-                ConfirmationButton(label: "Cancel", role: .cancel) {
+                ConfirmationButton(label: L10n.tr("Cancel"), role: .cancel) {
                     showDeleteAllConfirmation = false
                 }
-                ConfirmationButton(label: "Delete All", role: .destructive) {
+                ConfirmationButton(label: L10n.tr("Delete All"), role: .destructive) {
                     if let sessionID = persistence.appState.activeSessionID {
                         let clearedIDs = persistence.clearAllComments(in: sessionID)
                         showDeleteAllConfirmation = false
-                        ToastManager.shared.show("All comments deleted", undo: {
+                        ToastManager.shared.show(L10n.tr("All comments deleted"), undo: {
                             persistence.restoreComments(clearedIDs)
                         }, duration: 5.0)
                     }
@@ -864,14 +865,14 @@ struct PopoverContentView: View {
         let sessionName = persistence.activeSession?.name ?? "Inbox"
         let unresolvedCount = unresolvedCommentCount
         return VStack(spacing: 8) {
-            Text("Resolve all \(unresolvedCount) comments in \(sessionName)?")
+            Text(L10n.tr("Resolve all \(unresolvedCount) comments in \(sessionName)?"))
                 .font(.system(size: 12, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                ConfirmationButton(label: "Cancel", role: .cancel) {
+                ConfirmationButton(label: L10n.tr("Cancel"), role: .cancel) {
                     showResolveAllConfirmation = false
                 }
-                ConfirmationButton(label: "Resolve All", role: .confirm) {
+                ConfirmationButton(label: L10n.tr("Resolve All"), role: .confirm) {
                     if let sessionID = persistence.appState.activeSessionID {
                         let comments = persistence.comments(for: sessionID)
                             .filter { $0.status != .resolved }
@@ -879,7 +880,7 @@ struct PopoverContentView: View {
                             persistence.setCommentStatus(comment.id, to: .resolved)
                         }
                         showResolveAllConfirmation = false
-                        ToastManager.shared.show("\(comments.count) comments resolved", undo: {
+                        ToastManager.shared.show(L10n.tr("\(comments.count) comments resolved"), undo: {
                             for comment in comments {
                                 persistence.setCommentStatus(comment.id, to: comment.status)
                             }
@@ -907,12 +908,12 @@ struct PopoverContentView: View {
 
     private var mcpStatusTooltip: String {
         if mcpManager.isEnabled {
-            return "MCP connected\nAI agents can read your comments"
+            return L10n.tr("MCP connected\nAI agents can read your comments")
         }
         if mcpManager.hasDependencyError {
-            return "MCP needs attention\nMissing dependencies - click for details"
+            return L10n.tr("MCP needs attention\nMissing dependencies - click for details")
         }
-        return "MCP not connected\nClick to enable"
+        return L10n.tr("MCP not connected\nClick to enable")
     }
 
     private var mcpButton: some View {
@@ -924,7 +925,7 @@ struct PopoverContentView: View {
             }
             showMCPPopover = true
         } label: {
-            Label("MCP", systemImage: "powerplug")
+            Label(L10n.tr("MCP"), systemImage: "powerplug")
                 .labelStyle(.iconOnly)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color.remarcPrimary(for: colorScheme))
@@ -958,32 +959,32 @@ struct PopoverContentView: View {
                     .fill(mcpStatusColor)
                     .frame(width: 6, height: 6)
                     .shadow(color: mcpManager.isEnabled ? mcpStatusColor.opacity(0.6) : .clear, radius: 3)
-                Text(mcpManager.isEnabled ? "Enabled" : (mcpManager.hasDependencyError ? "Missing Dependencies" : "Not Connected"))
+                Text(mcpManager.isEnabled ? L10n.tr("Enabled") : (mcpManager.hasDependencyError ? L10n.tr("Missing Dependencies") : L10n.tr("Not Connected")))
                     .font(.system(size: 12, weight: .medium))
             }
 
             if mcpManager.hasDependencyError {
                 VStack(alignment: .leading, spacing: 4) {
                     if mcpManager.nodeStatus == .notFound {
-                        Label("Node.js not found", systemImage: "xmark.circle.fill")
+                        Label(L10n.tr("Node.js not found"), systemImage: "xmark.circle.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(Color.remarcWarning(for: colorScheme))
                     }
                     if mcpManager.claudeStatus == .notFound {
-                        Label("Claude Code CLI not found", systemImage: "xmark.circle.fill")
+                        Label(L10n.tr("Claude Code CLI not found"), systemImage: "xmark.circle.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(Color.remarcWarning(for: colorScheme))
                     }
                 }
 
-                Text("Install the missing dependencies and relaunch Remarc to enable MCP.")
+                Text(L10n.tr("Install the missing dependencies and relaunch Remarc to enable MCP."))
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text(mcpManager.isEnabled
-                     ? "Ask your AI agent to review and resolve your comments - no copy-paste needed."
-                     : "Connect an AI agent so it can read and act on your comments directly.")
+                     ? L10n.tr("Ask your AI agent to review and resolve your comments - no copy-paste needed.")
+                     : L10n.tr("Connect an AI agent so it can read and act on your comments directly."))
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
@@ -997,9 +998,9 @@ struct PopoverContentView: View {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(prompt, forType: .string)
                         showMCPPopover = false
-                        ToastManager.shared.show("Prompt copied")
+                        ToastManager.shared.show(L10n.tr("Prompt copied"))
                     } label: {
-                        Text("Copy Sample Prompt")
+                        Text(L10n.tr("Copy Sample Prompt"))
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                             .padding(.horizontal, 10)
@@ -1033,14 +1034,14 @@ struct PopoverContentView: View {
                             mcpSettingsIconHovered = hovering
                         }
                     }
-                    .help("MCP Settings")
+                    .help(L10n.tr("MCP Settings"))
                 }
             } else {
                 Button {
                     showMCPPopover = false
                     PreferencesWindowController.shared.show()
                 } label: {
-                    Text("Open Preferences")
+                    Text(L10n.tr("Open Preferences"))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                         .padding(.horizontal, 10)
@@ -1092,9 +1093,9 @@ struct PopoverContentView: View {
                         }
                     }
                     if newComments.isEmpty {
-                        ToastManager.shared.show("No speech detected")
+                        ToastManager.shared.show(L10n.tr("No speech detected"))
                     } else {
-                        ToastManager.shared.show("Added \(newComments.count) comment\(newComments.count == 1 ? "" : "s")")
+                        ToastManager.shared.show(L10n.tr("Added \(newComments.count) comment\(newComments.count == 1 ? "" : "s")"))
                     }
                 }
             )
@@ -1122,7 +1123,7 @@ struct PopoverContentView: View {
                             }
                             popoverController.preventDismiss = false
                             popoverController.resizeAfterLayoutSettles()
-                            ToastManager.shared.show("Microphone access required")
+                            ToastManager.shared.show(L10n.tr("Microphone access required"))
                         }
                     }
                 },
@@ -1145,7 +1146,7 @@ struct PopoverContentView: View {
             let modelAvailable = SystemLanguageModel.default.isAvailable
             debugLog("PopoverContentView: SystemLanguageModel.isAvailable = \(modelAvailable)")
             guard modelAvailable else {
-                ToastManager.shared.show("Requires Apple Intelligence (restart after enabling)")
+                ToastManager.shared.show(L10n.tr("Requires Apple Intelligence (restart after enabling)"))
                 return
             }
             #endif
@@ -1173,7 +1174,7 @@ struct PopoverContentView: View {
                     }
                     popoverController.preventDismiss = false
                     popoverController.resizeAfterLayoutSettles()
-                    ToastManager.shared.show("Microphone access required")
+                    ToastManager.shared.show(L10n.tr("Microphone access required"))
                 }
             }
         }
@@ -1187,10 +1188,10 @@ struct PopoverContentView: View {
             comments: allComments,
             format: .markdown
         ) else {
-            ToastManager.shared.show("Couldn’t copy comments")
+            ToastManager.shared.show(L10n.tr("Couldn’t copy comments"))
             return
         }
-        ToastManager.shared.show("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s")")
+        ToastManager.shared.show(L10n.tr("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s")"))
         presentPostExportAction(for: receipt)
     }
 
@@ -1199,13 +1200,13 @@ struct PopoverContentView: View {
               let receipt = ExportManager.shared.copySessionAndStartDevelopment(
                 session, comments: persistence.activeComments
               ) else {
-            ToastManager.shared.show("复制失败，状态未修改")
+            ToastManager.shared.show(L10n.tr("Copy failed; status unchanged"))
             return
         }
         // A development handoff keeps comments for tracking, including when an
         // earlier ordinary Copy All has a delayed clear action still pending.
         resetPostExportAction()
-        ToastManager.shared.show("已复制 \(receipt.count) 条评论，待处理评论已标记为正在开发中")
+        ToastManager.shared.show(L10n.tr("Copied \(receipt.count) comments; pending comments set to In Progress"))
     }
 
     private func resetPostExportAction() {
@@ -1251,7 +1252,7 @@ struct PopoverContentView: View {
             format: SettingsManager.shared.outputFormat
         ) { receipt in
             guard let receipt else { return }
-            ToastManager.shared.show("Exported \(receipt.count) comment\(receipt.count == 1 ? "" : "s")")
+            ToastManager.shared.show(L10n.tr("Exported \(receipt.count) comment\(receipt.count == 1 ? "" : "s")"))
             presentPostExportAction(for: receipt)
         }
     }
@@ -1326,6 +1327,7 @@ struct PopoverContentView: View {
 // MARK: - Status Filter Chip
 
 private struct StatusFilterChip: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let filter: CommentStatusFilter
     let count: Int
     let isSelected: Bool
@@ -1369,7 +1371,7 @@ private struct StatusFilterChip: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("\(filter.title), \(count) comments"))
+        .accessibilityLabel(Text(L10n.tr("\(filter.title), \(count) comments")))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
@@ -1404,6 +1406,7 @@ private struct SearchFieldArrowKeys: ViewModifier {
 // MARK: - Hover Tint Button
 
 private struct HoverTintButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let icon: String
     let iconSize: CGFloat
     let frameSize: CGFloat
@@ -1438,6 +1441,7 @@ private struct HoverTintButton: View {
 // MARK: - Footer Button Style
 
 private struct FooterHoverView<Label: View>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let restOpacity: Double
     let hoverOpacity: Double
     let isPressed: Bool
@@ -1488,6 +1492,7 @@ private struct TertiaryLinkButtonStyle: ButtonStyle {
 }
 
 private struct TertiaryLinkView<Label: View>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let isPressed: Bool
     let label: Label
     @State private var isHovered = false
@@ -1507,6 +1512,7 @@ private struct TertiaryLinkView<Label: View>: View {
 // MARK: - Secondary Footer Button Style (outline only)
 
 private struct SecondaryFooterHoverView<Label: View>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let isPressed: Bool
     let label: Label
     @State private var isHovered = false

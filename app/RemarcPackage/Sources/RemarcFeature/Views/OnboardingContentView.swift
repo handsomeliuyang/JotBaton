@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct OnboardingContentView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @EnvironmentObject var controller: OnboardingWindowController
     @Environment(\.colorScheme) var colorScheme
     @State private var isContinueHovered = false
@@ -61,10 +62,10 @@ struct OnboardingContentView: View {
 
     private var welcomeText: some View {
         VStack(spacing: 8) {
-            Text("Welcome to Remarc!")
+            Text(L10n.tr("Welcome to Remarc!"))
                 .font(.system(size: 24, weight: .bold))
 
-            Text("A few permissions are needed to get started.")
+            Text(L10n.tr("A few permissions are needed to get started."))
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
         }
@@ -76,8 +77,8 @@ struct OnboardingContentView: View {
         VStack(spacing: 10) {
             permissionRow(
                 icon: "hand.raised.fill",
-                title: "Accessibility",
-                description: "Remarc reads your selected text so it can attach comments to it.",
+                title: L10n.tr("Accessibility"),
+                description: L10n.tr("Remarc reads your selected text so it can attach comments to it."),
                 state: controller.accessibilityState,
                 action: { controller.requestAccessibility() },
                 waitingAction: { controller.openAccessibilitySettings() }
@@ -86,8 +87,8 @@ struct OnboardingContentView: View {
             if controller.requiresMicrophonePermission {
                 permissionRow(
                     icon: "mic.fill",
-                    title: "Microphone",
-                    description: "Used for voice dictation and speaking your comments hands-free.",
+                    title: L10n.tr("Microphone"),
+                    description: L10n.tr("Used for voice dictation and speaking your comments hands-free."),
                     state: controller.microphoneState,
                     action: { controller.requestMicrophone() }
                 )
@@ -95,8 +96,8 @@ struct OnboardingContentView: View {
 
             permissionRow(
                 icon: "rectangle.dashed.badge.record",
-                title: "Screen Recording",
-                description: "Used to capture screenshots of selected regions alongside your comments.",
+                title: L10n.tr("Screen Recording"),
+                description: L10n.tr("Used to capture screenshots of selected regions alongside your comments."),
                 state: controller.screenRecordingState,
                 action: { controller.requestScreenRecording() },
                 waitingAction: { controller.openScreenRecordingSettings() }
@@ -126,11 +127,11 @@ struct OnboardingContentView: View {
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Claude Code plugin")
+                Text(L10n.tr("Claude Code plugin"))
                     .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
 
-                Text("Manage Remarc comments from Claude Code. Optional - also available later in Preferences.")
+                Text(L10n.tr("Manage Remarc comments from Claude Code. Optional - also available later in Preferences."))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -157,14 +158,14 @@ struct OnboardingContentView: View {
                 .scaleEffect(0.55)
 
         case .notInstalled:
-            AllowButton(colorScheme: colorScheme, title: "Install", action: installPlugin)
-                .help("Runs claude plugin marketplace add + claude plugin install")
+            AllowButton(colorScheme: colorScheme, title: L10n.tr("Install"), action: installPlugin)
+                .help(L10n.tr("Runs claude plugin marketplace add + claude plugin install"))
 
         case .installing:
             HStack(spacing: 6) {
                 ProgressView()
                     .scaleEffect(0.55)
-                Text("Installing...")
+                Text(L10n.tr("Installing..."))
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
@@ -173,7 +174,7 @@ struct OnboardingContentView: View {
             HStack(spacing: 6) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .semibold))
-                Text("Installed")
+                Text(L10n.tr("Installed"))
                     .font(.system(size: 13, weight: .medium))
             }
             .foregroundColor(Color.remarcSuccess(for: colorScheme))
@@ -190,7 +191,7 @@ struct OnboardingContentView: View {
                     .font(.system(size: 12))
                     .foregroundColor(Color.remarcWarning(for: colorScheme))
                     .help(message)
-                AllowButton(colorScheme: colorScheme, title: "Retry", action: installPlugin)
+                AllowButton(colorScheme: colorScheme, title: L10n.tr("Retry"), action: installPlugin)
             }
         }
     }
@@ -198,7 +199,7 @@ struct OnboardingContentView: View {
     private static func rowState(for state: PluginInstallState) -> PluginRowState {
         if state.remarcInstalled && state.remarcEnabled { return .installed }
         if state.remarcInstalled {
-            return .failed("The remarc plugin is installed but disabled. Run /plugin in Claude Code to enable it.")
+            return .failed(L10n.tr("The remarc plugin is installed but disabled. Run /plugin in Claude Code to enable it."))
         }
         return .notInstalled
     }
@@ -213,7 +214,7 @@ struct OnboardingContentView: View {
             } else {
                 switch outcome {
                 case .claudeNotFound:
-                    pluginRowState = .failed("Claude Code CLI not found. You can install the plugin later from Preferences > MCP Integrations.")
+                    pluginRowState = .failed(L10n.tr("Claude Code CLI not found. You can install the plugin later from Preferences > MCP Integrations."))
                 case .failed(let message):
                     pluginRowState = .failed(message)
                 case .success:
@@ -280,7 +281,7 @@ struct OnboardingContentView: View {
                     HStack(spacing: 6) {
                         ProgressView()
                             .scaleEffect(0.55)
-                        Text("Open Settings")
+                        Text(L10n.tr("Open Settings"))
                             .font(.system(size: 12, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
@@ -291,7 +292,7 @@ struct OnboardingContentView: View {
                 HStack(spacing: 6) {
                     ProgressView()
                         .scaleEffect(0.55)
-                    Text("Waiting...")
+                    Text(L10n.tr("Waiting..."))
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
@@ -301,7 +302,7 @@ struct OnboardingContentView: View {
             HStack(spacing: 6) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .semibold))
-                Text("Enabled")
+                Text(L10n.tr("Enabled"))
                     .font(.system(size: 13, weight: .medium))
             }
             .foregroundColor(Color.remarcSuccess(for: colorScheme))
@@ -320,7 +321,7 @@ struct OnboardingContentView: View {
         let enabled = controller.allPermissionsGranted
 
         return Button(action: { controller.continueFromOnboarding() }) {
-            Text("Continue")
+            Text(L10n.tr("Continue"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(enabled ? .white : .secondary)
                 .frame(maxWidth: .infinity)
@@ -356,8 +357,9 @@ struct OnboardingContentView: View {
 // MARK: - Allow Button
 
 private struct AllowButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let colorScheme: ColorScheme
-    var title: String = "Allow"
+    var title: String = L10n.tr("Allow")
     let action: () -> Void
     @State private var isHovered = false
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 /// The Annotate pill shown on the capture overlay before a session exists.
 struct AnnotationEntryPill: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let isEnabled: Bool
     let action: () -> Void
 
@@ -19,7 +20,7 @@ struct AnnotationEntryPill: View {
                 }
                 Image(systemName: "pencil.tip.crop.circle")
                     .font(.system(size: 12.5, weight: .medium))
-                Text("Annotate")
+                Text(L10n.tr("Annotate"))
                     .font(.system(size: 12.5, weight: .medium))
             }
             .foregroundStyle(foreground)
@@ -41,8 +42,8 @@ struct AnnotationEntryPill: View {
         .disabled(!isEnabled)
         .focusable(isEnabled)
         .focused($isFocused)
-        .help(isEnabled ? "Annotate this region (Shift Cmd A)" : "Preparing...")
-        .accessibilityLabel("Annotate this region")
+        .help(isEnabled ? L10n.tr("Annotate this region (Shift Cmd A)") : L10n.tr("Preparing..."))
+        .accessibilityLabel(L10n.tr("Annotate this region"))
         .onHover { isHovered = $0 && isEnabled }
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)

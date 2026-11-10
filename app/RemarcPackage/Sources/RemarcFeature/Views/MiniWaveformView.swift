@@ -2,6 +2,7 @@ import SwiftUI
 
 @available(macOS 26, *)
 struct MiniWaveformView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let levels: [Float]
     let isHovered: Bool
 

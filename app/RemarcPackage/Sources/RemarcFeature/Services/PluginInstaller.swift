@@ -83,12 +83,12 @@ public enum PluginInstaller {
         marketplace: ProcessRunner.CommandResult?
     ) -> Outcome {
         guard let install else {
-            return .failed("Could not run the claude CLI. Try the commands manually.")
+            return .failed(L10n.tr("Could not run the claude CLI. Try the commands manually."))
         }
         // Timeout wins over exit code: a terminated process that traps the
         // signal and exits 0 must not read as a completed install.
         if install.timedOut {
-            return .failed("Timed out. Check your network and try again, or run the commands manually.")
+            return .failed(L10n.tr("Timed out. Check your network and try again, or run the commands manually."))
         }
         if install.exitCode == 0 { return .success }
 
@@ -149,15 +149,15 @@ public enum PluginInstaller {
             timeoutSeconds: commandTimeoutSeconds,
             mergeStderr: false
         ), listOutput.exitCode == 0, !listOutput.timedOut else {
-            return .failed("Could not verify the plugin marketplace. Run the commands manually.")
+            return .failed(L10n.tr("Could not verify the plugin marketplace. Run the commands manually."))
         }
         switch marketplaceProvenance(listJSON: Data(listOutput.output.utf8)) {
         case .ours:
             break
         case .foreign(let source):
-            return .failed("A different plugin marketplace named \"remarc\" already exists (\(String(source.prefix(120)))). Remove it with: claude plugin marketplace remove remarc - then try again.")
+            return .failed(L10n.tr("A different plugin marketplace named \"remarc\" already exists (\(String(source.prefix(120)))). Remove it with: claude plugin marketplace remove remarc - then try again."))
         case .absent:
-            return .failed("The remarc marketplace could not be added. Run the commands manually.")
+            return .failed(L10n.tr("The remarc marketplace could not be added. Run the commands manually."))
         }
 
         let install = await ProcessRunner.runCollectingResult(

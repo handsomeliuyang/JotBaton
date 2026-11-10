@@ -15,6 +15,7 @@ struct TypeLabelStyle: LabelStyle {
 }
 
 struct CommentCardView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let comment: Comment
     var isFocused: Bool = false
     /// Active search terms; matches are highlighted in the reference and body.
@@ -51,7 +52,8 @@ struct CommentCardView: View {
     }
 
     private var collapsedSummary: String {
-        let text = comment.meaningfulCommentText ?? comment.truncatedTypeLabel
+        let fallback = comment.type.displayText == nil ? comment.type.displayName : comment.truncatedTypeLabel
+        let text = comment.meaningfulCommentText ?? fallback
         let firstLine = text.split(whereSeparator: { $0.isNewline }).first.map(String.init) ?? text
         let summary = firstLine.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
         return summary.isEmpty ? comment.type.displayName : summary
@@ -76,7 +78,7 @@ struct CommentCardView: View {
                         .onTapGesture {
                             FloatingEditorController.shared.showForEdit(comment: comment)
                         }
-                        .help("Open details")
+                        .help(L10n.tr("Open details"))
                 } else {
                     contextBadges
                     referenceView
@@ -129,9 +131,9 @@ struct CommentCardView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
-                .accessibilityLabel("Completed comment: \(collapsedSummary)")
-                .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
+                .help(isCollapsed ? L10n.tr("Expand completed comment") : L10n.tr("Collapse completed comment"))
+                .accessibilityLabel(L10n.tr("Completed comment: \(collapsedSummary)"))
+                .accessibilityValue(isCollapsed ? L10n.tr("Collapsed") : L10n.tr("Expanded"))
             } else {
                 sourceMetadata
                 Spacer(minLength: 0)
@@ -149,7 +151,7 @@ struct CommentCardView: View {
                 .foregroundStyle(.primary.opacity(0.55))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+                .help(comment.createdAt.interfaceFormatted(date: .abbreviated, time: .shortened))
         }
     }
 
@@ -201,16 +203,16 @@ struct CommentCardView: View {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.writeObjects([nsImage])
-                            ToastManager.shared.show("Image copied")
+                            ToastManager.shared.show(L10n.tr("Image copied"))
                         }
                     } label: {
-                        Label("Copy Image", systemImage: "doc.on.doc")
+                        Label(L10n.tr("Copy Image"), systemImage: "doc.on.doc")
                     }
 
                     Button {
                         saveScreenshotAs(imagePath: imagePath)
                     } label: {
-                        Label("Save Image As\u{2026}", systemImage: "square.and.arrow.down")
+                        Label(L10n.tr("Save Image As\u{2026}"), systemImage: "square.and.arrow.down")
                     }
                 }
 
@@ -250,12 +252,12 @@ struct CommentCardView: View {
             do {
                 try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
                 Task { @MainActor in
-                    ToastManager.shared.show("Image saved")
+                    ToastManager.shared.show(L10n.tr("Image saved"))
                 }
             } catch {
                 debugLog("Failed to save screenshot: \(error.localizedDescription)")
                 Task { @MainActor in
-                    ToastManager.shared.show("Failed to save image")
+                    ToastManager.shared.show(L10n.tr("Failed to save image"))
                 }
             }
         }
@@ -289,7 +291,7 @@ struct CommentCardView: View {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(comment.shortID, forType: .string)
-                    ToastManager.shared.show("ID copied")
+                    ToastManager.shared.show(L10n.tr("ID copied"))
                 }
 
             Spacer(minLength: 0)
@@ -324,25 +326,25 @@ struct CommentCardView: View {
 
     private var cardActions: some View {
         HStack(spacing: 4) {
-            cardActionButton(icon: "doc.on.doc", tooltip: "Copy", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "doc.on.doc", tooltip: L10n.tr("Copy"), tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentToClipboard(comment) != nil {
-                    ToastManager.shared.show("Copied to clipboard")
+                    ToastManager.shared.show(L10n.tr("Copied to clipboard"))
                 } else {
-                    ToastManager.shared.show("Couldn’t copy comment")
+                    ToastManager.shared.show(L10n.tr("Couldn’t copy comment"))
                 }
             }
-            cardActionButton(icon: "play.fill", tooltip: "复制并开始开发", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "play.fill", tooltip: L10n.tr("Copy and Start"), tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
-                    ToastManager.shared.show("已复制，已标记为正在开发中")
+                    ToastManager.shared.show(L10n.tr("Copied; set to In Progress"))
                 } else {
-                    ToastManager.shared.show("复制失败，状态未修改")
+                    ToastManager.shared.show(L10n.tr("Copy failed; status unchanged"))
                 }
             }
-            cardActionButton(icon: "pencil", tooltip: "Edit", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "pencil", tooltip: L10n.tr("Edit"), tint: Color.remarcPrimary(for: colorScheme)) {
                 FloatingEditorController.shared.showForEdit(comment: comment)
             }
             if !enabledWebhooks.isEmpty {
-                cardActionButton(icon: "paperplane", tooltip: "Send to webhook", tint: Color.remarcPrimary(for: colorScheme)) {
+                cardActionButton(icon: "paperplane", tooltip: L10n.tr("Send to webhook"), tint: Color.remarcPrimary(for: colorScheme)) {
                     if enabledWebhooks.count == 1 {
                         WebhookService.shared.sendManually(enabledWebhooks[0], comment: comment)
                     } else if isWebhookDropdownOpen {
@@ -354,7 +356,7 @@ struct CommentCardView: View {
                 .overlay(DropdownAnchor(ref: webhookAnchorRef).allowsHitTesting(false))
             }
             if canMoveComment {
-                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: "Move to session", tint: Color.remarcPrimary(for: colorScheme)) {
+                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: L10n.tr("Move to session"), tint: Color.remarcPrimary(for: colorScheme)) {
                     if isMoveDropdownOpen {
                         DropdownPanelController.shared.dismiss()
                     } else {
@@ -363,7 +365,7 @@ struct CommentCardView: View {
                 }
                 .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             }
-            cardActionButton(icon: "trash", tooltip: "Delete", tint: Color.remarcError(for: colorScheme)) {
+            cardActionButton(icon: "trash", tooltip: L10n.tr("Delete"), tint: Color.remarcError(for: colorScheme)) {
                 showDeleteConfirmation = true
             }
             .popover(isPresented: $showDeleteConfirmation, arrowEdge: .bottom) {
@@ -397,7 +399,7 @@ struct CommentCardView: View {
             ) { targetSessionID, targetSessionName in
                 PersistenceManager.shared.moveComment(commentID, to: targetSessionID)
                 DropdownPanelController.shared.dismiss()
-                ToastManager.shared.show("Moved to \(targetSessionName)", undo: {
+                ToastManager.shared.show(L10n.tr("Moved to \(targetSessionName)"), undo: {
                     PersistenceManager.shared.moveComment(commentID, to: oldSessionID)
                 })
             } onNewSession: {
@@ -405,7 +407,7 @@ struct CommentCardView: View {
                 if let newSession = PersistenceManager.shared.createSession(name: name) {
                     PersistenceManager.shared.moveComment(commentID, to: newSession.id)
                     DropdownPanelController.shared.dismiss()
-                    ToastManager.shared.show("Moved to \(newSession.name)", undo: {
+                    ToastManager.shared.show(L10n.tr("Moved to \(newSession.name)"), undo: {
                         PersistenceManager.shared.moveComment(commentID, to: oldSessionID)
                     })
                 }
@@ -446,18 +448,18 @@ struct CommentCardView: View {
 
     private var deleteConfirmationPopover: some View {
         VStack(spacing: 8) {
-            Text("Delete this comment?")
+            Text(L10n.tr("Delete this comment?"))
                 .font(.system(size: 12, weight: .medium))
             HStack(spacing: 8) {
-                ConfirmationButton(label: "Cancel", role: .cancel) {
+                ConfirmationButton(label: L10n.tr("Cancel"), role: .cancel) {
                     showDeleteConfirmation = false
                 }
-                ConfirmationButton(label: "Delete", role: .destructive) {
+                ConfirmationButton(label: L10n.tr("Delete"), role: .destructive) {
                     showDeleteConfirmation = false
                     let commentID = comment.id
                     let originalSessionID = comment.sessionID
                     PersistenceManager.shared.deleteComment(commentID)
-                    ToastManager.shared.show("Deleted", undo: {
+                    ToastManager.shared.show(L10n.tr("Deleted"), undo: {
                         // The card may come from another session in the "All" view,
                         // so restore it where it was rather than into the active one.
                         let persistence = PersistenceManager.shared
@@ -520,6 +522,7 @@ struct CardSurfaceModifier: ViewModifier {
 /// Displays quote text with `lineLimit(3)` and a bottom fade when truncated.
 /// Each instance owns its own measurement state, so multiple cards in a list don't interfere.
 private struct TruncatingQuoteText: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let text: AttributedString
     let accentColor: Color
 
@@ -563,6 +566,7 @@ enum SearchHighlight {
 // MARK: - Card Action Button
 
 struct CardActionButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let icon: String
     let tooltip: String
     let tint: Color
@@ -591,6 +595,7 @@ struct CardActionButton: View {
 // MARK: - Web Context Badge
 
 struct WebContextBadge: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let webContext: WebContext
     var regionElements: [WebContext]?
     let colorScheme: ColorScheme
@@ -629,51 +634,51 @@ struct WebContextBadge: View {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                Text("Web Context")
+                Text(L10n.tr("Web Context"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
             }
 
             if let name = webContext.componentName {
-                row(label: "Component", value: name)
+                row(label: L10n.tr("Component"), value: name)
             }
             if let path = webContext.filePath {
-                row(label: "Source", value: path)
+                row(label: L10n.tr("Source"), value: path)
             }
             if let chain = webContext.reactComponents, !chain.isEmpty {
-                row(label: "Via", value: chain)
+                row(label: L10n.tr("Via"), value: chain)
             }
             if let elementName = webContext.elementName {
-                row(label: "Element", value: elementName)
+                row(label: L10n.tr("Element"), value: elementName)
             }
             if let elementPath = webContext.elementPath {
-                row(label: "Element Path", value: elementPath)
+                row(label: L10n.tr("Element Path"), value: elementPath)
             }
             if let selector = webContext.selector {
-                row(label: "Selector", value: selector)
+                row(label: L10n.tr("Selector"), value: selector)
             }
             if let selectedText = webContext.selectedText {
-                row(label: "Selected Text", value: selectedText)
+                row(label: L10n.tr("Selected Text"), value: selectedText)
             }
             if let cssClasses = webContext.cssClasses, !cssClasses.isEmpty {
-                row(label: "Classes", value: cssClasses)
+                row(label: L10n.tr("Classes"), value: cssClasses)
             }
 
             if let url = webContext.pageUrl {
-                row(label: "URL", value: url)
+                row(label: L10n.tr("URL"), value: url)
             }
 
             if let styles = webContext.computedStyles, !styles.isEmpty {
-                row(label: "Computed Styles", value: styles)
+                row(label: L10n.tr("Computed Styles"), value: styles)
             }
 
             if let a11y = webContext.accessibility, !a11y.isEmpty {
-                row(label: "Accessibility", value: a11y)
+                row(label: L10n.tr("Accessibility"), value: a11y)
             }
 
             if let nearby = webContext.nearbyText, !nearby.isEmpty {
-                row(label: "Nearby Text", value: nearby)
+                row(label: L10n.tr("Nearby Text"), value: nearby)
             }
 
             if let bbox = webContext.boundingBox {
@@ -685,7 +690,7 @@ struct WebContextBadge: View {
                 ].compactMap { $0 }
                 if !parts.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Bounding Box")
+                        Text(L10n.tr("Bounding Box"))
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(.primary.opacity(0.45))
                             .textCase(.uppercase)
@@ -699,11 +704,11 @@ struct WebContextBadge: View {
             }
 
             if let nearbyEls = webContext.nearbyElements, !nearbyEls.isEmpty {
-                row(label: "Nearby Elements", value: nearbyEls)
+                row(label: L10n.tr("Nearby Elements"), value: nearbyEls)
             }
 
             if let elements = regionElements, elements.count > 1 {
-                Text("Region Elements (\(elements.count))")
+                Text(L10n.tr("Region Elements (\(elements.count))"))
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.45))
                     .textCase(.uppercase)
@@ -714,7 +719,7 @@ struct WebContextBadge: View {
                         .lineLimit(1)
                 }
                 if elements.count > 5 {
-                    Text("+\(elements.count - 5) more")
+                    Text(L10n.tr("+\(elements.count - 5) more"))
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.4))
                 }
@@ -748,6 +753,7 @@ struct WebContextBadge: View {
 /// `webContext.hyperframesContext` is non-empty, which itself depends on the
 /// `webContextHyperframesEnabled` toggle in Preferences → Experimental.
 struct HyperframesContextBadge: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let hyperframesContext: String
     let colorScheme: ColorScheme
     @State private var showPopover = false
@@ -786,8 +792,8 @@ struct HyperframesContextBadge: View {
             .popover(isPresented: $showPopover, arrowEdge: .bottom) {
                 hyperframesPopoverContent
             }
-            .help("HyperFrames composition context attached")
-            .accessibilityLabel("HyperFrames context attached")
+            .help(L10n.tr("HyperFrames composition context attached"))
+            .accessibilityLabel(L10n.tr("HyperFrames context attached"))
     }
 
     private var hyperframesPopoverContent: some View {
@@ -798,7 +804,7 @@ struct HyperframesContextBadge: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
-                Text("HyperFrames Context")
+                Text(L10n.tr("HyperFrames Context"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
@@ -871,6 +877,7 @@ struct HyperframesContextBadge: View {
 /// values render as a flow of selectable pills rather than a single
 /// punctuation-separated line that can break awkwardly on wrap.
 struct TagChip: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let text: String
 
     var body: some View {
@@ -946,6 +953,7 @@ struct WrapLayout: Layout {
 // MARK: - Webhook Dropdown Panel
 
 private struct WebhookDropdownPanel: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let webhooks: [Webhook]
     let colorScheme: ColorScheme
     let onSelect: (Webhook) -> Void
@@ -978,6 +986,7 @@ private struct WebhookDropdownPanel: View {
 // MARK: - Move Dropdown Panel
 
 private struct MoveDropdownPanel: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let sessions: [Session]
     let canCreateNew: Bool
     let colorScheme: ColorScheme
@@ -995,7 +1004,7 @@ private struct MoveDropdownPanel: View {
             }
             if canCreateNew {
                 MoveSessionRow(
-                    name: "New Session\u{2026}",
+                    name: L10n.tr("New Session\u{2026}"),
                     icon: "plus",
                     colorScheme: colorScheme,
                     onSelect: onNewSession
@@ -1017,6 +1026,7 @@ private struct MoveDropdownPanel: View {
 }
 
 private struct MoveSessionRow: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let name: String
     var icon: String? = nil
     let colorScheme: ColorScheme

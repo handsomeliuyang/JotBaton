@@ -17,9 +17,9 @@ public enum CursorMCPInstaller {
         var errorDescription: String? {
             switch self {
             case .rootNotObject:
-                return "~/.cursor/mcp.json does not parse as a JSON object"
+                return L10n.tr("~/.cursor/mcp.json does not parse as a JSON object")
             case .mcpServersNotObject:
-                return "~/.cursor/mcp.json `mcpServers` is not an object"
+                return L10n.tr("~/.cursor/mcp.json `mcpServers` is not an object")
             }
         }
     }
@@ -36,7 +36,7 @@ public enum CursorMCPInstaller {
             guard await SkillInstaller.Harness.cursor.isPresent() else { return .skippedHarnessAbsent }
         }
         guard let nodePath = await BundledMCP.nodePath() else { return .skippedNoNode }
-        guard let mcpPath = BundledMCP.mcpServerPath else { return .failed("bundled MCP script not found") }
+        guard let mcpPath = BundledMCP.mcpServerPath else { return .failed(L10n.tr("bundled MCP script not found")) }
 
         let dest = configPath
         let fm = FileManager.default

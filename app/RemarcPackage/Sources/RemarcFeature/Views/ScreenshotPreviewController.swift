@@ -52,7 +52,7 @@ public final class ScreenshotPreviewController {
         // and let Apply or Discard release it.
         if session?.isDirty == true || isApplying {
             queuedShow = (imagePath, commentText)
-            ToastManager.shared.show("Apply or discard your annotations first.")
+            ToastManager.shared.show(L10n.tr("Apply or discard your annotations first."))
             return
         }
 
@@ -191,7 +191,7 @@ public final class ScreenshotPreviewController {
         // `.replacement` used to be, which meant opening another preview threw
         // the marks away rather than queueing behind them.
         if session.isDirty {
-            ToastManager.shared.show("Apply or discard your annotations first.")
+            ToastManager.shared.show(L10n.tr("Apply or discard your annotations first."))
             return true
         }
         tearDownPanel()
@@ -219,7 +219,7 @@ public final class ScreenshotPreviewController {
         guard let imagePath = currentImagePath else { return }
         if session != nil {
             guard session?.isDirty != true else {
-                ToastManager.shared.show("Apply your annotations, or undo them, first.")
+                ToastManager.shared.show(L10n.tr("Apply your annotations, or undo them, first."))
                 return
             }
             session?.teardown()
@@ -242,7 +242,7 @@ public final class ScreenshotPreviewController {
         // Decoded at exact pixel dimensions: NSImage reports points and defers
         // decoding, which is the wrong basis for a source-pixel coordinate system.
         guard let cgImage = AnnotationExporter.decode(relativePath: imagePath) else {
-            ToastManager.shared.show("Could not open that image for annotation.")
+            ToastManager.shared.show(L10n.tr("Could not open that image for annotation."))
             return
         }
         session = AnnotationSession(source: cgImage)
@@ -309,7 +309,7 @@ public final class ScreenshotPreviewController {
             debugLog("ScreenshotPreviewController: apply failed - \(error)")
             isApplying = false
             rebuildContent()
-            ToastManager.shared.show("Could not apply annotations.")
+            ToastManager.shared.show(L10n.tr("Could not apply annotations."))
             return
         }
 
@@ -334,10 +334,10 @@ public final class ScreenshotPreviewController {
 
         switch outcome {
         case .applied:
-            ToastManager.shared.show("Annotations applied")
+            ToastManager.shared.show(L10n.tr("Annotations applied"))
         case let .appliedWithoutEditability(error):
             debugLog("ScreenshotPreviewController: sidecar write failed - \(error)")
-            ToastManager.shared.show("Applied, but these marks will not be re-editable.")
+            ToastManager.shared.show(L10n.tr("Applied, but these marks will not be re-editable."))
         }
 
         drainQueuedShow()
@@ -352,7 +352,7 @@ public final class ScreenshotPreviewController {
         session?.teardown()
         session = nil
         rebuildContent()
-        ToastManager.shared.show("Annotations discarded")
+        ToastManager.shared.show(L10n.tr("Annotations discarded"))
         drainQueuedShow()
     }
 
@@ -409,7 +409,7 @@ public final class ScreenshotPreviewController {
                 self.saveImage(NSImage(cgImage: composite, size: session.pixelSize))
             } catch {
                 debugLog("ScreenshotPreviewController: Save As render failed - \(error)")
-                ToastManager.shared.show("Could not render the annotations.")
+                ToastManager.shared.show(L10n.tr("Could not render the annotations."))
             }
         }
     }
@@ -439,16 +439,16 @@ public final class ScreenshotPreviewController {
                 }
                 guard let pngData = image.pngData() else {
                     self.restoreAfterSaveSheet()
-                    ToastManager.shared.show("Could not encode the image.")
+                    ToastManager.shared.show(L10n.tr("Could not encode the image."))
                     return
                 }
                 do {
                     try pngData.write(to: url, options: .atomic)
                     self.restoreAfterSaveSheet()
-                    ToastManager.shared.show("Saved")
+                    ToastManager.shared.show(L10n.tr("Saved"))
                 } catch {
                     self.restoreAfterSaveSheet()
-                    ToastManager.shared.show("Could not save the image.")
+                    ToastManager.shared.show(L10n.tr("Could not save the image."))
                 }
             }
         }
@@ -530,6 +530,7 @@ public final class ScreenshotPreviewController {
 /// `session.isDirty` up there never re-rendered while marks were being drawn.
 /// The Apply button spent the whole time it was needed off screen because of it.
 private struct AnnotationResolveControls: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject var session: AnnotationSession
     /// Both controls resolve the session, and a commit is already resolving it.
     let isApplying: Bool
@@ -545,7 +546,7 @@ private struct AnnotationResolveControls: View {
         HStack(spacing: 6) {
             if session.isDirty {
                 Button(action: onDiscard) {
-                    Text("Discard")
+                    Text(L10n.tr("Discard"))
                         .font(.system(size: 11.5, weight: .medium))
                         .foregroundStyle(isDiscardHovered
                                          ? Color.remarcError(for: colorScheme)
@@ -562,8 +563,8 @@ private struct AnnotationResolveControls: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isApplying)
-                .help("Discard these annotations")
-                .accessibilityLabel("Discard annotations")
+                .help(L10n.tr("Discard these annotations"))
+                .accessibilityLabel(L10n.tr("Discard annotations"))
                 .onHover { isDiscardHovered = $0 && !isApplying }
                 .animation(.easeInOut(duration: 0.15), value: isDiscardHovered)
 
@@ -581,8 +582,8 @@ private struct AnnotationResolveControls: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Close")
-                .accessibilityLabel("Close")
+                .help(L10n.tr("Close"))
+                .accessibilityLabel(L10n.tr("Close"))
                 .onHover { isCloseHovered = $0 }
                 .animation(.easeInOut(duration: 0.15), value: isCloseHovered)
             }
@@ -594,6 +595,7 @@ private struct AnnotationResolveControls: View {
 // MARK: - Screenshot Preview View
 
 struct ScreenshotPreviewView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     var image: NSImage
     let imagePath: String
     let commentText: String?
@@ -658,7 +660,7 @@ struct ScreenshotPreviewView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(copySuccess ? "Copied!" : "Copy Image")
+                .help(copySuccess ? L10n.tr("Copied!") : L10n.tr("Copy Image"))
                 .onHover { hovering in isCopyHovered = hovering }
                 .animation(.easeInOut(duration: 0.15), value: isCopyHovered)
                 .animation(.easeInOut(duration: 0.15), value: copySuccess)
@@ -671,8 +673,8 @@ struct ScreenshotPreviewView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Save As...")
-                .accessibilityLabel("Save As")
+                .help(L10n.tr("Save As..."))
+                .accessibilityLabel(L10n.tr("Save As"))
                 .onHover { hovering in isSaveHovered = hovering }
                 .animation(.easeInOut(duration: 0.15), value: isSaveHovered)
 
@@ -694,8 +696,8 @@ struct ScreenshotPreviewView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(session != nil ? "Stop annotating" : "Annotate")
-                .accessibilityLabel("Annotate")
+                .help(session != nil ? L10n.tr("Stop annotating") : L10n.tr("Annotate"))
+                .accessibilityLabel(L10n.tr("Annotate"))
                 .accessibilityAddTraits(session != nil ? [.isSelected] : [])
                 .onHover { hovering in isAnnotateHovered = hovering }
                 .animation(.easeInOut(duration: 0.15), value: isAnnotateHovered)

@@ -15,6 +15,7 @@ enum RemarcBrandAssets {
 /// One brand mark for floating surfaces, including the selection tooltip.
 @MainActor
 struct RemarcBrandMark: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     var size: CGFloat = 16
 
     var body: some View {
@@ -48,13 +49,14 @@ struct RemarcBrandMark: View {
 /// Makes composers and screenshot controls identifiable even without a title bar.
 @MainActor
 struct DevelopmentIdentityBadge: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         if AppIdentity.current.isDevelopment {
             HStack(spacing: 4) {
                 RemarcBrandMark(size: 18)
-                Text("DEV")
+                Text(L10n.tr("DEV"))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
             }
             .foregroundStyle(Color.remarcPrimary(for: colorScheme))
@@ -62,7 +64,7 @@ struct DevelopmentIdentityBadge: View {
             .padding(.vertical, 3)
             .background(Capsule().fill(Color.remarcPrimary(for: colorScheme).opacity(0.12)))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Remarc Dev")
+            .accessibilityLabel(L10n.tr("Remarc Dev"))
         }
     }
 }

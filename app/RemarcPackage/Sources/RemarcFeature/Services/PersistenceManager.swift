@@ -701,7 +701,7 @@ public final class PersistenceManager: ObservableObject {
         await acquireDocumentSlot()
         defer { releaseDocumentSlot() }
         while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
-        guard saveToDiskBlocking() else { throw SnapshotError.message("Could not save local changes. Please try again.") }
+        guard saveToDiskBlocking() else { throw SnapshotError.message(L10n.tr("Could not save local changes. Please try again.")) }
         return appState
     }
 
@@ -722,7 +722,7 @@ public final class PersistenceManager: ObservableObject {
         defer { releaseDocumentSlot() }
         while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
         appState.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt))
-        guard saveToDiskBlocking() else { throw SnapshotError.message("The snapshot was published, but its local version label could not be saved. Check updates before retrying.") }
+        guard saveToDiskBlocking() else { throw SnapshotError.message(L10n.tr("The snapshot was published, but its local version label could not be saved. Check updates before retrying.")) }
     }
 
     /// Intentionally replaces the complete document. Never pass an imported
@@ -732,7 +732,7 @@ public final class PersistenceManager: ObservableObject {
         defer { releaseDocumentSlot() }
         while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
         guard saveToDiskBlocking(), appState == expected else {
-            throw SnapshotError.message("Local data changed while preparing the snapshot. Nothing was replaced. Review it and try again.")
+            throw SnapshotError.message(L10n.tr("Local data changed while preparing the snapshot. Nothing was replaced. Review it and try again."))
         }
         var replacement = prepared.state
         let selection = appState.activeSessionID
@@ -1307,7 +1307,7 @@ public final class PersistenceManager: ObservableObject {
             appState.comments[index].updatedAt = now
             scheduleSave()
             debugLog("PersistenceManager: Immediately auto-deleted resolved comment \(id)")
-            ToastManager.shared.show("Auto-deleted", undo: { [weak self] in
+            ToastManager.shared.show(L10n.tr("Auto-deleted"), undo: { [weak self] in
                 self?.restoreComment(id, to: sessionID)
             })
         }

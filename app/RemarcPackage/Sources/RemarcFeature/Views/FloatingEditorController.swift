@@ -67,7 +67,7 @@ public final class FloatingEditorController: ObservableObject {
             initialAttachments: comment.attachments,
             commentType: comment.type,
             targetSessionID: comment.sessionID,
-            successMessage: "Comment updated",
+            successMessage: L10n.tr("Comment updated"),
             onSave: { newText, newAttachments in
                 PersistenceManager.shared.updateComment(
                     comment.id,
@@ -88,7 +88,7 @@ public final class FloatingEditorController: ObservableObject {
             initialAttachments: [],
             commentType: .quickNote,
             targetSessionID: PersistenceManager.shared.appState.activeSessionID,
-            successMessage: "Quick note saved",
+            successMessage: L10n.tr("Quick note saved"),
             onSave: { text, attachments in
                 PersistenceManager.shared.createComment(
                     type: .quickNote,
@@ -155,14 +155,14 @@ public final class FloatingEditorController: ObservableObject {
             commentText: text,
             attachments: attachments
         ) else {
-            triggerSaveFeedback(announcement: "Add text to save this Quick Note")
+            triggerSaveFeedback(announcement: L10n.tr("Add text to save this Quick Note"))
             debugLog("FloatingEditorController: Empty Quick Note save refused")
             return
         }
 
         guard saveAction(text, attachments) else {
-            ToastManager.shared.show("Comment could not be saved")
-            triggerSaveFeedback(announcement: "Comment could not be saved")
+            ToastManager.shared.show(L10n.tr("Comment could not be saved"))
+            triggerSaveFeedback(announcement: L10n.tr("Comment could not be saved"))
             debugLog("FloatingEditorController: Comment save failed")
             return
         }
@@ -597,6 +597,7 @@ private class DimOverlayContentView: NSView {
 // MARK: - Floating Editor Wrapper
 
 struct FloatingEditorWrapper: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @State private var text: String
     @State private var attachments: [String]
 

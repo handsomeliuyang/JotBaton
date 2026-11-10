@@ -31,6 +31,7 @@ final class ToastManager: ObservableObject {
 }
 
 struct ToastOverlay: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let toast: ToastManager.ToastItem
     @Environment(\.colorScheme) private var colorScheme
 
@@ -40,7 +41,7 @@ struct ToastOverlay: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.primary)
             if let undo = toast.undoAction {
-                Button("Undo") {
+                Button(L10n.tr("Undo")) {
                     undo()
                     ToastManager.shared.dismiss()
                 }

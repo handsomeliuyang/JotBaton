@@ -141,7 +141,7 @@ public final class HarnessIntegrationManager: ObservableObject {
         switch harness {
         case .claudeCode:
             if force {
-                return await MCPManager.shared.enable() ? .installed : .failed("Could not register MCP server")
+                return await MCPManager.shared.enable() ? .installed : .failed(L10n.tr("Could not register MCP server"))
             }
             return MCPManager.shared.isEnabled ? .installed : .notInstalled
         case .codex:
@@ -155,7 +155,7 @@ public final class HarnessIntegrationManager: ObservableObject {
         switch harness {
         case .claudeCode:
             if !MCPManager.shared.isEnabled { return .notInstalled }
-            return await MCPManager.shared.disable() ? .notInstalled : .failed("Could not unregister MCP server")
+            return await MCPManager.shared.disable() ? .notInstalled : .failed(L10n.tr("Could not unregister MCP server"))
         case .codex:
             do {
                 try CodexMCPInstaller.uninstall()
@@ -201,7 +201,7 @@ public final class HarnessIntegrationManager: ObservableObject {
 
     private func refreshClaudeCodeMCP(enabled: Bool) {
         var current = statuses[.claudeCode]
-            ?? HarnessStatus(skill: .failed("not yet installed"), mcp: .notInstalled)
+            ?? HarnessStatus(skill: .failed(L10n.tr("not yet installed")), mcp: .notInstalled)
         current.mcp = DisabledHarnesses.contains(.claudeCode) ? .notInstalled : (enabled ? .installed : .notInstalled)
         statuses[.claudeCode] = current
     }

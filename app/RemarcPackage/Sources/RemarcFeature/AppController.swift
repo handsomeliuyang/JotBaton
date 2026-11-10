@@ -640,19 +640,19 @@ public final class AppController: NSObject, ObservableObject {
     private func showRightClickMenu() {
         let menu = NSMenu()
 
-        let copyAllItem = NSMenuItem(title: "Copy All", action: #selector(copyAllAsMarkdown), keyEquivalent: "")
+        let copyAllItem = NSMenuItem(title: L10n.tr("Copy All"), action: #selector(copyAllAsMarkdown), keyEquivalent: "")
         copyAllItem.target = self
         copyAllItem.isEnabled = !PersistenceManager.shared.activeComments.isEmpty
         menu.addItem(copyAllItem)
 
-        let quickNoteItem = NSMenuItem(title: "New Quick Note", action: #selector(newQuickNote), keyEquivalent: "")
+        let quickNoteItem = NSMenuItem(title: L10n.tr("New Quick Note"), action: #selector(newQuickNote), keyEquivalent: "")
         quickNoteItem.target = self
         menu.addItem(quickNoteItem)
 
         menu.addItem(NSMenuItem.separator())
 
         let detachItem = NSMenuItem(
-            title: MenuBarPopoverController.shared.isDetached ? "Re-attach Window" : "Detach Window",
+            title: MenuBarPopoverController.shared.isDetached ? L10n.tr("Re-attach Window") : L10n.tr("Detach Window"),
             action: MenuBarPopoverController.shared.isDetached ? #selector(reattachWindow) : #selector(detachWindow),
             keyEquivalent: ""
         )
@@ -662,20 +662,20 @@ public final class AppController: NSObject, ObservableObject {
         menu.addItem(NSMenuItem.separator())
 
         let pauseItem = NSMenuItem(
-            title: SettingsManager.shared.isPaused ? "Resume" : "Pause",
+            title: SettingsManager.shared.isPaused ? L10n.tr("Resume") : L10n.tr("Pause"),
             action: #selector(togglePause),
             keyEquivalent: ""
         )
         pauseItem.target = self
         menu.addItem(pauseItem)
 
-        let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(showPreferences), keyEquivalent: "")
+        let prefsItem = NSMenuItem(title: L10n.tr("Preferences..."), action: #selector(showPreferences), keyEquivalent: "")
         prefsItem.target = self
         menu.addItem(prefsItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: L10n.tr("Quit"), action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 

@@ -12,26 +12,26 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .open: return "Open"
-        case .inProgress: return "In Progress"
-        case .resolved: return "Resolved"
+        case .open: return L10n.tr("Open")
+        case .inProgress: return L10n.tr("In Progress")
+        case .resolved: return L10n.tr("Resolved")
         }
     }
 
     public var help: String {
         switch self {
-        case .open: return "Comments nobody has started on"
-        case .inProgress: return "Comments handed off or in development"
-        case .resolved: return "Resolved comments"
+        case .open: return L10n.tr("Comments nobody has started on")
+        case .inProgress: return L10n.tr("Comments handed off or in development")
+        case .resolved: return L10n.tr("Resolved comments")
         }
     }
 
     /// Phrase for empty states, e.g. "No in-progress comments".
     public var emptyStateTitle: String {
         switch self {
-        case .open: return "No open comments"
-        case .inProgress: return "No in-progress comments"
-        case .resolved: return "No resolved comments"
+        case .open: return L10n.tr("No open comments")
+        case .inProgress: return L10n.tr("No in-progress comments")
+        case .resolved: return L10n.tr("No resolved comments")
         }
     }
 

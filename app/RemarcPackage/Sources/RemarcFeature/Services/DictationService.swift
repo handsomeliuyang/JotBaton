@@ -57,7 +57,7 @@ final class DictationService: ObservableObject {
             let granted = await AVAudioApplication.requestRecordPermission()
             if !granted {
                 debugLog("DictationService: Mic permission denied")
-                throw NSError(domain: "DictationService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Microphone access denied"])
+                throw NSError(domain: "DictationService", code: 1, userInfo: [NSLocalizedDescriptionKey: L10n.tr("Microphone access denied")])
             }
         }
 

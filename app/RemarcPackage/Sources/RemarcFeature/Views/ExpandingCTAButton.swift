@@ -7,6 +7,7 @@ import SwiftUI
 /// collapsed state mirrors `StatusDotView`'s compact affordance; the expanded state uses
 /// the same light capsule treatment as small settings CTAs such as `GetExtensionButton`.
 struct ExpandingCTAButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     enum Role {
         case neutral
         case destructive

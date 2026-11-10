@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct AttachmentStripView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let attachments: [String]
     var commentText: String? = nil
     var isEditable: Bool = true
@@ -37,16 +38,16 @@ struct AttachmentStripView: View {
                             let pasteboard = NSPasteboard.general
                             pasteboard.clearContents()
                             pasteboard.writeObjects([nsImage])
-                            ToastManager.shared.show("Image copied")
+                            ToastManager.shared.show(L10n.tr("Image copied"))
                         }
                     } label: {
-                        Label("Copy Image", systemImage: "doc.on.doc")
+                        Label(L10n.tr("Copy Image"), systemImage: "doc.on.doc")
                     }
 
                     Button {
                         saveAttachmentAs(imagePath: path)
                     } label: {
-                        Label("Save Image As\u{2026}", systemImage: "square.and.arrow.down")
+                        Label(L10n.tr("Save Image As\u{2026}"), systemImage: "square.and.arrow.down")
                     }
                 }
 
@@ -78,12 +79,12 @@ struct AttachmentStripView: View {
             do {
                 try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
                 Task { @MainActor in
-                    ToastManager.shared.show("Image saved")
+                    ToastManager.shared.show(L10n.tr("Image saved"))
                 }
             } catch {
                 debugLog("Failed to save attachment: \(error.localizedDescription)")
                 Task { @MainActor in
-                    ToastManager.shared.show("Failed to save image")
+                    ToastManager.shared.show(L10n.tr("Failed to save image"))
                 }
             }
         }

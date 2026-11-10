@@ -2,6 +2,7 @@ import SwiftUI
 
 @available(macOS 26, *)
 struct TranscriptionHistoryView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var searchText: String
     @Binding var sortNewestFirst: Bool
     @ObservedObject private var persistence = PersistenceManager.shared
@@ -45,15 +46,15 @@ struct TranscriptionHistoryView: View {
 
             if searchText.isEmpty {
                 VStack(spacing: 4) {
-                    Text("No transcriptions yet")
+                    Text(L10n.tr("No transcriptions yet"))
                         .font(.system(size: 12))
                         .foregroundStyle(.primary.opacity(0.6))
-                    Text("Press ⌃⌥D to dictate")
+                    Text(L10n.tr("Press ⌃⌥D to dictate"))
                         .font(.system(size: 11))
                         .foregroundStyle(.primary.opacity(0.4))
                 }
             } else {
-                Text("No results")
+                Text(L10n.tr("No results"))
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.6))
             }
@@ -66,6 +67,7 @@ struct TranscriptionHistoryView: View {
 
 @available(macOS 26, *)
 struct TranscriptionCardView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let transcription: Transcription
 
     @State private var isHovered = false
@@ -93,26 +95,26 @@ struct TranscriptionCardView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 2) {
-                    CardActionButton(icon: "doc.on.doc", tooltip: "Copy", tint: Color.remarcPrimary(for: colorScheme)) {
+                    CardActionButton(icon: "doc.on.doc", tooltip: L10n.tr("Copy"), tint: Color.remarcPrimary(for: colorScheme)) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(transcription.text, forType: .string)
-                        ToastManager.shared.show("Copied")
+                        ToastManager.shared.show(L10n.tr("Copied"))
                     }
-                    CardActionButton(icon: "trash", tooltip: "Delete", tint: Color.remarcError(for: colorScheme)) {
+                    CardActionButton(icon: "trash", tooltip: L10n.tr("Delete"), tint: Color.remarcError(for: colorScheme)) {
                         showDeleteConfirmation = true
                     }
                     .popover(isPresented: $showDeleteConfirmation, arrowEdge: .bottom) {
                         VStack(spacing: 8) {
-                            Text("Delete transcription?")
+                            Text(L10n.tr("Delete transcription?"))
                                 .font(.system(size: 12, weight: .medium))
-                            Text("This cannot be undone.")
+                            Text(L10n.tr("This cannot be undone."))
                                 .font(.system(size: 11))
                                 .foregroundStyle(.primary.opacity(0.6))
                             HStack(spacing: 8) {
-                                ConfirmationButton(label: "Cancel", role: .cancel) {
+                                ConfirmationButton(label: L10n.tr("Cancel"), role: .cancel) {
                                     showDeleteConfirmation = false
                                 }
-                                ConfirmationButton(label: "Delete", role: .destructive) {
+                                ConfirmationButton(label: L10n.tr("Delete"), role: .destructive) {
                                     showDeleteConfirmation = false
                                     PersistenceManager.shared.permanentlyDeleteTranscription(transcription.id)
                                 }

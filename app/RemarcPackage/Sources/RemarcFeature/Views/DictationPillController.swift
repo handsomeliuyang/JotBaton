@@ -223,6 +223,7 @@ final class DictationPillController: ObservableObject {
 
 @available(macOS 26, *)
 struct DictationPillView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var service = DictationService.shared
     @ObservedObject private var controller = DictationPillController.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -312,7 +313,7 @@ struct DictationPillView: View {
                 .controlSize(.small)
 
             if showWarmupLabel {
-                Text("Preparing model…")
+                Text(L10n.tr("Preparing model…"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.8))
                     .lineLimit(1)
@@ -325,7 +326,7 @@ struct DictationPillView: View {
                     iconSize: 8,
                     size: 24,
                     style: .ghost(colorScheme),
-                    label: "Cancel"
+                    label: L10n.tr("Cancel")
                 ) {
                     DictationPillController.shared.cancel()
                 }
@@ -342,7 +343,7 @@ struct DictationPillView: View {
                 iconSize: 8,
                 size: 24,
                 style: .brand(colorScheme),
-                label: "Done"
+                label: L10n.tr("Done")
             ) {
                 Task { await GlobalHotkey.shared.stopDictationAndPaste() }
             }
@@ -358,7 +359,7 @@ struct DictationPillView: View {
                 iconSize: 8,
                 size: 24,
                 style: .ghost(colorScheme),
-                label: "Cancel"
+                label: L10n.tr("Cancel")
             ) {
                 DictationPillController.shared.cancel()
             }
@@ -419,6 +420,7 @@ struct DictationPillView: View {
 
 @available(macOS 26, *)
 private struct PillActionButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     enum Style {
         case brand(ColorScheme)
         case ghost(ColorScheme)

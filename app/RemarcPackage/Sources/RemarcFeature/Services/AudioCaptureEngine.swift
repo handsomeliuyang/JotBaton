@@ -42,7 +42,7 @@ final class AudioCaptureEngine: @unchecked Sendable {
         guard format.sampleRate > 0 else {
             override?.restore()
             throw NSError(domain: "AudioCaptureEngine", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "No valid audio input device available"])
+                          userInfo: [NSLocalizedDescriptionKey: L10n.tr("No valid audio input device available")])
         }
 
         // Clear stale pending data from previous recording

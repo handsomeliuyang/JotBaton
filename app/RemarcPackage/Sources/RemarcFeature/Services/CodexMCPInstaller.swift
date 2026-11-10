@@ -20,7 +20,7 @@ public enum CodexMCPInstaller {
             guard await SkillInstaller.Harness.codex.isPresent() else { return .skippedHarnessAbsent }
         }
         guard let nodePath = await BundledMCP.nodePath() else { return .skippedNoNode }
-        guard let mcpPath = BundledMCP.mcpServerPath else { return .failed("bundled MCP script not found") }
+        guard let mcpPath = BundledMCP.mcpServerPath else { return .failed(L10n.tr("bundled MCP script not found")) }
 
         let dest = CodexLocations.configPath
         do {
@@ -121,7 +121,7 @@ public enum CodexMCPInstaller {
             throw NSError(
                 domain: "CodexMCPInstaller",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "could not encode UTF-8"]
+                userInfo: [NSLocalizedDescriptionKey: L10n.tr("could not encode UTF-8")]
             )
         }
         try writeAtomicallyWithBackup(data, to: dest)

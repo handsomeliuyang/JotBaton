@@ -7,6 +7,7 @@ import ApplicationServices
 @main
 struct RemarcApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @ObservedObject private var localization = LocalizationManager.shared
 
     var body: some Scene {
         Settings {
@@ -14,7 +15,7 @@ struct RemarcApp: App {
         }
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
+                Button(L10n.tr("Settings…")) {
                     Task { @MainActor in
                         PreferencesWindowController.shared.show()
                     }
@@ -85,7 +86,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         AppController.shared.setup()
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--show-sync") {
+        if arguments.contains("--show-settings") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreferencesWindowController.shared.show(tab: "General")
+            }
+        } else if arguments.contains("--show-sync") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 PreferencesWindowController.shared.show(tab: "iCloud Sync")
             }

@@ -65,7 +65,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
         )
         // Prevent AppKit's legacy release-on-close (crashes under ARC with dangling pointers)
         window.isReleasedWhenClosed = false
-        window.title = "Remarc Comments"
+        window.setLocalizedTitle("Remarc Comments")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = .clear
@@ -112,6 +112,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
 // MARK: - Content View
 
 struct DetachedWindowContentView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     var body: some View {
         PopoverContentView(fillWidth: true)
     }

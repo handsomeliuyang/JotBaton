@@ -6,6 +6,7 @@ import SwiftUI
 /// The scrolling strip holds one capsule per session. Hovering it reveals page
 /// arrows, and a pinned "+" and session menu sit after it.
 struct SessionBarView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var persistence = PersistenceManager.shared
     @ObservedObject private var popoverController = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -149,7 +150,7 @@ struct SessionBarView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Switch session")
+        .help(L10n.tr("Switch session"))
     }
 
     // MARK: - Session Pill
@@ -185,12 +186,12 @@ struct SessionBarView: View {
             Button {
                 beginRename(session)
             } label: {
-                Label("Rename", systemImage: "pencil")
+                Label(L10n.tr("Rename"), systemImage: "pencil")
             }
             Button(role: .destructive) {
                 animateDeleteSession(session.id)
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.tr("Delete"), systemImage: "trash")
             }
         }
     }
@@ -438,6 +439,7 @@ private struct HorizontalWheelScrollBridge: NSViewRepresentable {
 /// Individual session pill with hover, tap, double-click, and context menu support.
 /// Uses manual double-click detection to avoid SwiftUI's tap disambiguation delay.
 private struct SessionPillView<MenuContent: View>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let session: Session
     let isActive: Bool
     let commentCount: Int
@@ -534,6 +536,7 @@ private struct SessionPillView<MenuContent: View>: View {
 /// A text field that replaces a pill during inline rename.
 /// Commits on Enter or focus loss, cancels on Esc or empty text.
 private struct SessionRenameField: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var text: String
     let brandColor: Color
     let colorScheme: ColorScheme
@@ -544,7 +547,7 @@ private struct SessionRenameField: View {
     @State private var clickMonitor: Any?
 
     var body: some View {
-        TextField("Session name", text: $text)
+        TextField(L10n.tr("Session name"), text: $text)
             .textFieldStyle(.plain)
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 10)
@@ -615,6 +618,7 @@ private struct SessionRenameField: View {
 /// Compact "+" pinned after the session strip so it never scrolls out of view.
 /// At the session limit it stays muted and shows a toast on click.
 private struct NewSessionPillButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let colorScheme: ColorScheme
     let canCreate: Bool
     var suppressHover: Bool = false
@@ -631,7 +635,7 @@ private struct NewSessionPillButton: View {
             if canCreate {
                 onCreate()
             } else {
-                ToastManager.shared.show("Session limit reached")
+                ToastManager.shared.show(L10n.tr("Session limit reached"))
             }
         } label: {
             Image(systemName: "plus")
@@ -649,7 +653,7 @@ private struct NewSessionPillButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: effectiveHover)
-        .help(canCreate ? "New session" : "Session limit reached")
+        .help(canCreate ? L10n.tr("New session") : L10n.tr("Session limit reached"))
     }
 }
 
@@ -658,6 +662,7 @@ private struct NewSessionPillButton: View {
 /// Arrow shown over an overflowing strip edge while the pointer is on the
 /// strip, so a mouse user can tell there is more to scroll and page to it.
 private struct StripPageButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     /// -1 pages left, 1 pages right.
     let direction: Int
     let colorScheme: ColorScheme
@@ -688,7 +693,7 @@ private struct StripPageButton: View {
         .padding(.horizontal, 2)
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
-        .help(direction < 0 ? "Scroll left" : "Scroll right")
+        .help(direction < 0 ? L10n.tr("Scroll left") : L10n.tr("Scroll right"))
     }
 }
 
@@ -703,7 +708,7 @@ enum SessionNaming {
             let name = "Session \(letterLabel(for: i))"
             if !existingNames.contains(name) { return name }
         }
-        return "Session" // Fallback (unreachable)
+        return L10n.tr("Session") // Fallback (unreachable)
     }
 
     private static func letterLabel(for index: Int) -> String {

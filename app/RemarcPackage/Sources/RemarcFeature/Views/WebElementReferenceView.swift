@@ -3,6 +3,7 @@ import SwiftUI
 /// Shared view for rendering a web element reference (component name + file path)
 /// with a 2pt indigo left border. Used by CommentCardView and HistoryCardView.
 struct WebElementReferenceView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let name: String?
     let path: String?
     let colorScheme: ColorScheme

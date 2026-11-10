@@ -9,9 +9,9 @@ public enum AnnotationStroke: CGFloat, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .thin: return "Thin"
-        case .medium: return "Medium"
-        case .thick: return "Thick"
+        case .thin: return L10n.tr("Thin")
+        case .medium: return L10n.tr("Medium")
+        case .thick: return L10n.tr("Thick")
         }
     }
 }

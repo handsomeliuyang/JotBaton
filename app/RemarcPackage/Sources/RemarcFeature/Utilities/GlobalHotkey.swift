@@ -284,7 +284,7 @@ public final class GlobalHotkey {
             format: format
         ) else {
             debugLog("GlobalHotkey: clipboard write failed, skipping paste-all")
-            ToastManager.shared.show("Couldn’t copy comments")
+            ToastManager.shared.show(L10n.tr("Couldn’t copy comments"))
             return
         }
         debugLog("GlobalHotkey: copied \(receipt.count) comments, simulating Cmd+V")
@@ -292,7 +292,7 @@ public final class GlobalHotkey {
         // Brief delay for clipboard to settle, then simulate Cmd+V
         simulatePaste()
 
-        ToastManager.shared.show("Pasted \(receipt.count) comment\(receipt.count == 1 ? "" : "s")")
+        ToastManager.shared.show(L10n.tr("Pasted \(receipt.count) comment\(receipt.count == 1 ? "" : "s")"))
 
         if SettingsManager.shared.clearAfterExportBehavior == .delete {
             // Use a delay to allow the paste to complete before clearing
@@ -302,7 +302,7 @@ public final class GlobalHotkey {
                     debugLog("GlobalHotkey: auto-cleared \(clearedIDs.count) unchanged exported comments after paste-all")
                 case .failure(let error):
                     debugLog("GlobalHotkey: auto-clear after paste-all failed - \(error)")
-                    ToastManager.shared.show("Couldn’t clear exported comments")
+                    ToastManager.shared.show(L10n.tr("Couldn’t clear exported comments"))
                 }
             }
         }
@@ -358,7 +358,7 @@ public final class GlobalHotkey {
                 try await voiceService.startRecording()
             } catch {
                 debugLog("GlobalHotkey: voice recording failed: \(error)")
-                ToastManager.shared.show("Microphone access required")
+                ToastManager.shared.show(L10n.tr("Microphone access required"))
             }
         }
     }
@@ -549,7 +549,7 @@ public final class GlobalHotkey {
             } catch {
                 debugLog("GlobalHotkey: dictation recording failed: \(error)")
                 DictationPillController.shared.dismiss()
-                ToastManager.shared.show("Microphone access required")
+                ToastManager.shared.show(L10n.tr("Microphone access required"))
             }
         }
     }
@@ -582,7 +582,7 @@ public final class GlobalHotkey {
             text = try await dictationService.stopRecording()
         } catch {
             debugLog("GlobalHotkey: dictation transcription failed: \(error)")
-            DictationPillController.shared.showError("Transcription failed")
+            DictationPillController.shared.showError(L10n.tr("Transcription failed"))
             return
         }
 
@@ -633,7 +633,7 @@ public final class GlobalHotkey {
 
         guard let transcription = PersistenceManager.shared.transcriptions.first else {
             debugLog("GlobalHotkey: no transcriptions to paste")
-            ToastManager.shared.show("No transcriptions yet")
+            ToastManager.shared.show(L10n.tr("No transcriptions yet"))
             return
         }
 

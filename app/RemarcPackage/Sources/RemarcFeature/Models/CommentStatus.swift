@@ -7,12 +7,24 @@ public enum CommentStatus: String, Codable, Sendable, CaseIterable {
     case inProgress
     case resolved
 
-    public var label: String {
+    /// Stable export wording is independent of the interface language.
+    public var exportLabel: String {
         switch self {
         case .open: return "Open"
         case .handedOff: return "Handed Off"
         case .inProgress: return "正在开发中"
         case .resolved: return "Resolved"
+        }
+    }
+
+    public var label: String { localizedLabel(language: L10n.language) }
+
+    func localizedLabel(language: AppLanguage) -> String {
+        switch self {
+        case .open: return L10n.tr("Open", language: language)
+        case .handedOff: return L10n.tr("Handed Off", language: language)
+        case .inProgress: return L10n.tr("In Progress", language: language)
+        case .resolved: return L10n.tr("Resolved", language: language)
         }
     }
 

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SessionPickerPill: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var selectedSessionID: UUID?
     let mode: Mode
     let comment: Comment?
@@ -79,7 +80,7 @@ struct SessionPickerPill: View {
     // MARK: - New Session Text Field
 
     private var newSessionTextField: some View {
-        TextField("Session name", text: $newSessionName)
+        TextField(L10n.tr("Session name"), text: $newSessionName)
             .font(.system(size: 11))
             .textFieldStyle(.plain)
             .padding(.horizontal, 7)
@@ -156,7 +157,7 @@ struct SessionPickerPill: View {
             PersistenceManager.shared.moveComment(comment.id, to: sessionID)
             selectedSessionID = sessionID
 
-            ToastManager.shared.show("Moved to \(targetName)", undo: {
+            ToastManager.shared.show(L10n.tr("Moved to \(targetName)"), undo: {
                 PersistenceManager.shared.moveComment(comment.id, to: previousSessionID)
             })
         } else {
@@ -233,6 +234,7 @@ struct SessionPickerPill: View {
 // MARK: - Session Dropdown Panel
 
 private struct SessionDropdownPanel: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let sessions: [Session]
     let currentSessionID: UUID?
     let colorScheme: ColorScheme
@@ -275,6 +277,7 @@ private struct SessionDropdownPanel: View {
 }
 
 private struct SessionOptionRow: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let name: String
     let origin: SessionOrigin
     let isSelected: Bool
@@ -324,6 +327,7 @@ private struct SessionOptionRow: View {
 }
 
 private struct NewSessionRow: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let colorScheme: ColorScheme
     let onTap: () -> Void
     @State private var isHovered = false
@@ -335,7 +339,7 @@ private struct NewSessionRow: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                     .frame(width: 14)
-                Text("New Session...")
+                Text(L10n.tr("New Session..."))
                     .font(.system(size: 12))
                     .lineLimit(1)
                 Spacer(minLength: 0)

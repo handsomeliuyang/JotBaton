@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Floating Action Button (used in Crit Mode recording view)
 
 struct FloatingActionButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let icon: String
     let action: () -> Void
 
@@ -92,6 +93,7 @@ struct BrandCTAButtonStyle: ButtonStyle {
 // MARK: - Creation Header Button (prominent circular buttons in the header)
 
 struct CreationHeaderButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let icon: String
     let brandColor: Color
     let colorScheme: ColorScheme

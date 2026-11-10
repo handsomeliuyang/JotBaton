@@ -18,13 +18,13 @@ public enum WebhookEventType: String, Codable, CaseIterable, Sendable, Hashable 
 
     public var label: String {
         switch self {
-        case .commentCreated: return "Comment created"
-        case .commentUpdated: return "Comment edited or moved"
-        case .commentStatusChanged: return "Status changed"
-        case .commentResolved: return "Comment resolved"
-        case .commentDeleted: return "Comment deleted"
-        case .commentSent: return "Sent manually"
-        case .webhookTest: return "Test"
+        case .commentCreated: return L10n.tr("Comment created")
+        case .commentUpdated: return L10n.tr("Comment edited or moved")
+        case .commentStatusChanged: return L10n.tr("Status changed")
+        case .commentResolved: return L10n.tr("Comment resolved")
+        case .commentDeleted: return L10n.tr("Comment deleted")
+        case .commentSent: return L10n.tr("Sent manually")
+        case .webhookTest: return L10n.tr("Test")
         }
     }
 }

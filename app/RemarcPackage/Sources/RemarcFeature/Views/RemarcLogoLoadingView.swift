@@ -77,6 +77,7 @@ struct RemarcLogoShape: Shape {
 
 @available(macOS 26, *)
 struct RemarcLogoLoadingView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     enum Mode {
         case preparing   // traces once, then fills
         case processing  // loops stroke draw/undraw (while transcribing)
@@ -172,9 +173,9 @@ struct RemarcLogoLoadingView: View {
 
     private var labelText: String {
         switch mode {
-        case .preparing: return "Warming up..."
-        case .processing: return "Distilling your remarks..."
-        case .completing: return "Done!"
+        case .preparing: return L10n.tr("Warming up...")
+        case .processing: return L10n.tr("Distilling your remarks...")
+        case .completing: return L10n.tr("Done!")
         }
     }
 

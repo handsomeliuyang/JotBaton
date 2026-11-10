@@ -63,7 +63,7 @@ public enum SkillInstaller {
         guard let source = BundledMCP.bundledSkillURL else {
             debugLog("SkillInstaller: bundled skill not found")
             return Dictionary(uniqueKeysWithValues: Harness.allCases.map {
-                ($0, .failed("bundled resource missing"))
+                ($0, .failed(L10n.tr("bundled resource missing")))
             })
         }
 
@@ -77,7 +77,7 @@ public enum SkillInstaller {
     public static func install(for harness: Harness, force: Bool = false) async -> Result {
         guard let source = BundledMCP.bundledSkillURL else {
             debugLog("SkillInstaller: bundled skill not found")
-            return .failed("bundled resource missing")
+            return .failed(L10n.tr("bundled resource missing"))
         }
         return await installOne(from: source, for: harness, force: force)
     }

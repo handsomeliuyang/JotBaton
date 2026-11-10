@@ -38,6 +38,7 @@ struct VoiceAutoSaveButtonState {
 
 @available(macOS 26, *)
 struct VoiceAwareSaveButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var voiceInput = VoiceInputService.shared
     @Binding var isSaveHovered: Bool
     let colorScheme: ColorScheme
@@ -75,10 +76,10 @@ struct VoiceAwareSaveButton: View {
                 Button(action: onSave) {
                     HStack(spacing: 6) {
                         if autoSaveState.countdownActive && NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                            Text("Saving... \(autoSaveState.remainingSeconds)s")
+                            Text(L10n.tr("Saving... \(autoSaveState.remainingSeconds)s"))
                                 .font(.system(size: 12, weight: .medium))
                         } else {
-                            Text("Save")
+                            Text(L10n.tr("Save"))
                                 .font(.system(size: 12, weight: .medium))
                             HStack(spacing: 1) {
                                 Image(systemName: "command")
@@ -154,7 +155,7 @@ struct VoiceAwareSaveButton: View {
                 }
                 .buttonStyle(.plain)
                 .onHover { hovering in isWaveformHovered = hovering }
-                .help(voiceInput.state == .recording ? "Stop recording" : "")
+                .help(voiceInput.state == .recording ? L10n.tr("Stop recording") : "")
                 .zIndex(1)
                 .transition(.blurReplace)
             }
@@ -169,6 +170,7 @@ struct VoiceAwareSaveButton: View {
 /// Mic toggle button — starts or stops voice recording.
 @available(macOS 26, *)
 struct VoiceMicButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var voiceInput = VoiceInputService.shared
     @Binding var isMicHovered: Bool
     let appendText: (String) -> Void
@@ -199,7 +201,7 @@ struct VoiceMicButton: View {
         .onHover { hovering in isMicHovered = hovering }
         .animation(.easeInOut(duration: 0.15), value: isMicHovered)
         .disabled(voiceInput.state == .warmingUp || voiceInput.state == .processing)
-        .help(voiceInput.state == .recording ? "Stop recording" : "Voice input")
+        .help(voiceInput.state == .recording ? L10n.tr("Stop recording") : L10n.tr("Voice input"))
     }
 
     private func toggleRecording() {
@@ -220,6 +222,7 @@ struct VoiceMicButton: View {
 /// Recording overlay — subtle accent border + audio-reactive background glow.
 @available(macOS 26, *)
 struct VoiceRecordingBorder: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var voiceInput = VoiceInputService.shared
     let colorScheme: ColorScheme
 

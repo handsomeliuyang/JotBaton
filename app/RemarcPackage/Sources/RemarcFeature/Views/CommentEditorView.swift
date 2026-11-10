@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct CommentEditorView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var floatingController = FloatingEditorController.shared
     @Binding var commentText: String
@@ -50,7 +51,7 @@ struct CommentEditorView: View {
                         if let comment {
                             HStack(spacing: 4) {
                                 Text({
-                                    let date = comment.createdAt.formatted(date: .abbreviated, time: .shortened)
+                                    let date = comment.createdAt.interfaceFormatted(date: .abbreviated, time: .shortened)
                                     if let app = appDisplayName(for: comment) {
                                         return "\(app) — \(date)"
                                     }
@@ -69,7 +70,7 @@ struct CommentEditorView: View {
                         }
                     }
                 } else {
-                    Label("Quick Note", systemImage: "note.text")
+                    Label(L10n.tr("Quick Note"), systemImage: "note.text")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -112,7 +113,7 @@ struct CommentEditorView: View {
                     .buttonStyle(.plain)
                     .onHover { hovering in isAttachHovered = hovering }
                     .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
-                    .help("Attach image")
+                    .help(L10n.tr("Attach image"))
 
                     if #available(macOS 26, *) {
                         VoiceMicButton(
@@ -138,7 +139,7 @@ struct CommentEditorView: View {
                     } else {
                         Button(action: { onSave(commentText, attachments) }) {
                             HStack(spacing: 6) {
-                                Text("Save")
+                                Text(L10n.tr("Save"))
                                     .font(.system(size: 12, weight: .medium))
                                 HStack(spacing: 1) {
                                     Image(systemName: "command")

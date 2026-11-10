@@ -20,9 +20,9 @@ enum ScreenshotStorage {
         var errorDescription: String? {
             switch self {
             case .invalidDirectory:
-                return "Choose a folder on this Mac."
+                return L10n.tr("Choose a folder on this Mac.")
             case .unavailableDirectory(let path):
-                return "The screenshot folder is unavailable: \(path). Reconnect it or choose another folder in Settings."
+                return L10n.tr("The screenshot folder is unavailable: \(path). Reconnect it or choose another folder in Settings.")
             }
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct CommentInputView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @EnvironmentObject var controller: CommentInputController
     @Environment(\.colorScheme) private var colorScheme
     /// Observed so an already-open composer reacts when wake availability
@@ -82,7 +83,7 @@ struct CommentInputView: View {
                 .buttonStyle(.plain)
                 .onHover { hovering in isAttachHovered = hovering }
                 .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
-                .help("Attach image")
+                .help(L10n.tr("Attach image"))
 
                 if #available(macOS 26, *) {
                     VoiceMicButton(
@@ -216,7 +217,7 @@ struct CommentInputView: View {
     private var saveButton: some View {
         Button(action: { controller.saveComment(text: commentText, attachments: attachments) }) {
             HStack(spacing: 6) {
-                Text("Save")
+                Text(L10n.tr("Save"))
                     .font(.system(size: 12, weight: .medium))
                 Text("⌘↵")
                     .font(.system(size: 11, weight: .medium))
@@ -314,7 +315,7 @@ struct CommentInputView: View {
                 )
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Label("Web Element", systemImage: "globe")
+                        Label(L10n.tr("Web Element"), systemImage: "globe")
                             .font(.system(size: 11))
                             .labelStyle(TypeLabelStyle(colorScheme: colorScheme))
                         WebContextBadge(webContext: elementContext, regionElements: activeRegionElements, colorScheme: colorScheme)
@@ -344,7 +345,7 @@ struct CommentInputView: View {
                     Image(systemName: "camera.viewfinder")
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.45))
-                    Text("Screenshot")
+                    Text(L10n.tr("Screenshot"))
                         .font(.system(size: 11))
                         .foregroundStyle(.primary.opacity(0.45))
                 }
@@ -356,7 +357,7 @@ struct CommentInputView: View {
                     Image(systemName: "note.text")
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.6))
-                    Text("Quick Note")
+                    Text(L10n.tr("Quick Note"))
                         .font(.system(size: 11))
                         .foregroundStyle(.primary.opacity(0.6))
                 }

@@ -10,6 +10,7 @@ import SwiftUI
 /// This reports provenance, not whether an agent is attached right now. Live
 /// pairing lives in the session markers; see `WakeReachability`.
 struct SessionOriginBadge: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let origin: SessionOrigin
 
     /// Matches the type metrics at both call sites.
@@ -26,8 +27,8 @@ struct SessionOriginBadge: View {
                 .renderingMode(.template)
                 .frame(width: side, height: side)
                 .foregroundStyle(Color.claudeMarkOrange)
-                .help("Created by Claude Code")
-                .accessibilityLabel("Created by Claude Code")
+                .help(L10n.tr("Created by Claude Code"))
+                .accessibilityLabel(L10n.tr("Created by Claude Code"))
 
         case .codex:
             // Template-rendered, so it takes the foreground colour rather than
@@ -39,8 +40,8 @@ struct SessionOriginBadge: View {
                 .renderingMode(.template)
                 .frame(width: side, height: side)
                 .foregroundStyle(.primary.opacity(0.75))
-                .help("Created by Codex")
-                .accessibilityLabel("Created by Codex")
+                .help(L10n.tr("Created by Codex"))
+                .accessibilityLabel(L10n.tr("Created by Codex"))
 
         case .omp:
             // OMP's dark rounded square and gradient pi are one full-colour
@@ -49,8 +50,8 @@ struct SessionOriginBadge: View {
                 .resizable()
                 .renderingMode(.original)
                 .frame(width: side, height: side)
-                .help("Created by OMP")
-                .accessibilityLabel("Created by OMP")
+                .help(L10n.tr("Created by OMP"))
+                .accessibilityLabel(L10n.tr("Created by OMP"))
         }
     }
 }

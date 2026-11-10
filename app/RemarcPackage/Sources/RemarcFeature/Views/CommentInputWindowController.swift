@@ -568,7 +568,7 @@ public final class CommentInputController: NSObject, ObservableObject {
             commentText: text,
             attachments: attachments
         ) else {
-            triggerSaveFeedback(announcement: "Add text to save this Quick Note")
+            triggerSaveFeedback(announcement: L10n.tr("Add text to save this Quick Note"))
             debugLog("CommentInputController: Empty Quick Note save refused")
             return
         }
@@ -657,8 +657,8 @@ public final class CommentInputController: NSObject, ObservableObject {
         guard let comment else {
             AppController.shared.cancelPreparedBadgeBounce()
             debugLog("CommentInputController: Comment save FAILED - no active session?")
-            ToastManager.shared.show("Comment could not be saved")
-            triggerSaveFeedback(announcement: "Comment could not be saved")
+            ToastManager.shared.show(L10n.tr("Comment could not be saved"))
+            triggerSaveFeedback(announcement: L10n.tr("Comment could not be saved"))
             return
         }
 

@@ -5,14 +5,14 @@ enum SnapshotCloudTransfer: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .unknown: return "Not confirmed"
-        case .empty: return "Nothing published yet"
-        case .uploading: return "Uploading…"
-        case .downloading: return "Downloading…"
-        case .transferring: return "Uploading and downloading…"
-        case .waiting: return "Waiting for iCloud"
-        case .ready: return "Ready on this Mac"
-        case .failed: return "Transfer failed"
+        case .unknown: return L10n.tr("Not confirmed")
+        case .empty: return L10n.tr("Nothing published yet")
+        case .uploading: return L10n.tr("Uploading…")
+        case .downloading: return L10n.tr("Downloading…")
+        case .transferring: return L10n.tr("Uploading and downloading…")
+        case .waiting: return L10n.tr("Waiting for iCloud")
+        case .ready: return L10n.tr("Ready on this Mac")
+        case .failed: return L10n.tr("Transfer failed")
         }
     }
     var isActive: Bool { self == .uploading || self == .downloading || self == .transferring }
@@ -34,12 +34,12 @@ struct SnapshotSyncIssue: Codable, Equatable, Sendable {
     var isWarning: Bool { (stage == .uploadConfirmation && kind != .permission && kind != .quota) || kind == .review }
     var recovery: String {
         switch kind {
-        case .permission: return "Allow Remarc access to iCloud Drive, then retry. Your local tasks are kept."
-        case .cloudUnavailable: return "Check your network and iCloud Drive in System Settings, then check again."
-        case .quota: return "Free up iCloud storage, then retry the same snapshot."
-        case .unavailable: return "Check that iCloud Drive is enabled and the \(AppIdentity.current.directoryName) folder is available."
-        case .review: return "Review the cloud versions and choose which complete state to keep."
-        case .other: return "Your local tasks are kept. Retry, or copy the diagnostic details if the problem continues."
+        case .permission: return L10n.tr("Allow Remarc access to iCloud Drive, then retry. Your local tasks are kept.")
+        case .cloudUnavailable: return L10n.tr("Check your network and iCloud Drive in System Settings, then check again.")
+        case .quota: return L10n.tr("Free up iCloud storage, then retry the same snapshot.")
+        case .unavailable: return L10n.tr("Check that iCloud Drive is enabled and the \(AppIdentity.current.directoryName) folder is available.")
+        case .review: return L10n.tr("Review the cloud versions and choose which complete state to keep.")
+        case .other: return L10n.tr("Your local tasks are kept. Retry, or copy the diagnostic details if the problem continues.")
         }
     }
     var diagnostic: String {
@@ -171,32 +171,32 @@ struct SnapshotSyncPresentation: Equatable {
                      publication: SnapshotPublication?, hasLocalChanges: Bool, remoteCount: Int,
                      comparison: SnapshotComparison? = nil) -> Self {
         if let progress { return Self(title: progress, action: .check, tone: .neutral) }
-        if !enabled { return Self(title: "iCloud snapshots are off", action: .enable, tone: .neutral) }
+        if !enabled { return Self(title: L10n.tr("iCloud snapshots are off"), action: .enable, tone: .neutral) }
         if let issue {
             let action: Action = issue.kind == .review || issue.stage == .applying ? .choose : issue.needsAuthorization ? .authorize : .retry
-            return Self(title: issue.message, action: action, tone: issue.isWarning ? .warning : .error)
+            return Self(title: L10n.lookup(issue.message), action: action, tone: issue.isWarning ? .warning : .error)
         }
-        if !directoryReady { return Self(title: "Check iCloud Drive access", action: .check, tone: .warning) }
+        if !directoryReady { return Self(title: L10n.tr("Check iCloud Drive access"), action: .check, tone: .warning) }
         if let publication, publication.isPending {
             switch publication.phase {
-            case .savedLocally: return Self(title: "Snapshot saved locally · not uploaded", action: .retry, tone: .warning)
-            case .awaitingUpload: return Self(title: "Snapshot saved · waiting for iCloud", action: .check, tone: .warning)
-            case .unconfirmed: return Self(title: "Snapshot saved · upload not confirmed", action: .check, tone: .warning)
+            case .savedLocally: return Self(title: L10n.tr("Snapshot saved locally · not uploaded"), action: .retry, tone: .warning)
+            case .awaitingUpload: return Self(title: L10n.tr("Snapshot saved · waiting for iCloud"), action: .check, tone: .warning)
+            case .unconfirmed: return Self(title: L10n.tr("Snapshot saved · upload not confirmed"), action: .check, tone: .warning)
             case .confirmed: break
             }
         }
         if let comparison {
             switch comparison {
-            case .same: return Self(title: "This Mac matches the current cloud data", action: .publish, tone: .success)
-            case .publish: return Self(title: "Local changes are ready to publish", action: .publish, tone: .neutral)
-            case .receive: return Self(title: "New cloud data is ready to apply", action: .apply, tone: .neutral)
-            case .choose: return Self(title: "The data differs · choose which to keep", action: .choose, tone: .warning)
+            case .same: return Self(title: L10n.tr("This Mac matches the current cloud data"), action: .publish, tone: .success)
+            case .publish: return Self(title: L10n.tr("Local changes are ready to publish"), action: .publish, tone: .neutral)
+            case .receive: return Self(title: L10n.tr("New cloud data is ready to apply"), action: .apply, tone: .neutral)
+            case .choose: return Self(title: L10n.tr("The data differs · choose which to keep"), action: .choose, tone: .warning)
             }
         }
-        if remoteCount > 1 || (remoteCount > 0 && hasLocalChanges) { return Self(title: "Local and iCloud versions need review", action: .choose, tone: .warning) }
-        if remoteCount == 1 { return Self(title: "New iCloud version available", action: .apply, tone: .neutral) }
-        if hasLocalChanges { return Self(title: "Local changes not published", action: .publish, tone: .neutral) }
-        if publication?.phase == .confirmed { return Self(title: "Uploaded to iCloud", action: .publish, tone: .success) }
-        return Self(title: "Using the selected version", action: .publish, tone: .neutral)
+        if remoteCount > 1 || (remoteCount > 0 && hasLocalChanges) { return Self(title: L10n.tr("Local and iCloud versions need review"), action: .choose, tone: .warning) }
+        if remoteCount == 1 { return Self(title: L10n.tr("New iCloud version available"), action: .apply, tone: .neutral) }
+        if hasLocalChanges { return Self(title: L10n.tr("Local changes not published"), action: .publish, tone: .neutral) }
+        if publication?.phase == .confirmed { return Self(title: L10n.tr("Uploaded to iCloud"), action: .publish, tone: .success) }
+        return Self(title: L10n.tr("Using the selected version"), action: .publish, tone: .neutral)
     }
 }

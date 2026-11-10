@@ -35,7 +35,7 @@ enum SnapshotError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .message(let message), .underlying(let message, _): return message
-        case .waitingForDownload: return "iCloud is downloading this data. Your local tasks are kept. Check again shortly."
+        case .waitingForDownload: return L10n.tr("iCloud is downloading this data. Your local tasks are kept. Check again shortly.")
         }
     }
 }
@@ -73,7 +73,7 @@ enum SnapshotArchive {
         func image(_ path: String, required: Bool) throws -> String {
             if let mapped = paths[path] {
                 if required && files[String(mapped.dropFirst(7))] == nil {
-                    throw SnapshotError.message("A referenced image is unavailable. Restore the file before publishing.")
+                    throw SnapshotError.message(L10n.tr("A referenced image is unavailable. Restore the file before publishing."))
                 }
                 return mapped
             }
@@ -81,7 +81,7 @@ enum SnapshotArchive {
             let bytes: Data
             do { bytes = try Data(contentsOf: url, options: .mappedIfSafe) }
             catch {
-                if required { throw SnapshotError.message("An image is unavailable: \(url.lastPathComponent). Restore the file before publishing.") }
+                if required { throw SnapshotError.message(L10n.tr("An image is unavailable: \(url.lastPathComponent). Restore the file before publishing.")) }
                 // Deleted history may outlive its image retention period.
                 let missing = path.hasPrefix("images/") && validEntry("files/" + String(path.dropFirst(7)))
                     ? path : "images/\(assetID(Data(path.utf8))).png"
@@ -143,7 +143,7 @@ enum SnapshotArchive {
         try encode(prepared.state).write(to: stage.appendingPathComponent("state.json"), options: .atomic)
         try encode(prepared.files.mapValues(digest)).write(to: stage.appendingPathComponent("inventory.json"), options: .atomic)
         for (name, bytes) in prepared.files {
-            guard validEntry("files/\(name)") else { throw SnapshotError.message("Invalid snapshot image filename.") }
+            guard validEntry("files/\(name)") else { throw SnapshotError.message(L10n.tr("Invalid snapshot image filename.")) }
             try bytes.write(to: stage.appendingPathComponent("files/\(name)"))
         }
         let id = UUID()
@@ -166,13 +166,13 @@ enum SnapshotArchive {
     }
 
     static func read(_ version: SnapshotVersion, archive: URL) throws -> Prepared {
-        guard version.formatVersion == 1 else { throw SnapshotError.message("This snapshot requires a newer version of Remarc.") }
-        guard try fileDigest(archive) == version.archiveHash else { throw SnapshotError.message("Snapshot verification failed. Your local data has not been changed.") }
+        guard version.formatVersion == 1 else { throw SnapshotError.message(L10n.tr("This snapshot requires a newer version of Remarc.")) }
+        guard try fileDigest(archive) == version.archiveHash else { throw SnapshotError.message(L10n.tr("Snapshot verification failed. Your local data has not been changed.")) }
         let entries = String(decoding: try command("/usr/bin/unzip", ["-Z1", archive.path], limit: 8_000_000), as: UTF8.self)
             .split(separator: "\n").map(String.init)
         guard Set(entries).count == entries.count, entries.count < 50_000,
               entries.allSatisfy({ $0 == "state.json" || $0 == "inventory.json" || $0 == "files/" || validEntry($0) }) else {
-            throw SnapshotError.message("The snapshot contains invalid file entries.")
+            throw SnapshotError.message(L10n.tr("The snapshot contains invalid file entries."))
         }
         let stateData = try command("/usr/bin/unzip", ["-p", archive.path, "state.json"], limit: 64_000_000)
         let inventoryData = try command("/usr/bin/unzip", ["-p", archive.path, "inventory.json"], limit: 8_000_000)
@@ -181,19 +181,19 @@ enum SnapshotArchive {
         // across Foundation versions (notably Ventura and newer macOS).
         var sourceIdentity = stateData
         sourceIdentity.append(inventoryData)
-        guard digest(sourceIdentity) == version.contentHash else { throw SnapshotError.message("Snapshot content verification failed.") }
+        guard digest(sourceIdentity) == version.contentHash else { throw SnapshotError.message(L10n.tr("Snapshot content verification failed.")) }
         let inventory = try JSONDecoder().decode([String: String].self, from: inventoryData)
         var state = try JSONDecoder().decode(AppState.self, from: stateData)
         guard Set(entries.filter { !$0.hasSuffix("/") }) == Set(["state.json", "inventory.json"] + inventory.keys.map { "files/\($0)" }) else {
-            throw SnapshotError.message("The snapshot file inventory is incomplete.")
+            throw SnapshotError.message(L10n.tr("The snapshot file inventory is incomplete."))
         }
         var files: [String: Data] = [:]
         var total = 0
         for (name, hash) in inventory {
-            guard validEntry("files/\(name)") else { throw SnapshotError.message("Invalid image path in snapshot.") }
+            guard validEntry("files/\(name)") else { throw SnapshotError.message(L10n.tr("Invalid image path in snapshot.")) }
             let bytes = try command("/usr/bin/unzip", ["-p", archive.path, "files/\(name)"], limit: 200_000_000)
             total += bytes.count
-            guard total <= 2_000_000_000, digest(bytes) == hash else { throw SnapshotError.message("Snapshot image verification failed.") }
+            guard total <= 2_000_000_000, digest(bytes) == hash else { throw SnapshotError.message(L10n.tr("Snapshot image verification failed.")) }
             files[name] = bytes
         }
         func validPath(_ path: String, required: Bool) -> Bool {
@@ -206,7 +206,7 @@ enum SnapshotArchive {
         }), state.orphanedImages.allSatisfy({ validPath($0.path, required: false) }),
         Set(state.comments.map(\.id)).count == state.comments.count,
         Set(state.sessions.map(\.id)).count == state.sessions.count else {
-            throw SnapshotError.message("The snapshot contains invalid task references.")
+            throw SnapshotError.message(L10n.tr("The snapshot contains invalid task references."))
         }
         state.activeSessionID = nil
         for index in state.sessions.indices { state.sessions[index].claudeCodeSessionId = nil }
@@ -239,7 +239,7 @@ enum SnapshotArchive {
         let images = root.appendingPathComponent("images", isDirectory: true)
         try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
         guard try images.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else {
-            throw SnapshotError.message("The local images folder must not be a symbolic link.")
+            throw SnapshotError.message(L10n.tr("The local images folder must not be a symbolic link."))
         }
         // Imported screenshots can subsequently be edited in place. Give every
         // family a fresh local filename so restoring an older version never
@@ -249,11 +249,11 @@ enum SnapshotArchive {
             mapping[String(name.dropLast(4))] = UUID().uuidString
         }
         for (name, bytes) in prepared.files {
-            guard validEntry("files/\(name)") else { throw SnapshotError.message("Invalid image filename.") }
+            guard validEntry("files/\(name)") else { throw SnapshotError.message(L10n.tr("Invalid image filename.")) }
             let prefix = String(name.prefix(36))
-            guard let localName = mapping[prefix] else { throw SnapshotError.message("An editing file has no primary image.") }
+            guard let localName = mapping[prefix] else { throw SnapshotError.message(L10n.tr("An editing file has no primary image.")) }
             let target = images.appendingPathComponent(localName + name.dropFirst(36))
-            guard !FileManager.default.fileExists(atPath: target.path) else { throw SnapshotError.message("Could not allocate a local image filename. Please retry.") }
+            guard !FileManager.default.fileExists(atPath: target.path) else { throw SnapshotError.message(L10n.tr("Could not allocate a local image filename. Please retry.")) }
             try bytes.write(to: target, options: .atomic)
         }
         func localPath(_ path: String) -> String {
@@ -285,7 +285,7 @@ enum SnapshotArchive {
             while let bytes = try pipe.fileHandleForReading.read(upToCount: 65_536), !bytes.isEmpty {
                 guard output.count + bytes.count <= limit else {
                     process.terminate()
-                    throw SnapshotError.message("The snapshot exceeds the supported size limit.")
+                    throw SnapshotError.message(L10n.tr("The snapshot exceeds the supported size limit."))
                 }
                 output.append(bytes)
             }
@@ -296,7 +296,7 @@ enum SnapshotArchive {
             throw error
         }
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw SnapshotError.message("Could not read or create the snapshot archive.") }
+        guard process.terminationStatus == 0 else { throw SnapshotError.message(L10n.tr("Could not read or create the snapshot archive.")) }
         return output
     }
 }

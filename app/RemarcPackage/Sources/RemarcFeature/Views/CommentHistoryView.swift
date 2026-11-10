@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CommentHistoryView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var showingHistory: Bool
     @Binding var restoredCommentID: UUID?
     @Binding var searchText: String
@@ -66,7 +67,7 @@ struct CommentHistoryView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(.primary.opacity(0.25))
 
-            Text(searchText.isEmpty ? "No deleted comments" : "No results")
+            Text(searchText.isEmpty ? L10n.tr("No deleted comments") : L10n.tr("No results"))
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
         }
@@ -75,7 +76,7 @@ struct CommentHistoryView: View {
 
     private func permanentlyDelete(_ comment: Comment) {
         persistence.permanentlyDeleteComment(comment.id)
-        ToastManager.shared.show("Permanently deleted")
+        ToastManager.shared.show(L10n.tr("Permanently deleted"))
     }
 
     private func restoreComment(_ comment: Comment) {
@@ -89,7 +90,7 @@ struct CommentHistoryView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 withAnimation(.easeOut(duration: 0.5)) { restoredCommentID = nil }
             }
-            ToastManager.shared.show("Comment restored")
+            ToastManager.shared.show(L10n.tr("Comment restored"))
         }
     }
 }

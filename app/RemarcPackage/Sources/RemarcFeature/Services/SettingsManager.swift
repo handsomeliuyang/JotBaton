@@ -341,7 +341,7 @@ public final class SettingsManager: ObservableObject {
             guard dictationUsesFnKey else { return }
             if dictationHandsFreeUsesFnKey {
                 dictationHandsFreeUsesFnKey = false
-                ToastManager.shared.show("fn🌐 moved from Hands-free Shortcut")
+                ToastManager.shared.show(L10n.tr("fn🌐 moved from Hands-free Shortcut"))
             }
             KeyboardShortcuts.setShortcut(nil, for: .dictation)
         }
@@ -353,7 +353,7 @@ public final class SettingsManager: ObservableObject {
             guard dictationHandsFreeUsesFnKey else { return }
             if dictationUsesFnKey {
                 dictationUsesFnKey = false
-                ToastManager.shared.show("fn🌐 moved from Push to Talk")
+                ToastManager.shared.show(L10n.tr("fn🌐 moved from Push to Talk"))
             }
             KeyboardShortcuts.setShortcut(nil, for: .dictationHandsFree)
         }
@@ -809,13 +809,13 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .after30Minutes: "After 30 min"
-            case .after1Hour:     "After 1 hour"
-            case .after2Hours:    "After 2 hours"
-            case .after4Hours:    "After 4 hours"
-            case .after6Hours:    "After 6 hours"
-            case .after12Hours:   "After 12 hours"
-            case .after24Hours:   "After 24 hours"
+            case .after30Minutes: L10n.tr("After 30 min")
+            case .after1Hour:     L10n.tr("After 1 hour")
+            case .after2Hours:    L10n.tr("After 2 hours")
+            case .after4Hours:    L10n.tr("After 4 hours")
+            case .after6Hours:    L10n.tr("After 6 hours")
+            case .after12Hours:   L10n.tr("After 12 hours")
+            case .after24Hours:   L10n.tr("After 24 hours")
             }
         }
 
@@ -837,11 +837,11 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .never: "Never"
-            case .immediately: "Immediately"
-            case .after15Minutes: "After 15 min"
-            case .after1Hour: "After 1 hour"
-            case .after1Day: "After 1 day"
+            case .never: L10n.tr("Never")
+            case .immediately: L10n.tr("Immediately")
+            case .after15Minutes: L10n.tr("After 15 min")
+            case .after1Hour: L10n.tr("After 1 hour")
+            case .after1Day: L10n.tr("After 1 day")
             }
         }
 
@@ -861,9 +861,9 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .ask: "Always Ask"
-            case .keep: "Always Keep"
-            case .delete: "Always Delete"
+            case .ask: L10n.tr("Always Ask")
+            case .keep: L10n.tr("Always Keep")
+            case .delete: L10n.tr("Always Delete")
             }
         }
     }
@@ -875,9 +875,9 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .autoDelete: "Delete session"
-            case .keep: "Keep session"
-            case .moveUnresolved: "Move unresolved to Inbox"
+            case .autoDelete: L10n.tr("Delete session")
+            case .keep: L10n.tr("Keep session")
+            case .moveUnresolved: L10n.tr("Move unresolved to Inbox")
             }
         }
     }
@@ -888,8 +888,8 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .markdown: return "Markdown"
-            case .json: return "JSON"
+            case .markdown: return L10n.tr("Markdown")
+            case .json: return L10n.tr("JSON")
             }
         }
 
@@ -914,8 +914,8 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .above: return "Above selection"
-            case .below: return "Below selection"
+            case .above: return L10n.tr("Above selection")
+            case .below: return L10n.tr("Below selection")
             }
         }
     }
@@ -944,9 +944,9 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .count: return "Count"
-            case .dot: return "Dot"
-            case .off: return "Off"
+            case .count: return L10n.tr("Count")
+            case .dot: return L10n.tr("Dot")
+            case .off: return L10n.tr("Off")
             }
         }
 
@@ -967,8 +967,8 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .auto: return "Auto-detect + Hotkey"
-            case .hotkeyOnly: return "Hotkey Only"
+            case .auto: return L10n.tr("Auto-detect + Hotkey")
+            case .hotkeyOnly: return L10n.tr("Hotkey Only")
             }
         }
     }
@@ -980,9 +980,9 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .blockquote: return "> Blockquote"
-            case .rePrefix: return "Re: Prefix"
-            case .quoted: return "\"Quoted\""
+            case .blockquote: return L10n.tr("> Blockquote")
+            case .rePrefix: return L10n.tr("Re: Prefix")
+            case .quoted: return L10n.tr("\"Quoted\"")
             }
         }
     }
@@ -994,9 +994,9 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .numbered: return "Numbered"
-            case .bulleted: return "Bulleted"
-            case .none: return "None"
+            case .numbered: return L10n.tr("Numbered")
+            case .bulleted: return L10n.tr("Bulleted")
+            case .none: return L10n.tr("None")
             }
         }
     }
@@ -1009,10 +1009,10 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .horizontalRule: return "--- Rule"
-            case .doubleLine: return "=== Double"
-            case .dotted: return "\u{00B7}\u{00B7}\u{00B7} Dotted"
-            case .blankLine: return "Blank Line"
+            case .horizontalRule: return L10n.tr("--- Rule")
+            case .doubleLine: return L10n.tr("=== Double")
+            case .dotted: return L10n.tr("\u{00B7}\u{00B7}\u{00B7} Dotted")
+            case .blankLine: return L10n.tr("Blank Line")
             }
         }
     }
@@ -1026,6 +1026,7 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             let formatter = DateFormatter()
+            formatter.locale = L10n.locale
             switch self {
             case .short: formatter.dateFormat = "MMM d"
             case .medium: formatter.dateFormat = "MMM d, yyyy"
@@ -1060,11 +1061,11 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .comment: return "Comment:"
-            case .note: return "Note:"
-            case .dash: return "\u{2014} Dash"
-            case .arrow: return "\u{2192} Arrow"
-            case .none: return "None"
+            case .comment: return L10n.tr("Comment:")
+            case .note: return L10n.tr("Note:")
+            case .dash: return L10n.tr("\u{2014} Dash")
+            case .arrow: return L10n.tr("\u{2192} Arrow")
+            case .none: return L10n.tr("None")
             }
         }
     }
@@ -1077,10 +1078,10 @@ public final class SettingsManager: ObservableObject {
 
         public var label: String {
             switch self {
-            case .pipe: return "| Pipe"
-            case .dash: return "\u{2014} Dash"
-            case .bullet: return "\u{00B7} Dot"
-            case .comma: return ", Comma"
+            case .pipe: return L10n.tr("| Pipe")
+            case .dash: return L10n.tr("\u{2014} Dash")
+            case .bullet: return L10n.tr("\u{00B7} Dot")
+            case .comma: return L10n.tr(", Comma")
             }
         }
 

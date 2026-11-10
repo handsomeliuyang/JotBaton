@@ -10,6 +10,7 @@ struct WebhookEditorState: Identifiable {
 /// Add/edit sheet for a webhook endpoint: name, URL, event subscriptions,
 /// optional signing secret, and optional custom payload template.
 struct WebhookEditorSheet: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let state: WebhookEditorState
     let onSave: (Webhook) -> Void
 
@@ -45,12 +46,12 @@ struct WebhookEditorSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(state.isNew ? "Add Webhook" : "Edit Webhook")
+            Text(state.isNew ? L10n.tr("Add Webhook") : L10n.tr("Edit Webhook"))
                 .font(.system(size: 14, weight: .semibold))
 
             VStack(alignment: .leading, spacing: 10) {
                 labeledField("Name") {
-                    TextField("Slack alerts", text: $draft.name)
+                    TextField(L10n.tr("Slack alerts"), text: $draft.name)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12))
                 }
@@ -60,40 +61,40 @@ struct WebhookEditorSheet: View {
                         .font(.system(size: 12, design: .monospaced))
                 }
                 if !trimmedURL.isEmpty && !urlIsValid {
-                    CalloutView(.warning, "Enter a valid http or https URL.")
+                    CalloutView(.warning, L10n.tr("Enter a valid http or https URL."))
                 }
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Events")
+                Text(L10n.tr("Events"))
                     .font(.system(size: 12, weight: .medium))
                 ForEach(WebhookEventType.subscribable, id: \.self) { event in
                     Toggle(event.label, isOn: eventBinding(event))
                         .toggleStyle(.checkbox)
                         .font(.system(size: 12))
                 }
-                Text("Sending a card manually always works, regardless of subscriptions.")
+                Text(L10n.tr("Sending a card manually always works, regardless of subscriptions."))
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.4))
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Signing secret (optional)")
+                Text(L10n.tr("Signing secret (optional)"))
                     .font(.system(size: 12, weight: .medium))
                 SecureField("whsec_...", text: secretBinding)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12, design: .monospaced))
-                Text("When set, requests include a webhook-signature header (HMAC SHA-256, Standard Webhooks format).")
+                Text(L10n.tr("When set, requests include a webhook-signature header (HMAC SHA-256, Standard Webhooks format)."))
                     .font(.system(size: 10))
                     .foregroundStyle(.primary.opacity(0.4))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Toggle("Custom payload template", isOn: $useCustomTemplate)
+                Toggle(L10n.tr("Custom payload template"), isOn: $useCustomTemplate)
                     .toggleStyle(.checkbox)
                     .font(.system(size: 12))
-                    .help("Replace the default JSON payload with your own body, e.g. for Slack incoming webhooks")
+                    .help(L10n.tr("Replace the default JSON payload with your own body, e.g. for Slack incoming webhooks"))
 
                 if useCustomTemplate {
                     TextEditor(text: templateBinding)
@@ -109,7 +110,7 @@ struct WebhookEditorSheet: View {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .strokeBorder(.primary.opacity(0.15), lineWidth: 0.5)
                         )
-                    Text("Placeholders: {{event}}, {{timestamp}}, {{comment.text}}, {{comment.shortID}}, {{comment.status}}, {{comment.selectedText}}, {{comment.source}}, {{comment.resolutionSummary}}, {{comment.resolvedBy}}, {{comment.id}}, {{session.name}}, {{session.id}}. Values are JSON-escaped.")
+                    Text(L10n.tr("Placeholders: {{event}}, {{timestamp}}, {{comment.text}}, {{comment.shortID}}, {{comment.status}}, {{comment.selectedText}}, {{comment.source}}, {{comment.resolutionSummary}}, {{comment.resolvedBy}}, {{comment.id}}, {{session.name}}, {{session.id}}. Values are JSON-escaped."))
                         .font(.system(size: 10))
                         .foregroundStyle(.primary.opacity(0.4))
                         .fixedSize(horizontal: false, vertical: true)
@@ -118,12 +119,12 @@ struct WebhookEditorSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
+                Button(L10n.tr("Cancel")) {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
 
-                Button(state.isNew ? "Add" : "Save") {
+                Button(state.isNew ? L10n.tr("Add") : L10n.tr("Save")) {
                     var final = draft
                     final.name = trimmedName
                     final.url = trimmedURL

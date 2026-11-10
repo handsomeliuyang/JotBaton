@@ -1055,7 +1055,7 @@ public final class ScreenCaptureService {
         } catch {
             // Remain in live selection with the typed comment intact.
             debugLog("ScreenCaptureService: Freeze grab failed - \(error)")
-            ToastManager.shared.show("Could not freeze the region. Try again.")
+            ToastManager.shared.show(L10n.tr("Could not freeze the region. Try again."))
             return false
         }
 
@@ -1548,11 +1548,11 @@ public final class ScreenCaptureService {
 
         var errorDescription: String? {
             switch self {
-            case .noDisplay: return "No display found for screen capture"
-            case .imageConversionFailed: return "Failed to convert captured image to PNG"
-            case .noPendingRegion: return "No region is selected"
-            case .pendingLabelUnresolved: return "Finish the text label first"
-            case .renderFailed(let detail): return "Could not render annotations - \(detail)"
+            case .noDisplay: return L10n.tr("No display found for screen capture")
+            case .imageConversionFailed: return L10n.tr("Failed to convert captured image to PNG")
+            case .noPendingRegion: return L10n.tr("No region is selected")
+            case .pendingLabelUnresolved: return L10n.tr("Finish the text label first")
+            case .renderFailed(let detail): return L10n.tr("Could not render annotations - \(detail)")
             }
         }
     }

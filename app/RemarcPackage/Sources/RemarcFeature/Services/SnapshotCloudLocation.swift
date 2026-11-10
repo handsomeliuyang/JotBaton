@@ -31,10 +31,10 @@ enum SnapshotCloudLocation {
         let rootFacts: Facts
         do { rootFacts = try inspect(root) }
         catch {
-            throw SnapshotError.underlying("iCloud Drive is unavailable. Enable it in System Settings, or authorize access and retry.", error as NSError)
+            throw SnapshotError.underlying(L10n.tr("iCloud Drive is unavailable. Enable it in System Settings, or authorize access and retry."), error as NSError)
         }
         guard rootFacts.isDirectory, rootFacts.isCloudItem else {
-            throw SnapshotError.message("An active iCloud Drive could not be verified. Enable iCloud Drive in System Settings and retry.")
+            throw SnapshotError.message(L10n.tr("An active iCloud Drive could not be verified. Enable iCloud Drive in System Settings and retry."))
         }
         let folder = channel.cloudURL(in: root)
         if createIfMissing, !fm.fileExists(atPath: folder.path) {
@@ -44,16 +44,16 @@ enum SnapshotCloudLocation {
         let facts: Facts
         do { facts = try inspect(folder) }
         catch {
-            throw SnapshotError.underlying("\(channel.cloudDisplayPath) is unavailable. Retry after iCloud finishes loading, or enable snapshots to set up the folder again.", error as NSError)
+            throw SnapshotError.underlying(L10n.tr("\(channel.cloudDisplayPath) is unavailable. Retry after iCloud finishes loading, or enable snapshots to set up the folder again."), error as NSError)
         }
         guard facts.isDirectory, !facts.isSymbolicLink else {
-            throw SnapshotError.message("\(channel.cloudDisplayPath) must be a regular folder. A file or symbolic link cannot be used for snapshots.")
+            throw SnapshotError.message(L10n.tr("\(channel.cloudDisplayPath) must be a regular folder. A file or symbolic link cannot be used for snapshots."))
         }
         if createIfMissing || verifyWriteAccess {
             let probe = folder.appendingPathComponent(".remarc-write-test-\(UUID())")
             defer { try? fm.removeItem(at: probe) }
             do { try Data().write(to: probe, options: .withoutOverwriting) }
-            catch { throw SnapshotError.underlying("Remarc cannot write to \(channel.cloudDisplayPath). Authorize access and retry.", error as NSError) }
+            catch { throw SnapshotError.underlying(L10n.tr("Remarc cannot write to \(channel.cloudDisplayPath). Authorize access and retry."), error as NSError) }
         }
         return folder
     }

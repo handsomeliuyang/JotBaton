@@ -205,11 +205,11 @@ extension Date {
     ) -> String {
         if now.timeIntervalSince(self) < 24 * 60 * 60 {
             let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.locale = L10n.locale
             formatter.dateFormat = use24Hour ? "HH:mm" : "h:mm a"
             return formatter.string(from: self)
         } else {
-            return ExportManager.shared.formatDate(self, format: dateFormat)
+            return ExportManager.shared.formatDate(self, format: dateFormat, locale: L10n.locale)
         }
     }
 }

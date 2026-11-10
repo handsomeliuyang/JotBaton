@@ -17,8 +17,10 @@ final class SnapshotSyncManager: ObservableObject {
     @Published private(set) var lastCheckedAt: Date?
     @Published private(set) var cloudTransfer = SnapshotCloudTransfer.unknown
     @Published private(set) var isBusy = false
-    @Published private(set) var progress: String?
-    @Published private(set) var notice: String?
+    @Published private var progressKey: L10n.Key?
+    var progress: String? { progressKey.map { L10n.tr($0) } }
+    @Published private var noticeKey: L10n.Key?
+    var notice: String? { noticeKey.map { L10n.tr($0) } }
     @Published private(set) var record: SnapshotSyncRecord
     @Published private(set) var localContentHash: String?
     private let deviceID: UUID
@@ -48,9 +50,9 @@ final class SnapshotSyncManager: ObservableObject {
     }
     var cloudData: SnapshotVersion? { cloudHeads.count == 1 ? cloudHeads.first : nil }
     var cloudSource: String {
-        if cloudHeads.count > 1 { return "Needs review" }
-        guard let cloudData else { return "Not published yet" }
-        return cloudData.deviceID == deviceID ? "This Mac · \(cloudData.deviceName)" : "Other Mac · \(cloudData.deviceName)"
+        if cloudHeads.count > 1 { return L10n.tr("Needs review") }
+        guard let cloudData else { return L10n.tr("Not published yet") }
+        return cloudData.deviceID == deviceID ? L10n.tr("This Mac · \(cloudData.deviceName)") : L10n.tr("Other Mac · \(cloudData.deviceName)")
     }
     var comparison: SnapshotComparison {
         let state = PersistenceManager.shared.appState
@@ -61,18 +63,18 @@ final class SnapshotSyncManager: ObservableObject {
             multipleCloudHeads: cloudHeads.count > 1, baselineHash: receipt?.contentHash)
     }
     var shortStatus: String {
-        if !isEnabled { return "Off" }
-        if isBusy { return "Check" }
-        if let issue { return issue.kind == .review ? "Review" : issue.isWarning ? "Pending" : "Error" }
-        if folder == nil { return "Check" }
-        if cloudTransfer == .failed { return "Error" }
-        if cloudTransfer.isActive { return "Syncing" }
-        if publication?.isPending == true || cloudTransfer == .waiting { return "Pending" }
+        if !isEnabled { return L10n.tr("Off") }
+        if isBusy { return L10n.tr("Check") }
+        if let issue { return issue.kind == .review ? L10n.tr("Review") : issue.isWarning ? L10n.tr("Pending") : L10n.tr("Error") }
+        if folder == nil { return L10n.tr("Check") }
+        if cloudTransfer == .failed { return L10n.tr("Error") }
+        if cloudTransfer.isActive { return L10n.tr("Syncing") }
+        if publication?.isPending == true || cloudTransfer == .waiting { return L10n.tr("Pending") }
         switch comparison {
-        case .same: return "Synced"
-        case .publish: return "Publish"
-        case .receive: return "Update"
-        case .choose: return "Review"
+        case .same: return L10n.tr("Synced")
+        case .publish: return L10n.tr("Publish")
+        case .receive: return L10n.tr("Update")
+        case .choose: return L10n.tr("Review")
         }
     }
     var presentation: SnapshotSyncPresentation {
@@ -89,8 +91,8 @@ final class SnapshotSyncManager: ObservableObject {
         return presentation.title
     }
     var cloudTransferTitle: String {
-        if !isEnabled { return "Not enabled" }
-        if folder == nil { return issue == nil ? "Not checked" : "Unavailable" }
+        if !isEnabled { return L10n.tr("Not enabled") }
+        if folder == nil { return issue == nil ? L10n.tr("Not checked") : L10n.tr("Unavailable") }
         return cloudTransfer.title
     }
     var canPublish: Bool {
@@ -99,12 +101,12 @@ final class SnapshotSyncManager: ObservableObject {
     var uploadMessage: String? {
         guard let publication else { return nil }
         switch publication.phase {
-        case .savedLocally: return "The data is saved on this Mac. Retry to send this same copy to iCloud."
-        case .awaitingUpload: return "The data is saved in iCloud Drive. Waiting for upload confirmation."
-        case .unconfirmed: return "The data is saved. Cloud upload has not been confirmed yet."
+        case .savedLocally: return L10n.tr("The data is saved on this Mac. Retry to send this same copy to iCloud.")
+        case .awaitingUpload: return L10n.tr("The data is saved in iCloud Drive. Waiting for upload confirmation.")
+        case .unconfirmed: return L10n.tr("The data is saved. Cloud upload has not been confirmed yet.")
         case .confirmed:
-            let date = publication.confirmedAt?.formatted(date: .abbreviated, time: .standard) ?? "previously"
-            return "Upload confirmed \(date). Your other Mac must check and apply the version manually."
+            let date = publication.confirmedAt?.formatted(date: .abbreviated, time: .standard) ?? L10n.tr("previously")
+            return L10n.tr("Upload confirmed \(date). Your other Mac must check and apply the version manually.")
         }
     }
     private var backupDirectory: URL { remarcAppSupportURL.appendingPathComponent("snapshot-backups", isDirectory: true) }
@@ -164,12 +166,12 @@ final class SnapshotSyncManager: ObservableObject {
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = SnapshotCloudLocation.driveRoot
-        panel.message = "Allow access to iCloud Drive, or its \(AppIdentity.current.directoryName) folder. Snapshots always use \(AppIdentity.current.cloudDisplayPath). Your saved snapshot will be kept for retry."
-        panel.prompt = "Allow Access"
+        panel.message = L10n.tr("Allow access to iCloud Drive, or its \(AppIdentity.current.directoryName) folder. Snapshots always use \(AppIdentity.current.cloudDisplayPath). Your saved snapshot will be kept for retry.")
+        panel.prompt = L10n.tr("Allow Access")
         let response = await panel.begin()
         guard response == .OK, let url = panel.url else { return }
         guard SnapshotCloudLocation.isAuthorizationLocation(url) else {
-            fail(SnapshotError.message("Authorize iCloud Drive or its \(AppIdentity.current.directoryName) folder. Other folders cannot be used."), stage: .connection)
+            fail(SnapshotError.message(L10n.tr("Authorize iCloud Drive or its \(AppIdentity.current.directoryName) folder. Other folders cannot be used.")), stage: .connection)
             return
         }
         do {
@@ -193,7 +195,7 @@ final class SnapshotSyncManager: ObservableObject {
         versions = []
         lastCheckedAt = nil
         lastCheckAttemptAt = nil
-        notice = nil
+        noticeKey = nil
         UserDefaults.standard.removeObject(forKey: "snapshotICloudAccessBookmark")
         // Keep the durable pending snapshot and diagnostic for the next enable.
     }
@@ -237,9 +239,9 @@ final class SnapshotSyncManager: ObservableObject {
         guard isEnabled, !isBusy else { return }
         lastCheckAttemptAt = Date()
         isBusy = true
-        progress = "Checking iCloud…"
-        notice = nil
-        defer { isBusy = false; progress = nil }
+        progressKey = "Checking iCloud…"
+        noticeKey = nil
+        defer { isBusy = false; progressKey = nil }
         var stage = SnapshotSyncIssue.Stage.connection
         do {
             let directory = try await Task.detached(priority: .utility) {
@@ -279,9 +281,9 @@ final class SnapshotSyncManager: ObservableObject {
         }
         let knownIDs = Set(versions.map(\.id))
         isBusy = true
-        progress = "Checking access before publishing…"
-        notice = nil
-        defer { isBusy = false; progress = nil }
+        progressKey = "Checking access before publishing…"
+        noticeKey = nil
+        defer { isBusy = false; progressKey = nil }
         var stage = SnapshotSyncIssue.Stage.connection
         do {
             let directory = try await Task.detached(priority: .utility) {
@@ -300,7 +302,7 @@ final class SnapshotSyncManager: ObservableObject {
                 persist(); return
             }
             stage = .preparing
-            progress = "Saving a complete snapshot on this Mac…"
+            progressKey = "Saving a complete snapshot on this Mac…"
             let state = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(state)
             let contentTime = localUpdatedAt
@@ -308,7 +310,7 @@ final class SnapshotSyncManager: ObservableObject {
             let outbox = outboxDirectory
             let id = deviceID
             let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { throw SnapshotError.message("Enter a name for this Mac before publishing.") }
+            guard !name.isEmpty else { throw SnapshotError.message(L10n.tr("Enter a name for this Mac before publishing.")) }
             let parents = heads.map(\.id)
             let parent = heads.count == 1 ? heads.first?.id : currentVersion?.id
             let version = try await Task.detached(priority: .utility) {
@@ -327,7 +329,7 @@ final class SnapshotSyncManager: ObservableObject {
             await refreshLocalStatus(PersistenceManager.shared.appState)
             startUploadPolling()
         } catch SnapshotError.waitingForDownload {
-            notice = "Waiting for the cloud data to download. Check again before publishing."
+            noticeKey = "Waiting for the cloud data to download. Check again before publishing."
         } catch {
             if stage == .connection { folder = nil }
             fail(error, stage: stage, versionID: publication?.version.id)
@@ -346,9 +348,9 @@ final class SnapshotSyncManager: ObservableObject {
     private func retryPublication() async {
         guard isEnabled, !isBusy, let saved = publication else { return }
         isBusy = true
-        progress = "Retrying saved data…"
-        notice = nil
-        defer { isBusy = false; progress = nil }
+        progressKey = "Retrying saved data…"
+        noticeKey = nil
+        defer { isBusy = false; progressKey = nil }
         var stage = SnapshotSyncIssue.Stage.connection
         do {
             let directory = try await Task.detached(priority: .utility) {
@@ -359,7 +361,7 @@ final class SnapshotSyncManager: ObservableObject {
             try await sendSavedPublication(to: directory)
             startUploadPolling()
         } catch SnapshotError.waitingForDownload {
-            notice = "Waiting for the saved cloud data to download. Retry shortly."
+            noticeKey = "Waiting for the saved cloud data to download. Retry shortly."
         } catch {
             if stage == .connection { folder = nil }
             fail(error, stage: stage, versionID: saved.version.id)
@@ -369,7 +371,7 @@ final class SnapshotSyncManager: ObservableObject {
 
     private func sendSavedPublication(to directory: URL) async throws {
         guard let saved = publication else { return }
-        progress = "Sending saved data to iCloud…"
+        progressKey = "Sending saved data to iCloud…"
         let outbox = outboxDirectory
         try await Task.detached(priority: .utility) {
             let archive = outbox.appendingPathComponent("\(saved.version.id).zip")
@@ -430,9 +432,9 @@ final class SnapshotSyncManager: ObservableObject {
     func apply(_ version: SnapshotVersion, isBackup: Bool = false) async {
         guard !isBusy, let source = isBackup ? backupDirectory : folder else { return }
         isBusy = true
-        progress = "Downloading and verifying snapshot…"
-        notice = nil
-        defer { isBusy = false; progress = nil }
+        progressKey = "Downloading and verifying snapshot…"
+        noticeKey = nil
+        defer { isBusy = false; progressKey = nil }
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("remarc-apply-\(UUID()).zip")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let root = remarcAppSupportURL
@@ -449,14 +451,14 @@ final class SnapshotSyncManager: ObservableObject {
             let before = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(before)
             let previousContentTime = localUpdatedAt
-            progress = "Backing up local data…"
+            progressKey = "Backing up local data…"
             let installed = try await Task.detached(priority: .utility) {
                 let local = try SnapshotArchive.prepare(before, root: root)
                 _ = try SnapshotArchive.create(local, in: backupsURL, deviceID: id, deviceName: name + " (local backup)",
                     parentID: parent, contentModifiedAt: previousContentTime)
                 return try SnapshotArchive.installFiles(incoming, root: root)
             }.value
-            progress = "Applying snapshot…"
+            progressKey = "Applying snapshot…"
             try await PersistenceManager.shared.applySnapshot(installed, version: version, expected: before)
             receipt = PersistenceManager.shared.snapshotReceipt
             pollingTask?.cancel()
@@ -468,10 +470,10 @@ final class SnapshotSyncManager: ObservableObject {
             localUpdatedAt = version.contentModifiedAt
             persist()
             await refreshLocalStatus(PersistenceManager.shared.appState)
-            notice = isBackup ? "Local backup restored." : "Applied data from \(version.deviceName)."
+            noticeKey = isBackup ? "Local backup restored." : "Applied data from \(version.deviceName)."
             await loadBackups()
         } catch SnapshotError.waitingForDownload {
-            notice = "Downloading cloud data. Apply again when it is ready; your local tasks are kept."
+            noticeKey = "Downloading cloud data. Apply again when it is ready; your local tasks are kept."
         } catch {
             fail(error, stage: .applying, versionID: version.id)
             await loadBackups()

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SelectionTooltipView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject var controller: SelectionTooltipWindowController
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
@@ -15,7 +16,7 @@ struct SelectionTooltipView: View {
         }) {
             HStack(spacing: 6) {
                 RemarcBrandMark()
-                Text(AppIdentity.current.isDevelopment ? "Comment · DEV" : "Comment")
+                Text(AppIdentity.current.isDevelopment ? L10n.tr("Comment · DEV") : L10n.tr("Comment"))
                     .font(.system(size: 11, weight: .medium))
             }
             .padding(.leading, 6)

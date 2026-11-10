@@ -6,16 +6,16 @@ import SwiftUI
 extension KeyboardShortcuts.Name {
     // KeyboardShortcuts.Name is a struct, not an enum — use if/else, not switch.
     var displayName: String {
-        if self == .commentOnSelection { return "Comment on Selection" }
-        if self == .screenshotComment { return "Screenshot" }
-        if self == .screenshotCommentWake { return "Screenshot & Send Instantly" }
-        if self == .pasteAllComments { return "Paste All" }
-        if self == .voiceInput { return "Voice Input" }
-        if self == .dictation { return "Push to Talk" }
-        if self == .dictationHandsFree { return "Hands-free Shortcut" }
-        if self == .pasteLastTranscription { return "Paste Last Transcription" }
-        if self == .openRemarc { return "Open Remarc" }
-        if self == .startCritMode { return "Start Crit Mode" }
+        if self == .commentOnSelection { return L10n.tr("Comment on Selection") }
+        if self == .screenshotComment { return L10n.tr("Screenshot") }
+        if self == .screenshotCommentWake { return L10n.tr("Screenshot & Send Instantly") }
+        if self == .pasteAllComments { return L10n.tr("Paste All") }
+        if self == .voiceInput { return L10n.tr("Voice Input") }
+        if self == .dictation { return L10n.tr("Push to Talk") }
+        if self == .dictationHandsFree { return L10n.tr("Hands-free Shortcut") }
+        if self == .pasteLastTranscription { return L10n.tr("Paste Last Transcription") }
+        if self == .openRemarc { return L10n.tr("Open Remarc") }
+        if self == .startCritMode { return L10n.tr("Start Crit Mode") }
         return rawValue
     }
 
@@ -38,6 +38,7 @@ extension KeyboardShortcuts.Name {
 /// shortcut conflicts. If a newly-recorded shortcut duplicates another slot,
 /// the recorder reverts to the previous shortcut and shows a toast.
 struct ConflictAwareRecorder: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let name: KeyboardShortcuts.Name
     @State private var previousShortcut: KeyboardShortcuts.Shortcut?
 
@@ -54,7 +55,7 @@ struct ConflictAwareRecorder: View {
                 if KeyboardShortcuts.getShortcut(for: otherName) == newShortcut {
                     // Conflict found — revert to previous
                     KeyboardShortcuts.setShortcut(previousShortcut, for: name)
-                    ToastManager.shared.show("Shortcut already used by \(otherName.displayName)")
+                    ToastManager.shared.show(L10n.tr("Shortcut already used by \(otherName.displayName)"))
                     return
                 }
             }

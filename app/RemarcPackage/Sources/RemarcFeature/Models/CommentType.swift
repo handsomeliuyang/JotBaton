@@ -46,12 +46,14 @@ public enum CommentType: Codable, Equatable, Sendable {
 
     public var identifier: String { kind.rawValue }
 
-    public var displayName: String {
+    public var exportDisplayName: String {
         switch self {
         case .critMode: return "Crit Mode"  // Kind uses "Crit" (shorter for filters)
-        default: return kind.displayName
+        default: return kind.exportDisplayName
         }
     }
+
+    public var displayName: String { L10n.lookup(exportDisplayName) }
 
     public var iconName: String {
         // Aligns with `Kind.iconName` — `.webElement` → "globe" everywhere.
@@ -81,7 +83,7 @@ extension CommentType {
 }
 
 extension CommentType.Kind {
-    public var displayName: String {
+    public var exportDisplayName: String {
         switch self {
         case .comment: return "Comment"
         case .screenshot: return "Screenshot"
@@ -90,6 +92,8 @@ extension CommentType.Kind {
         case .webElement: return "Web Element"
         }
     }
+
+    public var displayName: String { L10n.lookup(exportDisplayName) }
 
     public var iconName: String {
         switch self {

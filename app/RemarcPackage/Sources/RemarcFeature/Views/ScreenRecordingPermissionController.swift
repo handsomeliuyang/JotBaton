@@ -139,7 +139,7 @@ public final class ScreenRecordingPermissionController: NSObject, ObservableObje
             defer: false
         )
 
-        panel.title = "Screen Recording Permission"
+        panel.setLocalizedTitle("Screen Recording Permission")
         panel.level = .floating
         panel.backgroundColor = .controlBackgroundColor
         panel.isOpaque = true
@@ -227,6 +227,7 @@ extension ScreenRecordingPermissionController: NSWindowDelegate {
 // MARK: - SwiftUI View
 
 struct ScreenRecordingPermissionView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @EnvironmentObject var controller: ScreenRecordingPermissionController
     @Environment(\.colorScheme) var colorScheme
     @State private var isButtonHovered = false
@@ -239,10 +240,10 @@ struct ScreenRecordingPermissionView: View {
                     .font(.system(size: 36))
                     .foregroundColor(Color.remarcPrimary(for: colorScheme))
 
-                Text("Screen Recording Access")
+                Text(L10n.tr("Screen Recording Access"))
                     .font(.system(size: 18, weight: .semibold))
 
-                Text("Remarc needs Screen Recording permission to capture screenshots of selected regions.")
+                Text(L10n.tr("Remarc needs Screen Recording permission to capture screenshots of selected regions."))
                     .font(.system(size: 13))
                     .foregroundColor(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -263,7 +264,7 @@ struct ScreenRecordingPermissionView: View {
         case .needsPermission:
             VStack(spacing: 12) {
                 Button(action: { controller.openSystemSettings() }) {
-                    Text("Allow Screen Recording")
+                    Text(L10n.tr("Allow Screen Recording"))
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.white)
                         .frame(maxWidth: 240)
@@ -279,7 +280,7 @@ struct ScreenRecordingPermissionView: View {
                 .onHover { isButtonHovered = $0 }
 
                 Button(action: { controller.skip() }) {
-                    Text("Skip")
+                    Text(L10n.tr("Skip"))
                         .font(.system(size: 13))
                         .foregroundColor(.primary.opacity(0.45))
                 }
@@ -292,7 +293,7 @@ struct ScreenRecordingPermissionView: View {
                     HStack(spacing: 8) {
                         ProgressView()
                             .scaleEffect(0.7)
-                        Text("Open System Settings")
+                        Text(L10n.tr("Open System Settings"))
                             .font(.system(size: 13, weight: .medium))
                     }
                     .frame(maxWidth: 240)
@@ -306,7 +307,7 @@ struct ScreenRecordingPermissionView: View {
                 .foregroundColor(Color.remarcPrimary(for: colorScheme))
 
                 Button(action: { controller.skip() }) {
-                    Text("Skip")
+                    Text(L10n.tr("Skip"))
                         .font(.system(size: 13))
                         .foregroundColor(.primary.opacity(0.45))
                 }
@@ -317,7 +318,7 @@ struct ScreenRecordingPermissionView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
-                Text("Permission granted")
+                Text(L10n.tr("Permission granted"))
                     .font(.system(size: 14, weight: .medium))
             }
             .foregroundColor(Color.remarcSuccess(for: colorScheme))

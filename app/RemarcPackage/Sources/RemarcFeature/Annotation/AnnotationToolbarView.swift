@@ -5,6 +5,7 @@ import AppKit
 /// (`ScreenshotPreviewController`) and extended with the pressed and selected
 /// states that recipe lacks.
 struct AnnotationToolButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let systemImage: String
     let label: String
     let shortcut: String?
@@ -75,6 +76,7 @@ struct AnnotationToolButton: View {
 /// marks it as the way out. Internal rather than private because the preview
 /// panel's header hosts it too.
 struct AnnotationApplyButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let action: () -> Void
     /// False while a commit is already in flight, so a second press cannot
     /// start a parallel write to the same file.
@@ -89,7 +91,7 @@ struct AnnotationApplyButton: View {
             HStack(spacing: 3) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10.5, weight: .bold))
-                Text("Apply")
+                Text(L10n.tr("Apply"))
                     .font(.system(size: 11.5, weight: .semibold))
             }
             .foregroundStyle(foreground)
@@ -105,8 +107,8 @@ struct AnnotationApplyButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .help(isEnabled ? "Apply annotations to the saved image" : "Applying...")
-        .accessibilityLabel("Apply annotations")
+        .help(isEnabled ? L10n.tr("Apply annotations to the saved image") : L10n.tr("Applying..."))
+        .accessibilityLabel(L10n.tr("Apply annotations"))
         .scaleEffect(isPressed ? 0.97 : 1)
         .onHover { isHovered = $0 && isEnabled }
         .simultaneousGesture(
@@ -127,6 +129,7 @@ struct AnnotationApplyButton: View {
 }
 
 private struct InkSwatch: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let ink: AnnotationInk
     let isSelected: Bool
     var showsChevron = false
@@ -160,8 +163,8 @@ private struct InkSwatch: View {
             .scaleEffect(isPressed ? 0.88 : 1)
         }
         .buttonStyle(.plain)
-        .help(showsChevron ? "Color" : "Use this color")
-        .accessibilityLabel("Annotation color")
+        .help(showsChevron ? L10n.tr("Color") : L10n.tr("Use this color"))
+        .accessibilityLabel(L10n.tr("Annotation color"))
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .onHover { isHovered = $0 }
         .simultaneousGesture(
@@ -188,6 +191,7 @@ private struct InkSwatch: View {
 /// popover, which is dismissed before capture starts, so an error shown through
 /// the global manager during annotation would render nowhere.
 struct AnnotationToolbarView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var toastManager = ToastManager.shared
     @ObservedObject var session: AnnotationSession
 
@@ -246,8 +250,8 @@ struct AnnotationToolbarView: View {
                     switch expansion {
                     case .none: mainBar
                     case .arrows: arrowBar
-                    case .shapes: groupBar(Self.shapeTools, title: "Shape")
-                    case .redact: groupBar(Self.redactTools, title: "Redact")
+                    case .shapes: groupBar(Self.shapeTools, title: L10n.tr("Shape"))
+                    case .redact: groupBar(Self.redactTools, title: L10n.tr("Redact"))
                     case .colors: colorBar
                     case .strokes: strokeBar
                     }
@@ -271,7 +275,7 @@ struct AnnotationToolbarView: View {
 
     private var mainBar: some View {
         HStack(spacing: 2) {
-            AnnotationToolButton(systemImage: "cursorarrow", label: "Select", shortcut: "V",
+            AnnotationToolButton(systemImage: "cursorarrow", label: L10n.tr("Select"), shortcut: "V",
                                  isSelected: session.tool == .select) { session.tool = .select }
             AnnotationToolButton(systemImage: session.arrowStyle.systemImage,
                                  label: session.arrowStyle.label, shortcut: "A",
@@ -282,21 +286,21 @@ struct AnnotationToolbarView: View {
                 if session.tool == .arrow { expansion = .arrows } else { session.tool = .arrow }
             }
 
-            AnnotationToolButton(systemImage: shapeIcon, label: "Shape",
+            AnnotationToolButton(systemImage: shapeIcon, label: L10n.tr("Shape"),
                                  shortcut: "R / O / L",
                                  isSelected: Self.shapeTools.contains { $0.0 == session.tool },
                                  hasGroup: true) { expansion = .shapes }
 
-            AnnotationToolButton(systemImage: "scribble", label: "Pen", shortcut: "P",
+            AnnotationToolButton(systemImage: "scribble", label: L10n.tr("Pen"), shortcut: "P",
                                  isSelected: session.tool == .freehand) { session.tool = .freehand }
-            AnnotationToolButton(systemImage: "highlighter", label: "Highlighter", shortcut: "H",
+            AnnotationToolButton(systemImage: "highlighter", label: L10n.tr("Highlighter"), shortcut: "H",
                                  isSelected: session.tool == .highlighter) { session.tool = .highlighter }
-            AnnotationToolButton(systemImage: "textformat", label: "Text", shortcut: "T",
+            AnnotationToolButton(systemImage: "textformat", label: L10n.tr("Text"), shortcut: "T",
                                  isSelected: session.tool == .text) { session.tool = .text }
-            AnnotationToolButton(systemImage: "number.circle", label: "Counter", shortcut: "C",
+            AnnotationToolButton(systemImage: "number.circle", label: L10n.tr("Counter"), shortcut: "C",
                                  isSelected: session.tool == .counter) { session.tool = .counter }
 
-            AnnotationToolButton(systemImage: redactIcon, label: "Redact", shortcut: "B / X",
+            AnnotationToolButton(systemImage: redactIcon, label: L10n.tr("Redact"), shortcut: L10n.tr("B / X"),
                                  isSelected: Self.redactTools.contains { $0.0 == session.tool },
                                  hasGroup: true) { expansion = .redact }
 
@@ -306,14 +310,14 @@ struct AnnotationToolbarView: View {
                 expansion = .colors
             }
             AnnotationToolButton(systemImage: strokeIcon(session.stroke),
-                                 label: "\(session.stroke.label) stroke", shortcut: nil,
+                                 label: L10n.tr("\(session.stroke.label) stroke"), shortcut: nil,
                                  hasGroup: true) { expansion = .strokes }
 
             divider
 
-            AnnotationToolButton(systemImage: "arrow.uturn.backward", label: "Undo",
+            AnnotationToolButton(systemImage: "arrow.uturn.backward", label: L10n.tr("Undo"),
                                  shortcut: "Cmd Z", isEnabled: session.canUndo, action: onUndo)
-            AnnotationToolButton(systemImage: "arrow.uturn.forward", label: "Redo",
+            AnnotationToolButton(systemImage: "arrow.uturn.forward", label: L10n.tr("Redo"),
                                  shortcut: "Shift Cmd Z", isEnabled: session.canRedo, action: onRedo)
 
             if let zoomState, zoomState.maxZoom > 1 {
@@ -328,10 +332,10 @@ struct AnnotationToolbarView: View {
             if onApply == nil {
                 divider
 
-                AnnotationToolButton(systemImage: "trash", label: "Discard annotations",
+                AnnotationToolButton(systemImage: "trash", label: L10n.tr("Discard annotations"),
                                      shortcut: nil, isEnabled: session.isDirty,
                                      action: onRequestDiscard)
-                AnnotationToolButton(systemImage: "checkmark", label: "Done annotating",
+                AnnotationToolButton(systemImage: "checkmark", label: L10n.tr("Done annotating"),
                                      shortcut: "Esc", action: onDone)
             }
         }
@@ -360,7 +364,7 @@ struct AnnotationToolbarView: View {
     private var arrowBar: some View {
         HStack(spacing: 2) {
             backButton
-            Text("Arrow")
+            Text(L10n.tr("Arrow"))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.6))
                 .padding(.trailing, 2)
@@ -394,7 +398,7 @@ struct AnnotationToolbarView: View {
             backButton
             ForEach(AnnotationStroke.allCases, id: \.self) { preset in
                 AnnotationToolButton(systemImage: strokeIcon(preset),
-                                     label: "\(preset.label) stroke", shortcut: nil,
+                                     label: L10n.tr("\(preset.label) stroke"), shortcut: nil,
                                      isSelected: session.stroke == preset) {
                     session.stroke = preset
                     session.restyleSelected(stroke: preset)
@@ -405,7 +409,7 @@ struct AnnotationToolbarView: View {
     }
 
     private var backButton: some View {
-        AnnotationToolButton(systemImage: "chevron.left", label: "Back", shortcut: nil) {
+        AnnotationToolButton(systemImage: "chevron.left", label: L10n.tr("Back"), shortcut: nil) {
             expansion = .none
         }
     }
@@ -414,13 +418,13 @@ struct AnnotationToolbarView: View {
     /// `.screenSaver` overlay is not reliably keyable.
     private var discardBar: some View {
         HStack(spacing: 8) {
-            Text("Discard all annotations?")
+            Text(L10n.tr("Discard all annotations?"))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.primary.opacity(0.75))
             Spacer(minLength: 8)
-            AnnotationToolButton(systemImage: "xmark", label: "Keep annotating",
+            AnnotationToolButton(systemImage: "xmark", label: L10n.tr("Keep annotating"),
                                  shortcut: "Esc", action: onCancelDiscard)
-            AnnotationToolButton(systemImage: "trash.fill", label: "Discard",
+            AnnotationToolButton(systemImage: "trash.fill", label: L10n.tr("Discard"),
                                  shortcut: nil, action: onConfirmDiscard)
         }
         .frame(minWidth: 240)
@@ -428,14 +432,14 @@ struct AnnotationToolbarView: View {
 
     private func zoomStepper(_ state: ZoomState) -> some View {
         HStack(spacing: 1) {
-            AnnotationToolButton(systemImage: "minus", label: "Zoom out", shortcut: "Cmd -",
+            AnnotationToolButton(systemImage: "minus", label: L10n.tr("Zoom out"), shortcut: L10n.tr("Cmd -"),
                                  isEnabled: state.effectiveZoom > 1) { onZoomStep(-1) }
-            Text("\(state.effectiveZoom)x")
+            Text(L10n.tr("\(state.effectiveZoom)x"))
                 .font(.system(size: 11, weight: .medium).monospacedDigit())
                 .foregroundStyle(.primary.opacity(0.7))
                 .frame(minWidth: 20)
-                .accessibilityLabel("Zoom \(state.effectiveZoom) times")
-            AnnotationToolButton(systemImage: "plus", label: "Zoom in", shortcut: "Cmd +",
+                .accessibilityLabel(L10n.tr("Zoom \(state.effectiveZoom) times"))
+            AnnotationToolButton(systemImage: "plus", label: L10n.tr("Zoom in"), shortcut: L10n.tr("Cmd +"),
                                  isEnabled: state.effectiveZoom < state.maxZoom) { onZoomStep(1) }
         }
     }

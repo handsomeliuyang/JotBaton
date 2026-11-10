@@ -132,8 +132,9 @@ public final class ExportManager {
     }
 
     /// Format a date according to the chosen format.
-    public func formatDate(_ date: Date, format: SettingsManager.ExportDateFormat, includeTime: Bool = false, use24Hour: Bool = false) -> String {
+    public func formatDate(_ date: Date, format: SettingsManager.ExportDateFormat, includeTime: Bool = false, use24Hour: Bool = false, locale: Locale? = nil) -> String {
         let formatter = DateFormatter()
+        if let locale { formatter.locale = locale }
         switch format {
         case .short:
             if includeTime {
@@ -191,7 +192,7 @@ public final class ExportManager {
             parts.append(formatDate(comment.createdAt, format: dateFormat, includeTime: includeTime, use24Hour: use24Hour))
         }
         if includeStatus {
-            parts.append(comment.status.label)
+            parts.append(comment.status.exportLabel)
         }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: metadataDivider.separator)
@@ -258,7 +259,7 @@ public final class ExportManager {
 
             // Type line (separate from metadata)
             if includeType {
-                lines.append("Type: \(comment.type.displayName)")
+                lines.append("Type: \(comment.type.exportDisplayName)")
             }
 
             // Web context
@@ -332,7 +333,7 @@ public final class ExportManager {
             // disk. Do not silently drop it when every optional metadata field
             // is disabled; preserve one explicit record marker instead.
             if lines.count == recordStartIndex {
-                lines.append("\(prefix)[\(comment.type.displayName)]")
+                lines.append("\(prefix)[\(comment.type.exportDisplayName)]")
             }
 
             // Divider (not after last comment)
@@ -585,7 +586,7 @@ public final class ExportManager {
                 if !indent.isEmpty {
                     typeSegments.append(PreviewSegment(text: indent, highlights: []))
                 }
-                typeSegments.append(PreviewSegment(text: "Type: \(comment.type.displayName)", highlights: [.type]))
+                typeSegments.append(PreviewSegment(text: "Type: \(comment.type.exportDisplayName)", highlights: [.type]))
                 lines.append(PreviewLine(id: lines.count, segments: typeSegments))
             }
 
@@ -618,7 +619,7 @@ public final class ExportManager {
                 if metaFieldCount > 0 {
                     metaSegments.append(PreviewSegment(text: metadataDivider.separator, highlights: [.metadataDivider]))
                 }
-                metaSegments.append(PreviewSegment(text: comment.status.label, highlights: [.status]))
+                metaSegments.append(PreviewSegment(text: comment.status.exportLabel, highlights: [.status]))
                 metaFieldCount += 1
             }
             if metaFieldCount > 0 {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ConfirmationButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     enum Role {
         case cancel
         case destructive

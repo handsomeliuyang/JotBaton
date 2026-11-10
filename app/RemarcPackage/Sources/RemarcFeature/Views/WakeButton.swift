@@ -8,6 +8,7 @@ import SwiftUI
 /// does something Save does not: an upward arrow, which is the send idiom
 /// everywhere else.
 public struct WakeButton: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     private let action: () -> Void
     private let colorScheme: ColorScheme
 
@@ -50,9 +51,9 @@ public struct WakeButton: View {
                 .onChanged { _ in isPressed = true }
                 .onEnded { _ in isPressed = false }
         )
-        .help("Send instantly & save")
-        .accessibilityLabel("Send instantly and save")
-        .accessibilityHint("Hands this comment to the selected session's paired agent right away")
+        .help(L10n.tr("Send instantly & save"))
+        .accessibilityLabel(L10n.tr("Send instantly and save"))
+        .accessibilityHint(L10n.tr("Hands this comment to the selected session's paired agent right away"))
         .accessibilityIdentifier("remarc.commentInput.wakeButton")
     }
 }

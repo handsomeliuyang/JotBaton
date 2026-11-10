@@ -143,6 +143,7 @@ struct DropdownAnchor: NSViewRepresentable {
 // MARK: - Dropdown
 
 struct RemarcDropdown<T: Hashable>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     @Binding var selection: T
     let options: [T]
     let labelFor: (T) -> String
@@ -254,6 +255,7 @@ struct RemarcDropdown<T: Hashable>: View {
 // MARK: - Options Panel Content
 
 private struct DropdownOptionsPanel<T: Hashable>: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let options: [T]
     let currentSelection: T
     let labelFor: (T) -> String
@@ -289,6 +291,7 @@ private struct DropdownOptionsPanel<T: Hashable>: View {
 }
 
 private struct OptionRow: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let label: String
     let trailingAccessory: AnyView?
     let isSelected: Bool

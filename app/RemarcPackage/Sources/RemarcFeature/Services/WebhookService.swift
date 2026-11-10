@@ -144,7 +144,7 @@ public final class WebhookService: ObservableObject {
                         lastDeliveries[webhook.id] = .success(Date())
                         debugLog("WebhookService: Delivered \(event.rawValue) to '\(webhook.name)' (attempt \(attempt + 1))")
                         if toastOnSuccess {
-                            ToastManager.shared.show("Sent to \(webhook.name)")
+                            ToastManager.shared.show(L10n.tr("Sent to \(webhook.name)"))
                         }
                         return
                     }
@@ -159,7 +159,7 @@ public final class WebhookService: ObservableObject {
         }
 
         recordFailure(webhook, message: lastError)
-        ToastManager.shared.show("Webhook '\(webhook.name)' failed")
+        ToastManager.shared.show(L10n.tr("Webhook '\(webhook.name)' failed"))
     }
 
     private func recordFailure(_ webhook: Webhook, message: String) {

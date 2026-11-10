@@ -4,7 +4,7 @@ enum SnapshotDisk {
     static func versions(in directory: URL) throws -> [SnapshotVersion] {
         let fm = FileManager.default
         guard fm.fileExists(atPath: directory.path) else {
-            throw SnapshotError.message("\(AppIdentity.current.cloudDisplayPath) is unavailable. Check iCloud Drive and retry the connection.")
+            throw SnapshotError.message(L10n.tr("\(AppIdentity.current.cloudDisplayPath) is unavailable. Check iCloud Drive and retry the connection."))
         }
         return try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .compactMap { entry -> SnapshotVersion? in
@@ -15,10 +15,10 @@ enum SnapshotDisk {
                 guard name.hasSuffix(".json"), UUID(uuidString: String(name.dropLast(5))) != nil else { return nil }
                 let url = directory.appendingPathComponent(name)
                 let data = try coordinatedRead(url)
-                guard data.count < 1_000_000 else { throw SnapshotError.message("A snapshot description is too large.") }
+                guard data.count < 1_000_000 else { throw SnapshotError.message(L10n.tr("A snapshot description is too large.")) }
                 let version = try JSONDecoder().decode(SnapshotVersion.self, from: data)
                 guard version.id.uuidString == String(name.dropLast(5)), version.formatVersion == 1 else {
-                    throw SnapshotError.message("A snapshot uses an unsupported format. Update Remarc before continuing.")
+                    throw SnapshotError.message(L10n.tr("A snapshot uses an unsupported format. Update Remarc before continuing."))
                 }
                 return version
             }.sorted { a, b in a.createdAt == b.createdAt ? a.id.uuidString > b.id.uuidString : a.createdAt > b.createdAt }
@@ -55,13 +55,13 @@ enum SnapshotDisk {
 
     static func publish(_ version: SnapshotVersion, from local: URL, to directory: URL) throws {
         guard try SnapshotArchive.fileDigest(local) == version.archiveHash else {
-            throw SnapshotError.message("The saved local snapshot failed verification. Your tasks are kept; review the local snapshot files before retrying.")
+            throw SnapshotError.message(L10n.tr("The saved local snapshot failed verification. Your tasks are kept; review the local snapshot files before retrying."))
         }
         let archive = directory.appendingPathComponent("\(version.id).zip")
         try coordinate(archive, writing: true) { target in
             if FileManager.default.fileExists(atPath: target.path) {
                 guard try SnapshotArchive.fileDigest(target) == version.archiveHash else {
-                    throw SnapshotError.message("The existing cloud snapshot has different contents. It has not been overwritten.")
+                    throw SnapshotError.message(L10n.tr("The existing cloud snapshot has different contents. It has not been overwritten."))
                 }
             } else {
                 // A crash must not leave a partially copied final archive that
@@ -75,7 +75,7 @@ enum SnapshotDisk {
         try coordinate(manifest, writing: true) { target in
             if FileManager.default.fileExists(atPath: target.path) {
                 guard try JSONDecoder().decode(SnapshotVersion.self, from: Data(contentsOf: target)) == version else {
-                    throw SnapshotError.message("The cloud version description differs from this snapshot. It has not been overwritten.")
+                    throw SnapshotError.message(L10n.tr("The cloud version description differs from this snapshot. It has not been overwritten."))
                 }
             } else {
                 try SnapshotArchive.encode(version).write(to: target, options: .atomic)
@@ -199,7 +199,7 @@ enum SnapshotDisk {
             }
         }
         if let error { throw error }
-        guard let result else { throw SnapshotError.message("Could not access the snapshot folder.") }
+        guard let result else { throw SnapshotError.message(L10n.tr("Could not access the snapshot folder.")) }
         return try result.get()
     }
 }
@@ -208,7 +208,7 @@ enum SnapshotReplacement {
     static func commit(_ replacement: AppState, expected: AppState, fileURL: URL) throws {
         try DocumentLock.withLock(fileURL) {
             guard case .decoded(let current) = DocumentRead.read(fileURL), current == expected else {
-                throw SnapshotError.message("An integration changed local data. Nothing was replaced. Please try again.")
+                throw SnapshotError.message(L10n.tr("An integration changed local data. Nothing was replaced. Please try again."))
             }
             try SnapshotArchive.encode(replacement).write(to: fileURL, options: .atomic)
         }

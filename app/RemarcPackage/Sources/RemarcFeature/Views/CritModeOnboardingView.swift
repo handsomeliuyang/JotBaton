@@ -2,6 +2,7 @@ import SwiftUI
 
 @available(macOS 26, *)
 struct CritModeOnboardingView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let onProceed: () -> Void
     let onCancel: () -> Void
 
@@ -36,10 +37,10 @@ struct CritModeOnboardingView: View {
                 .symbolEffect(.variableColor.iterative.reversing, isActive: true)
 
             VStack(spacing: 8) {
-                Text("Voice Critique")
+                Text(L10n.tr("Voice Critique"))
                     .font(.system(size: 18, weight: .semibold))
 
-                Text("Speak your feedback and Remarc turns it into separate comment cards.")
+                Text(L10n.tr("Speak your feedback and Remarc turns it into separate comment cards."))
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(colorScheme == .dark ? 0.6 : 0.75))
                     .multilineTextAlignment(.center)
@@ -53,7 +54,7 @@ struct CritModeOnboardingView: View {
                     Image(systemName: dontShowAgain ? "checkmark.square.fill" : "square")
                         .font(.system(size: 12))
                         .foregroundStyle(dontShowAgain ? Color.remarcPrimary(for: colorScheme) : .primary.opacity(0.55))
-                    Text("Don't show again")
+                    Text(L10n.tr("Don't show again"))
                         .font(.system(size: 11))
                         .foregroundStyle(.primary.opacity(0.55))
                 }
@@ -66,7 +67,7 @@ struct CritModeOnboardingView: View {
                 }
                 onProceed()
             } label: {
-                Text("Start Recording")
+                Text(L10n.tr("Start Recording"))
             }
             .buttonStyle(BrandCTAButtonStyle(colorScheme: colorScheme))
 

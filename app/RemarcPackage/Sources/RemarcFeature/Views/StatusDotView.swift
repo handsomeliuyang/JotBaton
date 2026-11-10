@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct StatusDotView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let comment: Comment
 
     @Environment(\.colorScheme) private var colorScheme
@@ -51,9 +52,9 @@ struct StatusDotView: View {
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: comment.status)
-        .accessibilityLabel("Change status")
+        .accessibilityLabel(L10n.tr("Change status"))
         .accessibilityValue(comment.status.label)
-        .help(comment.status == .resolved ? (comment.resolutionSummary ?? "Change status") : "Change status")
+        .help(comment.status == .resolved ? (comment.resolutionSummary ?? L10n.tr("Change status")) : L10n.tr("Change status"))
     }
 
     private func showDropdown() {
@@ -82,6 +83,7 @@ struct StatusDotView: View {
 // MARK: - Dropdown Panel
 
 private struct StatusDropdownPanel: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let currentStatus: CommentStatus
     let colorScheme: ColorScheme
     let onSelect: (CommentStatus) -> Void
@@ -112,6 +114,7 @@ private struct StatusDropdownPanel: View {
 }
 
 private struct StatusOptionRow: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     let status: CommentStatus
     let isSelected: Bool
     let colorScheme: ColorScheme

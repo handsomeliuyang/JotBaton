@@ -25,6 +25,7 @@ import SwiftUI
 /// }
 /// ```
 struct CalloutView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
     enum ContentPlacement {
         case below
         case trailing

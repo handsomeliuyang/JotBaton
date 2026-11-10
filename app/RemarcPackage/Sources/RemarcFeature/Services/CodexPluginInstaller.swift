@@ -47,12 +47,12 @@ public enum CodexPluginInstaller {
         marketplace: ProcessRunner.CommandResult?
     ) -> Outcome {
         guard let install else {
-            return .failed("Could not run the codex CLI. Try the commands manually.")
+            return .failed(L10n.tr("Could not run the codex CLI. Try the commands manually."))
         }
         // Timeout wins over exit code: a terminated process that traps the
         // signal and exits 0 must not read as a completed install.
         if install.timedOut {
-            return .failed("Timed out. Check your network and try again, or run the commands manually.")
+            return .failed(L10n.tr("Timed out. Check your network and try again, or run the commands manually."))
         }
         if install.exitCode == 0 { return .success }
         var message = install.output.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -106,7 +106,7 @@ public enum CodexPluginInstaller {
     /// fine, so both fall through with a nil result.
     static func preAddOutcome(provenance: MarketplaceProvenance) -> Outcome? {
         guard case .foreign(let source) = provenance else { return nil }
-        return .failed("A different Codex marketplace named \"\(marketplaceName)\" already exists (\(source)). Remove it with: codex plugin marketplace remove \(marketplaceName) - then try again.")
+        return .failed(L10n.tr("A different Codex marketplace named \"\(marketplaceName)\" already exists (\(source)). Remove it with: codex plugin marketplace remove \(marketplaceName) - then try again."))
     }
 
     /// Pure decision core (unit-tested) for the check that runs AFTER
@@ -118,9 +118,9 @@ public enum CodexPluginInstaller {
         case .ours:
             return nil
         case .foreign(let source):
-            return .failed("A different Codex marketplace named \"\(marketplaceName)\" already exists (\(source)). Remove it with: codex plugin marketplace remove \(marketplaceName) - then try again.")
+            return .failed(L10n.tr("A different Codex marketplace named \"\(marketplaceName)\" already exists (\(source)). Remove it with: codex plugin marketplace remove \(marketplaceName) - then try again."))
         case .absent:
-            return .failed("The \(marketplaceName) marketplace could not be added. Run the commands manually.")
+            return .failed(L10n.tr("The \(marketplaceName) marketplace could not be added. Run the commands manually."))
         }
     }
 
@@ -143,7 +143,7 @@ public enum CodexPluginInstaller {
             codex, arguments: ["plugin", "marketplace", "list", "--json"],
             timeoutSeconds: commandTimeoutSeconds, mergeStderr: false
         ), preAddList.exitCode == 0, !preAddList.timedOut else {
-            return .failed("Could not verify the plugin marketplace. Run the commands manually.")
+            return .failed(L10n.tr("Could not verify the plugin marketplace. Run the commands manually."))
         }
         if let bail = preAddOutcome(provenance: marketplaceProvenance(listJSON: Data(preAddList.output.utf8))) {
             return bail
@@ -171,7 +171,7 @@ public enum CodexPluginInstaller {
             codex, arguments: ["plugin", "marketplace", "list", "--json"],
             timeoutSeconds: commandTimeoutSeconds, mergeStderr: false
         ), postAddList.exitCode == 0, !postAddList.timedOut else {
-            return .failed("Could not verify the plugin marketplace. Run the commands manually.")
+            return .failed(L10n.tr("Could not verify the plugin marketplace. Run the commands manually."))
         }
         if let bail = postAddOutcome(provenance: marketplaceProvenance(listJSON: Data(postAddList.output.utf8))) {
             return bail
@@ -187,7 +187,7 @@ public enum CodexPluginInstaller {
         // plugin installed and enabled before reporting success.
         let state = await CodexPluginDetector().read()
         guard state.remarcInstalled && state.remarcEnabled else {
-            return .failed("Install reported success but the plugin is not active. Run codex plugin list to inspect, or run the commands manually.")
+            return .failed(L10n.tr("Install reported success but the plugin is not active. Run codex plugin list to inspect, or run the commands manually."))
         }
         // Version gate: this is what makes the upgrade step consequential.
         // A "local" version means the install came from a stale pre-semver
@@ -204,7 +204,7 @@ public enum CodexPluginInstaller {
         // legacy integration.
         guard let version = state.remarcVersion, Self.isNumericVersion(version) else {
             let reported = state.remarcVersion ?? "none"
-            return .failed("Installed from a stale marketplace snapshot (version \"\(reported)\"). Run: codex plugin marketplace upgrade \(marketplaceName) && codex plugin add \(pluginId)")
+            return .failed(L10n.tr("Installed from a stale marketplace snapshot (version \"\(reported)\"). Run: codex plugin marketplace upgrade \(marketplaceName) && codex plugin add \(pluginId)"))
         }
         return .success
     }
