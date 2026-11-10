@@ -34,6 +34,13 @@ enum SessionTaskTransactions {
         }
     }
 
+    static func restoreHistorySession(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
+                                      maxActiveSessions: Int, now: Date) throws -> SessionTaskCommit<Bool> {
+        try update(fileURL: fileURL, candidate: candidate, baseline: baseline, now: now) { state in
+            HistoryRestorationPolicy.restoreSession(sessionID, in: &state, maxActiveSessions: maxActiveSessions, now: now)
+        }
+    }
+
     private static func update<Value: Sendable>(fileURL: URL, candidate: AppState, baseline: AppState,
                                                 timeout: TimeInterval = 2, now: Date,
                                                 mutate: (inout AppState) throws -> Value) throws -> SessionTaskCommit<Value> {

@@ -491,10 +491,14 @@ struct PreferencesView: View {
                         Text(L10n.tr("Images are kept longer so exported references stay valid."))
                             .settingDescriptionStyle()
                     }
-                    pickerRow(L10n.tr("Delete resolved"), selection: $settings.resolvedCommentDeletion) { $0.label }
+                    VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
+                        pickerRow(L10n.tr("Move completed comments to History"), selection: $settings.resolvedCommentDeletion) { $0.label }
+                        Text(L10n.tr("Completed comments leave the current list and can be viewed or restored in History until the history retention period expires."))
+                            .settingDescriptionStyle()
+                    }
 
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
-                        toggleRow(L10n.tr("Auto-clean empty sessions"), isOn: $settings.inactiveSessionCleanupEnabled)
+                        toggleRow(L10n.tr("Move empty sessions to History automatically"), isOn: $settings.inactiveSessionCleanupEnabled)
                         Text(L10n.tr("Empty sessions move to History after the selected duration. Retained tasks, including completed tasks, prevent cleanup. The Inbox is always kept."))
                             .settingDescriptionStyle()
                     }

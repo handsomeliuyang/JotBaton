@@ -135,6 +135,7 @@ struct SnapshotVersionLabel: View {
             Text(L10n.tr("Saved: \(version.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))"))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
     static func replacementMessage(_ version: SnapshotVersion) -> String {
         L10n.tr("Use the data from \(version.deviceName)? Content time: \(version.contentModifiedAt.map { $0.interfaceFormatted(date: .abbreviated, time: .standard) } ?? L10n.tr("Not recorded")). This replaces all local tasks, including additions and deletions. Your current data will be backed up first.")
@@ -146,6 +147,7 @@ struct SnapshotVersionLabel: View {
 struct SnapshotSyncControls: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let compact: Bool
+    var onExpansionChanged: (Bool) -> Void = { _ in }
     @ObservedObject private var sync = SnapshotSyncManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var choosing = false
@@ -214,19 +216,17 @@ struct SnapshotSyncControls: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             Text(L10n.tr("Choose the complete state to keep")).font(.system(size: 11, weight: .semibold))
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(sync.cloudHeads) { version in
-                        HStack(alignment: .top) {
-                            SnapshotVersionLabel(version: version)
-                            Spacer(minLength: 4)
-                            iconAction(L10n.tr("Review and apply this copy"), symbol: "arrow.down.circle") { versionToApply = version }
-                                .disabled(sync.isBusy)
-                                .accessibilityIdentifier("sync.quickApply.\(version.shortID)")
-                        }
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(sync.cloudHeads) { version in
+                    HStack(alignment: .top) {
+                        SnapshotVersionLabel(version: version)
+                        Spacer(minLength: 4)
+                        iconAction(L10n.tr("Review and apply this copy"), symbol: "arrow.down.circle") { versionToApply = version }
+                            .disabled(sync.isBusy)
+                            .accessibilityIdentifier("sync.quickApply.\(version.shortID)")
                     }
                 }
-            }.frame(maxHeight: compact ? 130 : 220)
+            }
             HStack {
                 iconAction(L10n.tr("Publish this Mac's copy instead"), symbol: "arrow.up.circle") { confirmPublish = true }.disabled(sync.isBusy)
                 Spacer()
@@ -318,6 +318,7 @@ struct SnapshotSyncControls: View {
         .onRemarcChange(of: choosing || versionToApply != nil || confirmPublish || confirmEnable) { active in
             sync.holdAutomaticChecks(active, token: reviewToken)
         }
+        .onRemarcChange(of: choosing || showingDetails) { onExpansionChanged($0) }
         .task { await sync.observeCloud() }
         .onDisappear { sync.holdAutomaticChecks(false, token: reviewToken) }
     }
@@ -425,6 +426,7 @@ struct SnapshotSyncToolbarButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showing = false
     @State private var isHovered = false
+    @State private var anchorRef = AnchorViewRef()
 
     private var cards: SnapshotSyncCardPresentation {
         SnapshotSyncCardPresentation.make(enabled: sync.isEnabled, directoryReady: sync.folder != nil,
@@ -445,7 +447,7 @@ struct SnapshotSyncToolbarButton: View {
         let state = cards
         Button { showing.toggle() } label: {
             ZStack {
-                Image(systemName: state.toolbarSymbol)
+                Image(systemName: RemarcSymbols.syncToolbar(state.toolbarSymbol))
                     .font(.system(size: 12))
                     .opacity(state.cloud.isWorking ? 0 : 1)
                 if state.cloud.isWorking { ProgressView().controlSize(.mini) }
@@ -455,14 +457,15 @@ struct SnapshotSyncToolbarButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(DropdownAnchor(ref: anchorRef))
         .onHover { isHovered = $0 }
         .help(L10n.tr("iCloud · \(sync.summary)"))
         .accessibilityLabel(L10n.tr("iCloud · \(sync.shortStatus)"))
         .accessibilityIdentifier("sync.toolbar")
         .popover(isPresented: $showing, arrowEdge: .top) {
-            ScrollView {
-                SnapshotSyncControls(compact: true).padding(16)
-            }.frame(width: 340).frame(maxHeight: 510)
+            SnapshotSyncPopoverContent(
+                screenSize: NSScreen.bestScreen(for: anchorRef.view?.window).visibleFrame.size
+            )
         }
         .task { await sync.checkIfNeeded() }
         .onRemarcChange(of: panel.isVisible) { visible in
@@ -471,5 +474,47 @@ struct SnapshotSyncToolbarButton: View {
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
             Task { await sync.checkIfNeeded() }
         }
+    }
+}
+
+/// Measure the full content inside a single scroll view. An explicit viewport
+/// size lets the popover grow and shrink instead of preserving its initial height.
+private struct SnapshotSyncPopoverContent: View {
+    let screenSize: CGSize
+    @State private var expanded = false
+    @State private var contentSize: CGSize = .zero
+
+    private var width: CGFloat {
+        min(expanded ? 460 : 340, max(1, screenSize.width - 32))
+    }
+
+    private var height: CGFloat {
+        min(contentSize.height > 0 ? contentSize.height : 180, screenSize.height * 0.8)
+    }
+
+    var body: some View {
+        ScrollView {
+            SnapshotSyncControls(compact: true, onExpansionChanged: { expanded = $0 })
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear { updateContentSize(geometry.size) }
+                            .onRemarcChange(of: geometry.size) { updateContentSize($0) }
+                    }
+                }
+        }
+        .frame(width: width, height: height)
+        .fixedSize()
+        .animation(.easeInOut(duration: 0.18), value: expanded)
+        .animation(.easeInOut(duration: 0.18), value: contentSize.height)
+        .accessibilityIdentifier("sync.popover")
+    }
+
+    private func updateContentSize(_ size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        contentSize = CGSize(width: ceil(size.width), height: ceil(size.height))
     }
 }

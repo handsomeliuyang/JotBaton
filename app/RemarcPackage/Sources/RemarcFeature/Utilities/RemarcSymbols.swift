@@ -7,6 +7,10 @@ enum RemarcSymbols {
     static let moveToSession = name("arrow.forward.folder", fallback: "folder")
     static let history = name("clock.arrow.trianglehead.counterclockwise.rotate.90", fallback: "clock.arrow.circlepath")
 
+    static func syncToolbar(_ preferred: String) -> String {
+        name(preferred, fallback: "icloud")
+    }
+
     private static func name(_ preferred: String, fallback: String) -> String {
         NSImage(systemSymbolName: preferred, accessibilityDescription: nil) == nil ? fallback : preferred
     }

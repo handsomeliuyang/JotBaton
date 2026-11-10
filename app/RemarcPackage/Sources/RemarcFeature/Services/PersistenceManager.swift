@@ -294,33 +294,21 @@ public final class PersistenceManager: ObservableObject {
         scheduleSave()
     }
 
-    public func restoreSession(_ id: UUID) {
-        guard let index = appState.sessions.firstIndex(where: { $0.id == id }) else { return }
-
-        // Check if we can restore (max 3 active)
-        guard activeSessions.count < AppConstants.maxActiveSessions else {
-            debugLog("PersistenceManager: Cannot restore session — max active reached")
-            return
+    @discardableResult
+    public func restoreSession(_ id: UUID) -> Bool {
+        guard !documentWriteInFlight, !backgroundSaveInFlight else { return false }
+        do {
+            let commit = try SessionTaskTransactions.restoreHistorySession(
+                fileURL: fileURL, candidate: appState, baseline: lastPersisted,
+                sessionID: id, maxActiveSessions: AppConstants.maxActiveSessions, now: Date()
+            )
+            appState = commit.state
+            lastPersisted = commit.state
+            return commit.value
+        } catch {
+            debugLog("PersistenceManager: Could not restore session")
+            return false
         }
-
-        appState.sessions[index].isDeleted = false
-        appState.sessions[index].deletedAt = nil
-        appState.sessions[index].isAutoDismissed = false
-        appState.sessions[index].autoDismissedAt = nil
-
-        // Restore comments that were deleted with the session
-        let now = Date()
-        for i in appState.comments.indices where appState.comments[i].sessionID == id && appState.comments[i].isDeleted {
-            appState.comments[i].isDeleted = false
-            appState.comments[i].deletedAt = nil
-            appState.comments[i].updatedAt = now
-        }
-
-        if appState.activeSessionID == nil {
-            appState.activeSessionID = id
-        }
-
-        scheduleSave()
     }
 
     public func dismissSession(_ id: UUID) {
@@ -510,11 +498,8 @@ public final class PersistenceManager: ObservableObject {
     }
 
     public func restoreComment(_ id: UUID, to sessionID: UUID) {
-        guard let index = appState.comments.firstIndex(where: { $0.id == id }) else { return }
-        appState.comments[index].isDeleted = false
-        appState.comments[index].deletedAt = nil
-        appState.comments[index].sessionID = sessionID
-        appState.comments[index].updatedAt = Date()
+        guard let index = appState.comments.firstIndex(where: { $0.id == id && $0.isDeleted }) else { return }
+        HistoryRestorationPolicy.reopen(&appState.comments[index], to: sessionID, now: Date())
         scheduleSave()
     }
 
@@ -1379,7 +1364,7 @@ public final class PersistenceManager: ObservableObject {
             appState.comments[index].updatedAt = now
             scheduleSave()
             debugLog("PersistenceManager: Immediately auto-deleted resolved comment \(id)")
-            ToastManager.shared.show(L10n.tr("Auto-deleted"), undo: { [weak self] in
+            ToastManager.shared.show(L10n.tr("Moved to History"), undo: { [weak self] in
                 self?.restoreComment(id, to: sessionID)
             })
         }

@@ -66,8 +66,8 @@ struct PopoverContentView: View {
         statusFilterStorage = CommentStatusFilter.storageValue(of: selection)
     }
 
-    private enum HistoryTab {
-        case comments, transcriptions
+    private enum HistoryTab: String {
+        case comments, sessions, transcriptions
     }
 
     // MARK: - Computed Comments
@@ -131,7 +131,9 @@ struct PopoverContentView: View {
                         historyHeader
                     }
                     Divider()
-                    if #available(macOS 26, *), historyTab == .transcriptions {
+                    if historyTab == .sessions {
+                        SessionHistoryView(showingHistory: $showingHistory, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
+                    } else if #available(macOS 26, *), historyTab == .transcriptions {
                         TranscriptionHistoryView(searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
                     } else {
                         CommentHistoryView(showingHistory: $showingHistory, restoredCommentID: $restoredCommentID, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
@@ -330,11 +332,13 @@ struct PopoverContentView: View {
         popoverController.resizeAfterLayoutSettles()
     }
 
-    @available(macOS 26, *)
     private var historyTabPicker: some View {
         HStack(spacing: 0) {
             historyTabButton(L10n.tr("Comments"), tab: .comments)
-            historyTabButton(L10n.tr("Dictation"), tab: .transcriptions)
+            historyTabButton(L10n.tr("Sessions"), tab: .sessions)
+            if #available(macOS 26, *) {
+                historyTabButton(L10n.tr("Dictation"), tab: .transcriptions)
+            }
         }
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -342,12 +346,12 @@ struct PopoverContentView: View {
         )
     }
 
-    @available(macOS 26, *)
     private func historyTabButton(_ title: String, tab: HistoryTab) -> some View {
         let isSelected = historyTab == tab
         return Button {
             withAnimation(.easeInOut(duration: 0.15)) { historyTab = tab }
             historySearchText = ""
+            popoverController.resizeAfterLayoutSettles()
         } label: {
             Text(title)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
@@ -360,23 +364,12 @@ struct PopoverContentView: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("remarc.history.\(tab.rawValue)")
     }
 
     private var historyHeader: some View {
         ZStack {
-            // Center: tab picker or title
-            if #available(macOS 26, *) {
-                historyTabPicker
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: RemarcSymbols.history)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                    Text(L10n.tr("History"))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                }
-            }
+            historyTabPicker
 
             // Left: back button
             HStack {
@@ -420,6 +413,7 @@ struct PopoverContentView: View {
     }
 
     private var hasHistoryContent: Bool {
+        if historyTab == .sessions { return !persistence.deletedSessions.isEmpty }
         if #available(macOS 26, *), historyTab == .transcriptions {
             return !persistence.transcriptions.isEmpty
         }
@@ -657,8 +651,9 @@ struct PopoverContentView: View {
                 Label(L10n.tr("Search\u{2026}  \u{2318}F"), systemImage: "magnifyingglass")
             }
             Button(action: showHistory) {
-                Label(L10n.tr("Comment History"), systemImage: RemarcSymbols.history)
+                Label(L10n.tr("History"), systemImage: RemarcSymbols.history)
             }
+            .accessibilityIdentifier("remarc.history.open")
             Toggle(L10n.tr("Newest First"), isOn: $sortNewestFirst)
 
             Divider()

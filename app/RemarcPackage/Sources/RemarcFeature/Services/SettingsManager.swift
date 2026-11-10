@@ -94,7 +94,18 @@ public final class SettingsManager: ObservableObject {
         static let hidesMenuBarCountAtZero = "hidesMenuBarCountAtZero"
         static let inactiveSessionCleanupEnabled = "inactiveSessionCleanupEnabled"
         static let inactiveSessionCleanupInterval = "inactiveSessionCleanupInterval"
+        static let historyDefaultsVersion = "historyDefaultsVersion"
         static let webhooksConfig = "webhooksConfig"
+    }
+
+    /// Apply the agreed History defaults once per installed channel. Later
+    /// launches must preserve the user's choices, including disabling cleanup.
+    static func applyHistoryDefaults(to defaults: UserDefaults) {
+        guard defaults.integer(forKey: Keys.historyDefaultsVersion) < 1 else { return }
+        defaults.set(ResolvedCommentDeletion.immediately.rawValue, forKey: Keys.resolvedCommentDeletion)
+        defaults.set(true, forKey: Keys.inactiveSessionCleanupEnabled)
+        defaults.set(InactiveSessionCleanupInterval.after30Minutes.rawValue, forKey: Keys.inactiveSessionCleanupInterval)
+        defaults.set(1, forKey: Keys.historyDefaultsVersion)
     }
 
     @Published public var isPaused: Bool {
@@ -492,6 +503,7 @@ public final class SettingsManager: ObservableObject {
     }
 
     private init() {
+        Self.applyHistoryDefaults(to: defaults)
         self.isPaused = defaults.bool(forKey: Keys.isPaused)
 
         if let savedFormat = defaults.string(forKey: Keys.outputFormat),
@@ -555,7 +567,7 @@ public final class SettingsManager: ObservableObject {
             // Migrate: old true → .immediately, old false → .never
             self.resolvedCommentDeletion = defaults.bool(forKey: Keys.deleteResolvedComments) ? .immediately : .never
         } else {
-            self.resolvedCommentDeletion = .never
+            self.resolvedCommentDeletion = .immediately
         }
 
         // Migration: old Bool autoClearAfterExport → new enum clearAfterExportBehavior
@@ -569,12 +581,13 @@ public final class SettingsManager: ObservableObject {
             self.clearAfterExportBehavior = .ask
         }
 
-        self.inactiveSessionCleanupEnabled = defaults.bool(forKey: Keys.inactiveSessionCleanupEnabled)
+        self.inactiveSessionCleanupEnabled = defaults.object(forKey: Keys.inactiveSessionCleanupEnabled) == nil
+            ? true : defaults.bool(forKey: Keys.inactiveSessionCleanupEnabled)
         if let saved = defaults.string(forKey: Keys.inactiveSessionCleanupInterval),
            let value = InactiveSessionCleanupInterval(rawValue: saved) {
             self.inactiveSessionCleanupInterval = value
         } else {
-            self.inactiveSessionCleanupInterval = .after4Hours
+            self.inactiveSessionCleanupInterval = .after30Minutes
         }
 
         if let saved = defaults.string(forKey: Keys.referenceStyle),

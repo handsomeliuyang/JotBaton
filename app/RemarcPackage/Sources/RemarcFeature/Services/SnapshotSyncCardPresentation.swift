@@ -34,14 +34,14 @@ struct SnapshotSyncCardPresentation: Equatable {
         } else if issue != nil && presentation.action != .choose {
             cloud = Control(symbol: "exclamationmark.circle", description: L10n.tr("Show sync issue and recovery options"),
                             action: .recover, tone: presentation.tone)
-            toolbar = "icloud.badge.exclamationmark"
+            toolbar = "exclamationmark.icloud"
         } else if transfer.isActive {
             cloud = Control(symbol: "icloud", description: transfer.title, isWorking: true)
             local = Control(symbol: "clock", description: L10n.tr("Local tasks are kept while iCloud transfers data"))
         } else if transfer == .failed {
             cloud = Control(symbol: "exclamationmark.circle", description: L10n.tr("Show transfer issue and recovery options"),
                             action: .recover, tone: .error)
-            toolbar = "icloud.badge.exclamationmark"
+            toolbar = "exclamationmark.icloud"
         } else if let publication, publication.isPending {
             let canRetry = publication.phase == .savedLocally
             cloud = Control(symbol: canRetry ? "arrow.clockwise" : "clock",
@@ -58,7 +58,7 @@ struct SnapshotSyncCardPresentation: Equatable {
             cloud = Control(symbol: "arrow.triangle.branch", description: L10n.tr("Review different copies and choose which data to keep"),
                             action: .choose, tone: .warning)
             local = cloud
-            toolbar = "icloud.badge.exclamationmark"
+            toolbar = "exclamationmark.icloud"
         } else {
             switch comparison {
             case .same:
@@ -79,7 +79,7 @@ struct SnapshotSyncCardPresentation: Equatable {
                 cloud = Control(symbol: "arrow.triangle.branch", description: L10n.tr("Review different copies and choose which data to keep"),
                                 action: .choose, tone: .warning)
                 local = cloud
-                toolbar = "icloud.badge.exclamationmark"
+                toolbar = "exclamationmark.icloud"
             }
         }
         return Self(cloud: cloud, local: local, toolbarSymbol: toolbar,

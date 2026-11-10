@@ -105,7 +105,7 @@ struct HistoryCardView: View {
         HStack(spacing: 4) {
             if let deletedAt = comment.deletedAt {
                 Text({
-                    let date = L10n.tr("Deleted \(deletedAt.interfaceFormatted(date: .abbreviated, time: .shortened))")
+                    let date = L10n.tr("Moved to History \(deletedAt.interfaceFormatted(date: .abbreviated, time: .shortened))")
                     if let app = appDisplayName(for: comment) {
                         return "\(date) \u{00B7} \(app)"
                     }
@@ -125,6 +125,7 @@ struct HistoryCardView: View {
 
             HStack(spacing: 2) {
                 CardActionButton(icon: "arrow.uturn.backward", tooltip: L10n.tr("Restore"), tint: Color.remarcPrimary(for: colorScheme), action: onRestore)
+                    .accessibilityIdentifier("history.restoreComment.\(comment.id)")
                 CardActionButton(icon: "trash", tooltip: L10n.tr("Delete permanently"), tint: Color.remarcError(for: colorScheme)) {
                     showDeleteConfirmation = true
                 }

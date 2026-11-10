@@ -67,7 +67,7 @@ struct CommentHistoryView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(.primary.opacity(0.25))
 
-            Text(searchText.isEmpty ? L10n.tr("No deleted comments") : L10n.tr("No results"))
+            Text(searchText.isEmpty ? L10n.tr("No comments in History") : L10n.tr("No results"))
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
         }

@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 @testable import RemarcFeature
 
@@ -204,6 +205,18 @@ final class SnapshotSyncTests {
         #expect(!cards.showsContentTimes)
         #expect(cardState(busy: true).cloud.isWorking)
         #expect(!cardState(busy: true).showsContentTimes)
+    }
+
+    @Test @MainActor func testSyncToolbarSymbolsExistAndUnknownSymbolsFallBackToCloud() {
+        let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError), stage: .connection)
+        let states = [cardState(), cardState(.publish), cardState(.receive), cardState(.choose),
+                      cardState(transfer: .failed), cardState(issue: issue), cardState(enabled: false)]
+        for state in states {
+            #expect(NSImage(systemSymbolName: state.toolbarSymbol, accessibilityDescription: nil) != nil,
+                    "Missing sync toolbar symbol: \(state.toolbarSymbol)")
+        }
+        #expect(RemarcSymbols.syncToolbar("remarc.missing.symbol") == "icloud")
+        #expect(NSImage(systemSymbolName: RemarcSymbols.syncToolbar("remarc.missing.symbol"), accessibilityDescription: nil) != nil)
     }
 
     @Test func testDifferentContentOffersOnlyTheRelevantOperation() {
@@ -549,13 +562,13 @@ final class SnapshotSyncTests {
             hasLocalChanges: false, remoteCount: 0)
         #expect(view.tone == .warning)
         #expect(view.action == .retry)
-        #expect(view.title != "Uploaded to iCloud")
+        #expect(view.title != L10n.tr("Uploaded to iCloud"))
     }
 
     @Test func testDirectoryAccessAloneNeverClaimsUploadSuccess() {
         let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
             issue: nil, publication: nil, hasLocalChanges: false, remoteCount: 0)
-        #expect(view.title != "Uploaded to iCloud")
+        #expect(view.title != L10n.tr("Uploaded to iCloud"))
         #expect(view.tone != .success)
     }
 
@@ -573,7 +586,7 @@ final class SnapshotSyncTests {
         let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
             issue: nil, publication: SnapshotPublication(version: version, phase: .confirmed, confirmedAt: Date()),
             hasLocalChanges: false, remoteCount: 0)
-        #expect(view.title == "Uploaded to iCloud")
+        #expect(view.title == L10n.tr("Uploaded to iCloud"))
         #expect(view.tone == .success)
     }
 
