@@ -5,7 +5,6 @@ struct CommentEditorView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var floatingController = FloatingEditorController.shared
     @Binding var commentText: String
-    @Binding var customTitle: String
     @Binding var attachments: [String]
     @FocusState private var isFocused: Bool
     @State private var isCloseHovered = false
@@ -19,7 +18,7 @@ struct CommentEditorView: View {
     let referenceText: String?
     let comment: Comment?
     let presentationGeneration: UInt64
-    let onSave: (String, String, [String]) -> Void
+    let onSave: (String, [String]) -> Void
     let onCancel: () -> Void
 
     var body: some View {
@@ -82,20 +81,10 @@ struct CommentEditorView: View {
                     }
                 }
 
-                TaskTitleField(
-                    text: $customTitle,
-                    automaticTitle: CommentTitlePolicy.automaticTitle(
-                        reference: referenceText,
-                        body: commentText,
-                        filePath: screenshotImagePath ?? attachments.first
-                    ),
-                    onSubmit: refocusEditor
-                )
-
                 // Text editor
                 CommentTextEditor(
                     text: $commentText,
-                    onSubmit: { onSave(customTitle, commentText, attachments) },
+                    onSubmit: { onSave(commentText, attachments) },
                     onCancel: onCancel,
                     onImagePaste: { image in
                         if let path = PersistenceManager.shared.saveAttachmentImage(image) {
@@ -140,14 +129,14 @@ struct CommentEditorView: View {
                         VoiceAwareSaveButton(
                             isSaveHovered: $isSaveHovered,
                             colorScheme: colorScheme,
-                            onSave: { onSave(customTitle, commentText, attachments) },
+                            onSave: { onSave(commentText, attachments) },
                             appendText: appendTranscribedText,
                             transcriptionGeneration: presentationGeneration,
                             acceptsTranscription: { floatingController.acceptsVoiceTranscription($0) },
                             autoSaveState: voiceAutoSaveButtonState
                         )
                     } else {
-                        Button(action: { onSave(customTitle, commentText, attachments) }) {
+                        Button(action: { onSave(commentText, attachments) }) {
                             HStack(spacing: 6) {
                                 Text("Save")
                                     .font(.system(size: 12, weight: .medium))
@@ -212,12 +201,6 @@ struct CommentEditorView: View {
             guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
             floatingController.currentText = newValue
             if floatingController.autoSaveCountdownActive && !suppressTextCancelAutoSave {
-                floatingController.cancelAutoSave()
-            }
-        }
-        .onRemarcChange(of: customTitle) { _ in
-            guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
-            if floatingController.autoSaveCountdownActive {
                 floatingController.cancelAutoSave()
             }
         }

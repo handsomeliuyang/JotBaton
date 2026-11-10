@@ -474,16 +474,6 @@ public final class PersistenceManager: ObservableObject {
         return true
     }
 
-    @discardableResult
-    public func renameComment(_ id: UUID, title: String) -> Bool {
-        guard let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted }) else { return false }
-        appState.comments[index].customTitle = CommentTitlePolicy.normalizedCustomTitle(title)
-        appState.comments[index].updatedAt = Date()
-        scheduleSave()
-        WebhookService.shared.dispatch(.commentUpdated, comment: appState.comments[index])
-        return true
-    }
-
     public func deleteComment(_ id: UUID) {
         guard let index = appState.comments.firstIndex(where: { $0.id == id }) else { return }
         let now = Date()

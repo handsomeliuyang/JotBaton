@@ -17,7 +17,7 @@ struct TypeLabelStyle: LabelStyle {
 struct CommentCardView: View {
     let comment: Comment
     var isFocused: Bool = false
-    /// Active search terms; matches are highlighted in the title and text.
+    /// Active search terms; matches are highlighted in the reference and body.
     var searchTerms: [String] = []
     var onFocusChange: ((Bool) -> Void)?
 
@@ -30,12 +30,9 @@ struct CommentCardView: View {
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
     @State private var isResolvedExpanded = false
-    @State private var isRenaming = false
-    @State private var titleDraft = ""
-    @FocusState private var isTitleFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
 
-    private var showActions: Bool { isHovered || isFocused || isRenaming || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
+    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
@@ -47,9 +44,9 @@ struct CommentCardView: View {
 
     private var statusHeaderOpacity: Double {
         switch comment.status {
-        case .open: return colorScheme == .dark ? 0.18 : 0.10
+        case .open: return colorScheme == .dark ? 0.12 : 0.06
         case .resolved: return colorScheme == .dark ? 0.06 : 0.035
-        default: return colorScheme == .dark ? 0.14 : 0.08
+        default: return colorScheme == .dark ? 0.10 : 0.05
         }
     }
 
@@ -64,7 +61,7 @@ struct CommentCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             headerView
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.vertical, 7)
                 .background(statusColor.opacity(statusHeaderOpacity))
 
             VStack(alignment: .leading, spacing: 8) {
@@ -118,23 +115,12 @@ struct CommentCardView: View {
 
     private var headerView: some View {
         HStack(spacing: 8) {
-            if isRenaming {
-                TextField("任务名称", text: $titleDraft)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 11))
-                    .focused($isTitleFocused)
-                    .onSubmit(saveTitle)
-                    .onExitCommand {
-                        isRenaming = false
-                        isTitleFocused = false
-                    }
-                    .accessibilityIdentifier("remarc.card.titleEditor")
-            } else if comment.status == .resolved {
+            if comment.status == .resolved {
                 Button {
                     isResolvedExpanded.toggle()
                 } label: {
                     HStack(spacing: 6) {
-                        headerTitle
+                        sourceMetadata
                         Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(.secondary)
@@ -144,59 +130,27 @@ struct CommentCardView: View {
                 }
                 .buttonStyle(.plain)
                 .help(isCollapsed ? "Expand completed comment" : "Collapse completed comment")
-                .accessibilityLabel(comment.taskTitle)
+                .accessibilityLabel("Completed comment: \(collapsedSummary)")
                 .accessibilityValue(isCollapsed ? "Collapsed" : "Expanded")
             } else {
-                headerTitle
-                    .onTapGesture(count: 2, perform: beginRenaming)
+                sourceMetadata
                 Spacer(minLength: 0)
-            }
-
-            if !isRenaming {
-                Button(action: beginRenaming) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                        .frame(width: 20, height: 22)
-                }
-                .buttonStyle(.plain)
-                .opacity(isHovered || isFocused ? 1 : 0)
-                .allowsHitTesting(isHovered || isFocused)
-                .accessibilityLabel("修改任务标题")
-                .help("修改任务标题")
             }
 
             StatusDotView(comment: comment)
                 .fixedSize()
         }
-        .onRemarcChange(of: isTitleFocused) { focused in
-            if !focused && isRenaming { saveTitle() }
-        }
     }
 
-    private func beginRenaming() {
-        titleDraft = comment.taskTitle
-        isRenaming = true
-        isTitleFocused = true
-    }
-
-    private func saveTitle() {
-        guard persistence.renameComment(comment.id, title: titleDraft) else {
-            ToastManager.shared.show("标题未能保存")
-            return
-        }
-        isRenaming = false
-        isTitleFocused = false
-    }
-
-    private var headerTitle: some View {
-        Text(highlighted(comment.taskTitle))
-                .fontWeight(.medium)
-                .foregroundStyle(.primary.opacity(0.85))
+    private var sourceMetadata: some View {
+        TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
+            Text(metadataText(now: context.date))
+                .font(.system(size: 10))
+                .foregroundStyle(.primary.opacity(0.55))
                 .lineLimit(1)
-                .truncationMode(.tail)
-                .font(.system(size: 11))
-                .help(comment.taskTitle)
+                .truncationMode(.middle)
+                .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
+        }
     }
 
     @ViewBuilder
@@ -325,14 +279,6 @@ struct CommentCardView: View {
 
     private var metadataView: some View {
         HStack(spacing: 4) {
-            TimelineView(.periodic(from: .now, by: AppConstants.cardTimestampRefreshInterval)) { context in
-                Text(metadataText(now: context.date))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.primary.opacity(0.45))
-                    .lineLimit(1)
-                    .help(comment.createdAt.formatted(date: .abbreviated, time: .shortened))
-            }
-
             Text(comment.shortID)
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.primary.opacity(0.4))
@@ -385,7 +331,7 @@ struct CommentCardView: View {
                     ToastManager.shared.show("Couldn’t copy comment")
                 }
             }
-            cardActionButton(icon: "play.fill", tooltip: "复制并开发", tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "play.fill", tooltip: "复制并开始开发", tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
                     ToastManager.shared.show("已复制，已标记为正在开发中")
                 } else {

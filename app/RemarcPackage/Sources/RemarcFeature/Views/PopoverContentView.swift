@@ -613,6 +613,14 @@ struct PopoverContentView: View {
             }
             .help("Copy all comments in this session")
             .disabled(sessionActionsDisabled)
+            .accessibilityIdentifier("remarc.footer.copyAll")
+
+            primaryFooterButton(icon: "play.fill", title: "复制并开始开发") {
+                copyAllAndStartDevelopment()
+            }
+            .help("复制当前会话全部评论，并将待处理评论标记为正在开发中；保留评论")
+            .disabled(sessionActionsDisabled)
+            .accessibilityIdentifier("remarc.footer.copyAndStart")
 
             mcpButton
 
@@ -917,24 +925,26 @@ struct PopoverContentView: View {
             showMCPPopover = true
         } label: {
             Label("MCP", systemImage: "powerplug")
-                .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .overlay(alignment: .topTrailing) {
-                Circle()
-                    .fill(mcpStatusColor)
-                    .frame(width: 6, height: 6)
-                    .shadow(
-                        color: mcpManager.isEnabled ? mcpStatusColor.opacity(0.6) : .clear,
-                        radius: 3
-                    )
-                    .offset(x: 2, y: -2)
-                    .animation(.easeInOut(duration: 0.2), value: mcpStatusColor)
-            }
+                .labelStyle(.iconOnly)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                .frame(width: 30, height: 28)
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(mcpStatusColor)
+                        .frame(width: 6, height: 6)
+                        .shadow(
+                            color: mcpManager.isEnabled ? mcpStatusColor.opacity(0.6) : .clear,
+                            radius: 3
+                        )
+                        .offset(x: -2, y: 2)
+                        .animation(.easeInOut(duration: 0.2), value: mcpStatusColor)
+                }
         }
-        .buttonStyle(SecondaryFooterButtonStyle())
+        .buttonStyle(FooterButtonStyle(restOpacity: 0.08, hoverOpacity: 0.14))
         .help(mcpStatusTooltip)
+        .accessibilityValue(mcpStatusTooltip)
+        .accessibilityIdentifier("remarc.footer.mcp")
         .popover(isPresented: $showMCPPopover, arrowEdge: .top) {
             mcpPopoverContent
         }
@@ -1184,16 +1194,35 @@ struct PopoverContentView: View {
         presentPostExportAction(for: receipt)
     }
 
-    private func presentPostExportAction(for receipt: ExportReceipt) {
-        // Invalidate delayed work from any prior receipt before presenting the
-        // next action. Each delayed closure also captures this generation.
+    private func copyAllAndStartDevelopment() {
+        guard let session = persistence.activeSession,
+              let receipt = ExportManager.shared.copySessionAndStartDevelopment(
+                session, comments: persistence.activeComments
+              ) else {
+            ToastManager.shared.show("复制失败，状态未修改")
+            return
+        }
+        // A development handoff keeps comments for tracking, including when an
+        // earlier ordinary Copy All has a delayed clear action still pending.
+        resetPostExportAction()
+        ToastManager.shared.show("已复制 \(receipt.count) 条评论，待处理评论已标记为正在开发中")
+    }
+
+    private func resetPostExportAction() {
         clearPromptCancelled = true
         autoClearCancelled = true
         exportClearGeneration = UUID()
-        let generation = exportClearGeneration
-        pendingExportReceipt = receipt
+        pendingExportReceipt = nil
         showClearPrompt = false
         showAutoClearCountdown = false
+    }
+
+    private func presentPostExportAction(for receipt: ExportReceipt) {
+        // Invalidate delayed work from any prior receipt before presenting the
+        // next action. Each delayed closure also captures this generation.
+        resetPostExportAction()
+        let generation = exportClearGeneration
+        pendingExportReceipt = receipt
 
         switch settings.clearAfterExportBehavior {
         case .delete:
@@ -1265,10 +1294,10 @@ struct PopoverContentView: View {
     private func primaryFooterButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .medium))
+                .labelStyle(.iconOnly)
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .frame(width: 30, height: 28)
         }
         .buttonStyle(FooterButtonStyle(restOpacity: 0.08, hoverOpacity: 0.14))
     }

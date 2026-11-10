@@ -61,11 +61,11 @@ struct CommentListQueryTests {
         #expect(CommentListQuery.unresolvedFirst(items).map(\.commentText) == ["o1", "p1", "r1", "r2"])
     }
 
-    @Test("Search matches the custom task title shown on the card")
-    func titleIsSearchable() {
+    @Test("Retired titles do not produce invisible search matches")
+    func retiredTitleIsNotSearchable() {
         let item = comment("无关正文", title: "PromptSite的web站点可以独立git仓库")
-        #expect(CommentListQuery.matches(item, terms: ["独立git"], sessionName: nil))
-        #expect(CommentListQuery.matches(item, terms: ["promptsite"], sessionName: nil))
+        #expect(!CommentListQuery.matches(item, terms: ["独立git"], sessionName: nil))
+        #expect(!CommentListQuery.matches(item, terms: ["promptsite"], sessionName: nil))
     }
 
     @Test("Every term must match, across any field")

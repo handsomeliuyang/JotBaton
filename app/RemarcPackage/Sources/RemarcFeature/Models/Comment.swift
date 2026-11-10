@@ -4,7 +4,7 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public var type: CommentType
     public var commentText: String
-    /// Nil keeps the title derived from the reference/body as they change.
+    /// Legacy title retained for lossless storage and sync compatibility only.
     public var customTitle: String?
     public var source: String
     public var appBundleID: String?
@@ -68,30 +68,6 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
     }
 
     // MARK: - Short ID
-
-    public var automaticTitle: String {
-        let reference: String?
-        let filePath: String?
-        switch type {
-        case .comment(let text):
-            reference = text
-            filePath = nil
-        case .webElement(let name, let path):
-            reference = WebContext.smartLabel(componentName: name, elementName: webContext?.elementName)
-            filePath = path
-        case .screenshot(let path):
-            reference = nil
-            filePath = path
-        case .quickNote, .critMode:
-            reference = nil
-            filePath = attachments.first
-        }
-        return CommentTitlePolicy.automaticTitle(reference: reference, body: commentText, filePath: filePath)
-    }
-
-    public var taskTitle: String {
-        CommentTitlePolicy.normalizedCustomTitle(customTitle) ?? automaticTitle
-    }
 
     /// A short, human-readable identifier derived from the UUID (first 5 hex chars).
     /// Used for display and AI agent references. Example: "a3f2b"

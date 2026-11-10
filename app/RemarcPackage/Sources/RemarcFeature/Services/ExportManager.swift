@@ -738,6 +738,47 @@ public final class ExportManager {
         )
     }
 
+    public func copySessionAndStartDevelopment(_ session: Session, comments: [Comment]) -> ExportReceipt? {
+        copySessionAndStartDevelopment(
+            session,
+            comments: comments,
+            copy: { self.copySessionToClipboard(session, comments: $0, format: .markdown) },
+            startDevelopment: { ids in
+                for id in ids {
+                    PersistenceManager.shared.setCommentStatus(id, to: .inProgress)
+                }
+            }
+        )
+    }
+
+    /// Copy the same session snapshot as Copy All, with pending comments already
+    /// describing their intended status. Completed comments stay completed, and
+    /// no persistent status changes happen unless the clipboard write succeeds.
+    func copySessionAndStartDevelopment(
+        _ session: Session,
+        comments: [Comment],
+        copy: ([Comment]) -> ExportReceipt?,
+        startDevelopment: ([UUID]) -> Void
+    ) -> ExportReceipt? {
+        let comments = exportSnapshot(for: session, comments: comments)
+        guard !comments.isEmpty else { return nil }
+        let pendingIDs = comments.filter { $0.status == .open || $0.status == .handedOff }.map(\.id)
+        let pending = Set(pendingIDs)
+        let snapshot = comments.map { comment in
+            var comment = comment
+            if pending.contains(comment.id) {
+                comment.status = .inProgress
+                comment.resolutionSummary = nil
+                comment.resolvedBy = nil
+                comment.resolvedAt = nil
+            }
+            return comment
+        }
+        guard let receipt = copy(snapshot) else { return nil }
+        if !pendingIDs.isEmpty { startDevelopment(pendingIDs) }
+        return receipt
+    }
+
     /// Keep clipboard failure from changing status, and export the intended status.
     func copyCommentAndStartDevelopment(
         _ comment: Comment,

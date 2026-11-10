@@ -72,7 +72,7 @@ public enum CommentListQuery {
     }
 
     static func searchableFields(of comment: Comment, sessionName: String?) -> [String] {
-        var fields = [comment.taskTitle, comment.commentText, comment.source, comment.id.uuidString]
+        var fields = [comment.commentText, comment.source, comment.id.uuidString]
         if let reference = comment.type.displayText { fields.append(reference) }
         if let sessionName { fields.append(sessionName) }
         if let summary = comment.resolutionSummary { fields.append(summary) }

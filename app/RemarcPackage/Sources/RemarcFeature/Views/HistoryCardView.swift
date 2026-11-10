@@ -37,7 +37,7 @@ struct HistoryCardView: View {
     private var referenceView: some View {
         // Type label — consistent across all types
         HStack(spacing: 6) {
-            Label(comment.taskTitle, systemImage: comment.type.iconName)
+            Label(comment.type.displayName, systemImage: comment.type.iconName)
                 .font(.system(size: 11))
                 .lineLimit(1)
                 .labelStyle(TypeLabelStyle(colorScheme: colorScheme))

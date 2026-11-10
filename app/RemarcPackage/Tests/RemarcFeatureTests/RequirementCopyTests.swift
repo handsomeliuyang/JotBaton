@@ -53,4 +53,66 @@ struct RequirementCopyTests {
         item.customTitle = "只在界面显示的任务名"
         #expect(ExportManager.shared.markdownForComment(item) == before)
     }
+
+    @Test("Bulk handoff copies the active session in order, starts only pending comments, and preserves completed work")
+    func sessionCopyThenStart() throws {
+        let session = Session(name: "Current")
+        func item(_ status: CommentStatus, sessionID: UUID? = nil, deleted: Bool = false) -> RemarcFeature.Comment {
+            RemarcFeature.Comment(
+                type: .quickNote, commentText: status.rawValue, source: "test", appBundleID: nil,
+                sessionID: sessionID ?? session.id, isDeleted: deleted, status: status,
+                resolutionSummary: status == .resolved ? "完成说明" : nil,
+                resolvedBy: status == .resolved ? "agent" : nil,
+                resolvedAt: status == .resolved ? Date() : nil
+            )
+        }
+        let open = item(.open), handedOff = item(.handedOff), inProgress = item(.inProgress)
+        let resolved = item(.resolved), other = item(.open, sessionID: UUID()), deleted = item(.open, deleted: true)
+        let comments = [open, other, handedOff, deleted, inProgress, resolved]
+        var events: [String] = []
+        let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: comments, copy: { snapshot in
+            #expect(snapshot.map(\.id) == [open.id, handedOff.id, inProgress.id, resolved.id])
+            #expect(snapshot.map(\.status) == [.inProgress, .inProgress, .inProgress, .resolved])
+            #expect(snapshot[2] == inProgress)
+            #expect(snapshot[3] == resolved)
+            #expect(snapshot.allSatisfy { !$0.isDeleted })
+            events.append("copied")
+            return ExportReceipt(sessionID: session.id, comments: snapshot)
+        }, startDevelopment: { ids in
+            #expect(ids == [open.id, handedOff.id])
+            events.append("started")
+        })
+        let copied = try #require(receipt)
+        #expect(copied.count == 4)
+        #expect(events == ["copied", "started"])
+        #expect(open.status == .open && resolved.status == .resolved)
+    }
+
+    @Test("Bulk copy failure and an empty session never start development")
+    func sessionCopyFailure() {
+        let session = Session(name: "Current")
+        let item = RemarcFeature.Comment(type: .quickNote, commentText: "正文", source: "test", appBundleID: nil, sessionID: session.id)
+        var copied = false
+        let failed = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { _ in
+            copied = true
+            return nil
+        }, startDevelopment: { _ in Issue.record("A failed copy must not change status") })
+        #expect(copied && failed == nil)
+        let empty = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [], copy: { _ in
+            Issue.record("An empty session must not overwrite the clipboard")
+            return nil
+        }, startDevelopment: { _ in Issue.record("An empty session must not change status") })
+        #expect(empty == nil)
+    }
+
+    @Test("Copying an entirely completed session never reopens its comments")
+    func completedSessionCopy() {
+        let session = Session(name: "Done")
+        let item = RemarcFeature.Comment(type: .quickNote, commentText: "已完成", source: "test", appBundleID: nil, sessionID: session.id, status: .resolved)
+        let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { snapshot in
+            #expect(snapshot == [item])
+            return ExportReceipt(sessionID: session.id, comments: snapshot)
+        }, startDevelopment: { _ in Issue.record("Completed comments must stay completed") })
+        #expect(receipt?.count == 1)
+    }
 }
