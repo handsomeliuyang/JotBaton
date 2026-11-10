@@ -41,6 +41,10 @@ Always specify `-R handsomeliuyang/Remarc`. This independent repository uses onl
 2. Passes that exact version commit to both reusable builders. Both perform
    clean Release builds with Xcode 26.2 and locked dependency revisions, then
    sign, relaunch and verify their apps on matching build hosts.
+   Apple Silicon builds, full Swift suites and publishing use the native ARM
+   `macos-15` image with the same pinned Xcode 26.2; Intel uses `macos-15-intel`.
+   The ARM image provides Metal for the full tests and avoids the macOS 26 image's
+   runner-capacity bottleneck. Package deployment floors remain 13/14.
 3. Runs the full Swift suite for both standard and Ventura profiles, Intel
    compatibility tests, and packaged MCP image delivery checks for both apps.
 4. Downloads both artifacts, verifies checksums, extracts/mounts the packages,

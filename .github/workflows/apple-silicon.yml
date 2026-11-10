@@ -30,7 +30,8 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-26
+    # Native arm64 with the same pinned Xcode; avoids the macOS 26 image queue.
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
