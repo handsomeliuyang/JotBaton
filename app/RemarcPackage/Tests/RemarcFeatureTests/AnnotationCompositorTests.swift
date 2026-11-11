@@ -2,6 +2,15 @@ import XCTest
 import CoreGraphics
 @testable import RemarcFeature
 
+private extension AnnotationCompositor {
+    func compositeCancelledByQueuedReset() async throws -> CGImage {
+        // Both operations start on this actor. The queued task cannot reset
+        // until composite has registered its continuation and suspended.
+        Task { reset() }
+        return try await composite(atLeast: 50)
+    }
+}
+
 final class AnnotationCompositorTests: XCTestCase {
 
     private let size = CGSize(width: 120, height: 80)
@@ -98,13 +107,9 @@ final class AnnotationCompositorTests: XCTestCase {
 
     func testResetResumesEveryWaiterRatherThanStrandingThem() async throws {
         let compositor = AnnotationCompositor()
-        let waiter = Task { try await compositor.composite(atLeast: 50) }
-        await Task.yield()
-
-        await compositor.reset()
 
         do {
-            _ = try await waiter.value
+            _ = try await compositor.compositeCancelledByQueuedReset()
             XCTFail("a waiter for a generation that will never arrive must not hang")
         } catch {
             XCTAssertEqual(error as? AnnotationCompositor.CompositorError, .cancelled)
