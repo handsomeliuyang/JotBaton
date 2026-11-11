@@ -45,6 +45,46 @@ struct CommentListQueryTests {
         #expect(CommentListQuery.filtered(items, statuses: [.open, .inProgress]).map(\.commentText) == ["o", "h", "p"])
     }
 
+    @Test("Each session count follows the selected chips and excludes deleted comments")
+    func sidebarStatusCounts() {
+        let a = UUID(), b = UUID(), empty = UUID()
+        var deleted = comment(status: .open, session: a)
+        deleted.isDeleted = true
+        let items = [comment(status: .open, session: a), comment(status: .handedOff, session: a),
+                     comment(status: .inProgress, session: a), comment(status: .resolved, session: a),
+                     comment(status: .resolved, session: b), deleted]
+        let all = CommentListQuery.countsBySession(of: items, statuses: [])
+        #expect(all[a] == 4)
+        #expect(all[b] == 1)
+        #expect(all[empty, default: 0] == 0)
+        let progress = CommentListQuery.countsBySession(of: items, statuses: [.inProgress])
+        #expect(progress[a] == 2)
+        #expect(progress[b, default: 0] == 0)
+        #expect(CommentListQuery.countsBySession(of: items, statuses: [.open, .inProgress])[a] == 3)
+        let resolved = CommentListQuery.countsBySession(of: items, statuses: [.resolved])
+        #expect(resolved[a] == 1)
+        #expect(resolved[b] == 1)
+    }
+
+    @Test("Status edits and session moves update counts using the same rule as the header")
+    func sidebarCountsAfterEdits() {
+        let a = UUID(), b = UUID()
+        var items = [comment(status: .open, session: a), comment(status: .inProgress, session: a)]
+        items[0].status = .inProgress
+        #expect(CommentListQuery.countsBySession(of: items, statuses: [.open])[a, default: 0] == 0)
+        #expect(CommentListQuery.countsBySession(of: items, statuses: [.inProgress])[a] == 2)
+        items[1].status = .resolved
+        items[1].sessionID = b
+        for session in [a, b] {
+            let scoped = items.filter { $0.sessionID == session }
+            let header = CommentListQuery.counts(of: scoped)
+            for filter in CommentStatusFilter.allCases {
+                let sidebar = CommentListQuery.countsBySession(of: items, statuses: [filter])
+                #expect(sidebar[session, default: 0] == header[filter, default: 0])
+            }
+        }
+    }
+
     @Test("Selection round-trips through storage and ignores retired values")
     func selectionStorage() {
         let value = CommentStatusFilter.storageValue(of: [.resolved, .open])

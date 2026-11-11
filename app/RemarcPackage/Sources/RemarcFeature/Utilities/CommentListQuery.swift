@@ -121,6 +121,15 @@ public enum CommentListQuery {
         return counts
     }
 
+    /// Sidebar counts use the same status selection as the cards, across all sessions.
+    /// An empty selection counts every retained status, including resolved comments.
+    public static func countsBySession(of comments: [Comment], statuses: Set<CommentStatusFilter>) -> [UUID: Int] {
+        let retained = comments.filter { !$0.isDeleted }
+        return filtered(retained, statuses: statuses).reduce(into: [:]) { counts, comment in
+            counts[comment.sessionID, default: 0] += 1
+        }
+    }
+
     /// Groups comments by session in the given session order, dropping empty groups.
     public static func grouped(_ comments: [Comment], sessions: [Session]) -> [CommentGroup] {
         let bySession = Dictionary(grouping: comments, by: \.sessionID)

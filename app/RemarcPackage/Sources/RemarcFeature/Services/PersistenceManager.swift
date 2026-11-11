@@ -381,7 +381,8 @@ public final class PersistenceManager: ObservableObject {
     }
 
     /// Outstanding comments across every session. Resolved comments stay in
-    /// `allComments`, but do not contribute to badges or session counters.
+    /// `allComments`, but do not contribute to outstanding-work badges.
+    /// Sidebar counts follow the comment list's selected statuses instead.
     public var unresolvedCommentCount: Int {
         CommentCountPolicy.unresolvedCount(in: appState.comments)
     }

@@ -978,6 +978,7 @@
   "v{0} ({1})": "v{0}（{1}）",
   "{0} Permissions": "{0} 权限",
   "{0} Settings": "{0} 设置",
+  "{0} comments": "{0} 条评论",
   "{0} comments resolved": "已完成 {0} 条评论",
   "{0} days": "{0} 天",
   "{0} is unavailable. Check iCloud Drive and retry the connection.": "{0} 不可用。请检查 iCloud 云盘后重新连接。",

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Defines which retained comments contribute to the app's visible counters.
+/// Defines which retained comments contribute to outstanding-work counters.
 ///
 /// Resolved comments remain available in their sessions for review and export,
 /// but they no longer represent outstanding work. Deleted comments are excluded

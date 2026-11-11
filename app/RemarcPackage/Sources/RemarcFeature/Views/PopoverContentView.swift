@@ -120,7 +120,7 @@ struct PopoverContentView: View {
                 .ignoresSafeArea()
 
             HStack(spacing: 0) {
-                SessionSidebarView {
+                SessionSidebarView(statusFilters: statusFilters) {
                     if showingHistory { dismissHistory() }
                 }
                 .disabled(critModeActive || showCritModeOnboarding)

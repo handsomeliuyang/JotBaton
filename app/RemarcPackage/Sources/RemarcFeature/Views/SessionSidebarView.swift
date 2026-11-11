@@ -4,6 +4,7 @@ import SwiftUI
 
 /// Permanent session navigation beside the original-width comment pane.
 struct SessionSidebarView: View {
+    var statusFilters: Set<CommentStatusFilter> = []
     var onSelect: () -> Void = {}
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var persistence = PersistenceManager.shared
@@ -30,7 +31,7 @@ struct SessionSidebarView: View {
     }
 
     var body: some View {
-        let counts = persistence.unresolvedCommentCountsBySession
+        let counts = CommentListQuery.countsBySession(of: persistence.allComments, statuses: statusFilters)
         VStack(spacing: 0) {
             HStack {
                 Text(L10n.tr("Sessions"))
@@ -318,7 +319,7 @@ private struct SessionSidebarRow<MenuContent: View>: View {
             .buttonStyle(.plain)
             .help(title)
             .accessibilityLabel(title)
-            .accessibilityValue(L10n.tr("\(commentCount) unresolved comments"))
+            .accessibilityValue(L10n.tr("\(commentCount) comments"))
             .accessibilityHint(session.isPinned ? L10n.tr("Pinned session") : "")
             .accessibilityAddTraits(isActive ? .isSelected : [])
             .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
