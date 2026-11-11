@@ -53,6 +53,34 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         XCTAssertEqual(controller.sessionForTesting?.tool, .rect)
     }
 
+    func testPreviewHistoryShortcutsWorkWithoutCanvasFocus() throws {
+        let controller = ScreenshotPreviewController.shared
+        controller.show(imagePath: try storedImage(), commentText: nil)
+        controller.toggleAnnotationForTesting()
+        let session = try XCTUnwrap(controller.sessionForTesting)
+        let panel = try XCTUnwrap(controller.panelForTesting)
+        let mark = AnnotationItem(payload: .rect(CGRect(x: 5, y: 5, width: 30, height: 20)),
+                                  ink: .presets[0], strokeWidth: 3)
+        session.add(mark)
+        panel.makeFirstResponder(nil)
+
+        func key(_ flags: NSEvent.ModifierFlags) throws -> NSEvent {
+            let letter = flags.contains(.shift) ? "Z" : "z"
+            return try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: flags,
+                timestamp: 0, windowNumber: panel.windowNumber, context: nil,
+                characters: letter, charactersIgnoringModifiers: letter,
+                isARepeat: false, keyCode: 6))
+        }
+        XCTAssertTrue(panel.performKeyEquivalent(with: try key(.command)))
+        XCTAssertTrue(session.items.isEmpty)
+        XCTAssertTrue(panel.performKeyEquivalent(with: try key([.command, .shift])))
+        XCTAssertEqual(session.items, [mark])
+
+        controller.discardAnnotationsForTesting()
+        XCTAssertNil((panel as? AnnotationHistoryPanel)?.annotationSession)
+    }
+
     /// The core of Apply: flatten into the app-owned PNG, bump the revision, and
     /// leave the panel in non-annotation mode with a clean session.
     func testApplyFlattensIntoTheStoredPngAndBumpsTheRevision() async throws {

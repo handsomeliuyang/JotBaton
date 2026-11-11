@@ -7,7 +7,7 @@ import Combine
 /// `KeyablePanel` in `CommentInputWindowController` is shared with the voice path
 /// and branches on `autoSaveCountdownActive`; reusing it here would either steal
 /// that branch or need a third condition inside a type that already has two.
-private final class KeyableAnnotationPanel: NSPanel {
+private final class KeyableAnnotationPanel: AnnotationHistoryPanel {
     var onCancel: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -55,6 +55,7 @@ final class AnnotationToolbarPanelController {
 
         let panel = self.panel ?? makePanel()
         self.panel = panel
+        panel.annotationSession = session
 
         let view = AnnotationToolbarView(
             session: session,
@@ -141,6 +142,7 @@ final class AnnotationToolbarPanelController {
     }
 
     func teardown() {
+        panel?.annotationSession = nil
         hosting?.removeFromSuperview()
         hosting = nil
         panel?.orderOut(nil)

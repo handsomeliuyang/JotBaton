@@ -323,17 +323,15 @@ struct AnnotationToolbarView: View {
     }
 
     // History stays available while a tool, color, or stroke group is open.
-    // Real key equivalents also work after a toolbar click takes canvas focus.
+    // The hosting panels route the shortcuts after a toolbar click takes focus.
     private var historyControls: some View {
         HStack(spacing: 2) {
             AnnotationToolButton(systemImage: "arrow.uturn.backward", label: L10n.tr("Undo"),
                                  shortcut: "⌘Z", isEnabled: session.canUndo && !session.isFrozen,
                                  action: onUndo)
-                .keyboardShortcut("z", modifiers: .command)
             AnnotationToolButton(systemImage: "arrow.uturn.forward", label: L10n.tr("Redo"),
                                  shortcut: "⇧⌘Z", isEnabled: session.canRedo && !session.isFrozen,
                                  action: onRedo)
-                .keyboardShortcut("z", modifiers: [.command, .shift])
         }
     }
 

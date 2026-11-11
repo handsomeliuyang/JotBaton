@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-private class KeyablePreviewPanel: NSPanel {
+private class KeyablePreviewPanel: AnnotationHistoryPanel {
     override var canBecomeKey: Bool { true }
 
     override func cancelOperation(_ sender: Any?) {
@@ -16,7 +16,7 @@ private class KeyablePreviewPanel: NSPanel {
 public final class ScreenshotPreviewController {
     public static let shared = ScreenshotPreviewController()
 
-    private var panel: NSPanel?
+    private var panel: KeyablePreviewPanel?
     private let clickOutsideMonitor = ClickOutsideMonitor()
 
     /// The annotation session for the image on screen, when Annotate is on.
@@ -369,6 +369,7 @@ public final class ScreenshotPreviewController {
 
     /// Rebuilds the hosted SwiftUI content in place, preserving the panel.
     private func rebuildContent() {
+        panel?.annotationSession = session
         guard let panel,
               let vev = panel.contentView as? NSVisualEffectView,
               let hosting = vev.subviews.compactMap({ $0 as? NSHostingView<ScreenshotPreviewView> }).first,

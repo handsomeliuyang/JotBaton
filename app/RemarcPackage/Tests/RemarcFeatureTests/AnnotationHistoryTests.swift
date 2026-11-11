@@ -1,11 +1,6 @@
 import AppKit
-import SwiftUI
 import XCTest
 @testable import RemarcFeature
-
-private final class AnnotationHistoryTestPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-}
 
 @MainActor
 final class AnnotationHistoryTests: XCTestCase {
@@ -74,29 +69,41 @@ final class AnnotationHistoryTests: XCTestCase {
         let mark = AnnotationItem(payload: .rect(CGRect(x: 10, y: 10, width: 30, height: 20)),
                                   ink: .presets[0], strokeWidth: 3)
         session.add(mark)
-        let toolbar = AnnotationToolbarView(session: session, zoomState: nil,
-                                            showsDiscardControls: false,
-                                            onUndo: { session.undo() },
-                                            onRedo: { session.redo() })
-        let host = NSHostingView(rootView: toolbar)
-        let window = AnnotationHistoryTestPanel(
-            contentRect: CGRect(x: 0, y: 0, width: 620, height: 42),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.contentView = host
-        defer { window.contentView = nil; window.orderOut(nil) }
-        // SwiftUI defers updates for an off-screen hosting view. Show the same
-        // keyable, nonactivating panel used by the real toolbar so undo updates
-        // the Redo button and its key equivalent before the next command.
+        let controller = AnnotationToolbarPanelController()
+        defer { controller.teardown() }
+        let screen = try XCTUnwrap(NSScreen.main)
+        controller.show(session: session,
+                        anchoredBelow: CGRect(x: screen.visibleFrame.midX, y: screen.visibleFrame.midY,
+                                              width: 120, height: 80),
+                        on: screen, zoomState: nil, showsDiscardControls: false)
+        let window = try XCTUnwrap(NSApp.windows.compactMap { $0 as? AnnotationHistoryPanel }
+            .first { $0.annotationSession === session })
         window.makeKeyAndOrderFront(nil)
-        host.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
 
-        XCTAssertTrue(host.performKeyEquivalent(with: try key(.command, window: window)))
+        XCTAssertTrue(window.performKeyEquivalent(with: try key(.command, window: window)))
         XCTAssertTrue(session.items.isEmpty)
-        host.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        XCTAssertTrue(host.performKeyEquivalent(with: try key([.command, .shift], window: window)))
+        XCTAssertTrue(window.performKeyEquivalent(with: try key([.command, .shift], window: window)))
         XCTAssertEqual(session.items, [mark])
+    }
+
+    func testPanelLeavesTextEditingAndInactiveSessionsAlone() throws {
+        let session = makeSession()
+        session.add(AnnotationItem(payload: .rect(CGRect(x: 10, y: 10, width: 30, height: 20)),
+                                   ink: .presets[0], strokeWidth: 3))
+        let window = AnnotationHistoryPanel(contentRect: CGRect(x: 0, y: 0, width: 120, height: 80),
+                                             styleMask: .borderless, backing: .buffered, defer: false)
+        let editor = NSTextView(frame: window.frame)
+        window.contentView = editor
+        defer { window.contentView = nil; window.orderOut(nil) }
+        window.annotationSession = session
+        XCTAssertTrue(window.makeFirstResponder(editor))
+        _ = window.performKeyEquivalent(with: try key(.command, window: window))
+        XCTAssertEqual(session.items.count, 1, "a text editor keeps its own undo")
+
+        window.makeFirstResponder(nil)
+        window.annotationSession = nil
+        _ = window.performKeyEquivalent(with: try key(.command, window: window))
+        XCTAssertEqual(session.items.count, 1, "an inactive annotation session must not receive shortcuts")
     }
 
     func testCanvasDoesNotTakeHistoryShortcutsFromAnotherResponder() throws {

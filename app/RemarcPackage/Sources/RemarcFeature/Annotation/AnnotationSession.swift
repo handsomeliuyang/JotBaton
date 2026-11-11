@@ -175,6 +175,19 @@ public final class AnnotationSession: ObservableObject {
 
     // MARK: - Undo
 
+    /// Shared by the canvas and the panels hosting its toolbar. Shift remains in
+    /// charactersIgnoringModifiers, so match the letter without case.
+    func performHistoryKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.charactersIgnoringModifiers?.lowercased() == "z" else { return false }
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        switch modifiers {
+        case .command: undo()
+        case [.command, .shift]: redo()
+        default: return false
+        }
+        return true
+    }
+
     /// Checkpoints on completed gestures, text commit, delete, style mutation,
     /// counter placement, and z-order mutation. Zoom, selection, and focus are
     /// excluded: they are viewport and editor state, not document state.

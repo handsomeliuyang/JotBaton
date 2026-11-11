@@ -440,14 +440,8 @@ public final class AnnotationCanvasNSView: NSView {
     }
 
     private func handleHistoryShortcut(_ event: NSEvent) -> Bool {
-        guard isInputEnabled, let session,
-              event.charactersIgnoringModifiers?.lowercased() == "z" else { return false }
-        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        switch modifiers {
-        case .command: session.undo()
-        case [.command, .shift]: session.redo()
-        default: return false
-        }
+        guard isInputEnabled,
+              session?.performHistoryKeyEquivalent(with: event) == true else { return false }
         needsDisplay = true
         return true
     }
