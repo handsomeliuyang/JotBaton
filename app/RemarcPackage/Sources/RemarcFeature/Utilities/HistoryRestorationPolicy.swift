@@ -20,7 +20,7 @@ enum HistoryRestorationPolicy {
         state.sessions[index].deletedAt = nil
         state.sessions[index].isAutoDismissed = false
         state.sessions[index].autoDismissedAt = nil
-        state.sessions[index].emptySince = now
+        state.sessions[index].emptySince = state.sessions[index].isPinned ? nil : now
 
         // A cleaned empty session can still own comments archived earlier.
         // Only bring back comments that were deleted together with the session.

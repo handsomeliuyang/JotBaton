@@ -1,34 +1,35 @@
 import Foundation
 
+/// One immutable payload and a small current.json commit marker. No version history.
 enum SnapshotDisk {
-    static func versions(in directory: URL) throws -> [SnapshotVersion] {
+    static let currentName = "current.json"
+
+    static func current(in directory: URL) throws -> SnapshotVersion? {
         let fm = FileManager.default
+        let url = directory.appendingPathComponent(currentName)
         guard fm.fileExists(atPath: directory.path) else {
-            throw SnapshotError.message(L10n.tr("\(AppIdentity.current.cloudDisplayPath) is unavailable. Check iCloud Drive and retry the connection."))
+            throw SnapshotError.message(L10n.tr("The iCloud data folder is unavailable."))
         }
-        return try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-            .compactMap { entry -> SnapshotVersion? in
-                var name = entry.lastPathComponent
-                if name.hasPrefix("."), name.hasSuffix(".json.icloud") {
-                    name = String(name.dropFirst().dropLast(7))
-                }
-                guard name.hasSuffix(".json"), UUID(uuidString: String(name.dropLast(5))) != nil else { return nil }
-                let url = directory.appendingPathComponent(name)
-                let data = try coordinatedRead(url)
-                guard data.count < 1_000_000 else { throw SnapshotError.message(L10n.tr("A snapshot description is too large.")) }
-                let version = try JSONDecoder().decode(SnapshotVersion.self, from: data)
-                guard version.id.uuidString == String(name.dropLast(5)), version.formatVersion == 1 else {
-                    throw SnapshotError.message(L10n.tr("A snapshot uses an unsupported format. Update Remarc before continuing."))
-                }
-                return version
-            }.sorted { a, b in a.createdAt == b.createdAt ? a.id.uuidString > b.id.uuidString : a.createdAt > b.createdAt }
+        if !fm.fileExists(atPath: url.path) {
+            if fm.fileExists(atPath: directory.appendingPathComponent(".current.json.icloud").path) {
+                try? fm.startDownloadingUbiquitousItem(at: url)
+                throw SnapshotError.waitingForDownload
+            }
+            return nil
+        }
+        let data = try coordinatedRead(url)
+        guard data.count < 1_000_000 else { throw SnapshotError.message(L10n.tr("A snapshot description is too large.")) }
+        let version = try JSONDecoder().decode(SnapshotVersion.self, from: data)
+        try validate(version)
+        return version
     }
 
-    /// Heads, rather than timestamps, distinguish the next version from an
-    /// accidental fork. Timestamps only order the list shown to the user.
-    static func heads(_ versions: [SnapshotVersion]) -> [SnapshotVersion] {
-        let parents = Set(versions.compactMap(\.parentID) + versions.flatMap { $0.supersededIDs ?? [] })
-        return versions.filter { !parents.contains($0.id) }
+    static func validate(_ version: SnapshotVersion) throws {
+        guard version.formatVersion == 2, SnapshotArchive.validArchiveName(version.archiveName),
+              version.archiveName.hasSuffix("_\(version.id.uuidString.prefix(8)).zip"),
+              version.archiveHash.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil else {
+            throw SnapshotError.message(L10n.tr("This cloud data uses an unsupported format."))
+        }
     }
 
     static func ensureDownloaded(_ url: URL) throws {
@@ -46,39 +47,75 @@ enum SnapshotDisk {
     }
 
     static func download(_ version: SnapshotVersion, from directory: URL, to local: URL) throws {
-        let source = directory.appendingPathComponent("\(version.id).zip")
+        try validate(version)
+        let source = directory.appendingPathComponent(version.archiveName)
         try ensureDownloaded(source)
-        try coordinate(source, writing: false) { url in
-            try FileManager.default.copyItem(at: url, to: local)
-        }
+        try coordinate(source, writing: false) { try FileManager.default.copyItem(at: $0, to: local) }
     }
 
-    static func publish(_ version: SnapshotVersion, from local: URL, to directory: URL) throws {
+    static func stageArchive(_ version: SnapshotVersion, from local: URL, to directory: URL) throws {
+        try validate(version)
         guard try SnapshotArchive.fileDigest(local) == version.archiveHash else {
-            throw SnapshotError.message(L10n.tr("The saved local snapshot failed verification. Your tasks are kept; review the local snapshot files before retrying."))
+            throw SnapshotError.message(L10n.tr("The generated data failed verification. Your local tasks are kept."))
         }
-        let archive = directory.appendingPathComponent("\(version.id).zip")
+        let archive = directory.appendingPathComponent(version.archiveName)
         try coordinate(archive, writing: true) { target in
             if FileManager.default.fileExists(atPath: target.path) {
                 guard try SnapshotArchive.fileDigest(target) == version.archiveHash else {
                     throw SnapshotError.message(L10n.tr("The existing cloud snapshot has different contents. It has not been overwritten."))
                 }
             } else {
-                // A crash must not leave a partially copied final archive that
-                // makes every retry fail. Data.atomic publishes by rename.
                 try Data(contentsOf: local, options: .mappedIfSafe).write(to: target, options: .atomic)
             }
         }
-        // The index is the commit marker. Arrival order is still arbitrary on
-        // another Mac, so apply always downloads and verifies the archive.
-        let manifest = directory.appendingPathComponent("\(version.id).json")
-        try coordinate(manifest, writing: true) { target in
+    }
+
+    /// Only called after the payload's upload is confirmed. A concurrent publish
+    /// must be reviewed rather than silently overwritten by a stale dialog.
+    static func commitCurrent(_ version: SnapshotVersion, replacing expectedID: UUID?, in directory: URL) throws {
+        try validate(version)
+        try coordinate(directory.appendingPathComponent(currentName), writing: true) { target in
+            let existing: SnapshotVersion?
             if FileManager.default.fileExists(atPath: target.path) {
-                guard try JSONDecoder().decode(SnapshotVersion.self, from: Data(contentsOf: target)) == version else {
-                    throw SnapshotError.message(L10n.tr("The cloud version description differs from this snapshot. It has not been overwritten."))
-                }
-            } else {
-                try SnapshotArchive.encode(version).write(to: target, options: .atomic)
+                existing = try JSONDecoder().decode(SnapshotVersion.self, from: Data(contentsOf: target))
+            } else { existing = nil }
+            if existing?.id == version.id { return }
+            guard existing?.id == expectedID else {
+                throw SnapshotError.message(L10n.tr("Cloud data changed while publishing. Check again before replacing it."))
+            }
+            try SnapshotArchive.encode(version).write(to: target, options: .atomic)
+        }
+    }
+
+    /// Capture a bounded deletion list before publishing. Do not remove another
+    /// Mac's newly staged payload while it is still being uploaded.
+    static func cleanupCandidates(in directory: URL, current: SnapshotVersion?, abandoned: SnapshotVersion?, now: Date = Date()) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
+            .compactMap { url in
+                let name = normalizedCloudName(url.lastPathComponent)
+                let stem = (name as NSString).deletingPathExtension
+                let ext = (name as NSString).pathExtension
+                if ["json", "zip"].contains(ext), UUID(uuidString: stem) != nil { return name }
+                guard SnapshotArchive.validArchiveName(name) else { return nil }
+                if name == current?.archiveName || name == abandoned?.archiveName { return name }
+                if let date = try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                   now.timeIntervalSince(date) > 86400 { return name }
+                return nil
+            }
+    }
+
+    static func cleanup(_ names: [String], keeping version: SnapshotVersion, in directory: URL) throws {
+        guard try current(in: directory)?.id == version.id else { return }
+        for name in Set(names) where name != version.archiveName && name != currentName {
+            let stem = (name as NSString).deletingPathExtension
+            let ext = (name as NSString).pathExtension
+            guard SnapshotArchive.validArchiveName(name) || (["json", "zip"].contains(ext) && UUID(uuidString: stem) != nil) else { continue }
+            guard try current(in: directory)?.id == version.id else { return }
+            let url = directory.appendingPathComponent(name)
+            try coordinate(url, writing: true, deleting: true) { target in
+                if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
+                let placeholder = target.deletingLastPathComponent().appendingPathComponent(".\(name).icloud")
+                if FileManager.default.fileExists(atPath: placeholder.path) { try FileManager.default.removeItem(at: placeholder) }
             }
         }
     }
@@ -102,15 +139,20 @@ enum SnapshotDisk {
         return .uploading
     }
 
+    static func archiveUploadState(_ version: SnapshotVersion, in directory: URL) throws -> UploadState {
+        let evidence = try uploadEvidence(directory.appendingPathComponent(version.archiveName))
+        return try uploadState(from: [evidence, evidence])
+    }
+
     static func uploadState(_ version: SnapshotVersion, in directory: URL) throws -> UploadState {
-        var evidence: [UploadEvidence] = []
-        for suffix in ["zip", "json"] {
-            let values = try directory.appendingPathComponent("\(version.id).\(suffix)").resourceValues(
-                forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey, .ubiquitousItemUploadingErrorKey])
-            evidence.append(UploadEvidence(isCloudItem: values.isUbiquitousItem,
-                isUploaded: values.ubiquitousItemIsUploaded, error: values.ubiquitousItemUploadingError))
-        }
-        return try uploadState(from: evidence)
+        try uploadState(from: [uploadEvidence(directory.appendingPathComponent(version.archiveName)),
+                              uploadEvidence(directory.appendingPathComponent(currentName))])
+    }
+
+    private static func uploadEvidence(_ url: URL) throws -> UploadEvidence {
+        let values = try url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey, .ubiquitousItemUploadingErrorKey])
+        return UploadEvidence(isCloudItem: values.isUbiquitousItem, isUploaded: values.ubiquitousItemIsUploaded,
+                              error: values.ubiquitousItemUploadingError)
     }
 
     struct TransferEvidence {
@@ -140,42 +182,19 @@ enum SnapshotDisk {
         return .unknown
     }
 
-    static func transferFileNames(versions: [SnapshotVersion], pending: SnapshotVersion?, discoveredNames: [String]) -> Set<String> {
-        let knownIDs = Set(versions.map(\.id))
-        var ids = Set(heads(versions).map(\.id))
-        if let pending { ids.insert(pending.id) }
-        for name in discoveredNames {
-            let name = normalizedCloudName(name)
-            let ext = (name as NSString).pathExtension
-            guard ext == "json" || ext == "zip",
-                  let id = UUID(uuidString: (name as NSString).deletingPathExtension), !knownIDs.contains(id) else { continue }
-            ids.insert(id)
-        }
-        // Include both files even when the other Mac's manifest or archive
-        // hasn't arrived yet. Historical snapshots do not block current data.
-        return Set(ids.flatMap { ["\($0).json", "\($0).zip"] })
-    }
-
-    static func transferState(in directory: URL, versions: [SnapshotVersion], pending: SnapshotVersion?) throws -> SnapshotCloudTransfer {
+    static func transferState(in directory: URL, version: SnapshotVersion?) throws -> SnapshotCloudTransfer {
+        guard let version else { return .empty }
         let keys: Set<URLResourceKey> = [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey,
             .ubiquitousItemIsUploadingKey, .ubiquitousItemIsDownloadingKey, .ubiquitousItemDownloadingStatusKey,
             .ubiquitousItemUploadingErrorKey, .ubiquitousItemDownloadingErrorKey]
-        let entries = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-        let names = Set(entries.map { normalizedCloudName($0.lastPathComponent) })
-        let files = transferFileNames(versions: versions, pending: pending, discoveredNames: Array(names))
-        let evidence = try files.map { name -> TransferEvidence in
-            guard names.contains(name) else { return TransferEvidence(isMissing: true) }
-            // Read the logical URL, not the .icloud placeholder's attributes.
+        let evidence = try [currentName, version.archiveName].map { name -> TransferEvidence in
             let url = directory.appendingPathComponent(name)
-            do {
-                let values = try url.resourceValues(forKeys: keys)
-                return TransferEvidence(isCloudItem: values.isUbiquitousItem, isUploaded: values.ubiquitousItemIsUploaded,
-                    isUploading: values.ubiquitousItemIsUploading, isDownloading: values.ubiquitousItemIsDownloading,
-                    isCurrent: values.ubiquitousItemDownloadingStatus.map { $0 == .current },
-                    hasError: values.ubiquitousItemUploadingError != nil || values.ubiquitousItemDownloadingError != nil)
-            } catch let error as NSError where error.domain == NSCocoaErrorDomain && [NSFileNoSuchFileError, NSFileReadNoSuchFileError].contains(error.code) {
-                return TransferEvidence(isMissing: true)
-            }
+            guard FileManager.default.fileExists(atPath: url.path) else { return TransferEvidence(isMissing: true) }
+            let values = try url.resourceValues(forKeys: keys)
+            return TransferEvidence(isCloudItem: values.isUbiquitousItem, isUploaded: values.ubiquitousItemIsUploaded,
+                isUploading: values.ubiquitousItemIsUploading, isDownloading: values.ubiquitousItemIsDownloading,
+                isCurrent: values.ubiquitousItemDownloadingStatus.map { $0 == .current },
+                hasError: values.ubiquitousItemUploadingError != nil || values.ubiquitousItemDownloadingError != nil)
         }
         return transferState(from: evidence)
     }
@@ -185,12 +204,12 @@ enum SnapshotDisk {
         return name
     }
 
-    private static func coordinate<T>(_ url: URL, writing: Bool, _ body: (URL) throws -> T) throws -> T {
+    private static func coordinate<T>(_ url: URL, writing: Bool, deleting: Bool = false, _ body: (URL) throws -> T) throws -> T {
         let coordinator = NSFileCoordinator()
         var error: NSError?
         var result: Result<T, Error>?
         if writing {
-            coordinator.coordinate(writingItemAt: url, options: [], error: &error) { target in
+            coordinator.coordinate(writingItemAt: url, options: deleting ? .forDeleting : [], error: &error) { target in
                 result = Result { try body(target) }
             }
         } else {

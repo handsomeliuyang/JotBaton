@@ -499,7 +499,7 @@ struct PreferencesView: View {
 
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
                         toggleRow(L10n.tr("Move empty sessions to History automatically"), isOn: $settings.inactiveSessionCleanupEnabled)
-                        Text(L10n.tr("Empty sessions move to History after the selected duration. Retained tasks, including completed tasks, prevent cleanup. The Inbox is always kept."))
+                        Text(L10n.tr("Empty sessions move to History after the selected duration. Retained tasks, including completed tasks, prevent cleanup. The Inbox and pinned sessions are always kept."))
                             .settingDescriptionStyle()
                     }
 

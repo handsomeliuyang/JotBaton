@@ -23,14 +23,24 @@ enum EmptySessionCleanupPolicy {
         }
         var changed = false
         for index in state.sessions.indices {
+            // Legacy integration writers may dismiss a session automatically.
+            // A user's pinned project remains visible; explicit deletion still wins.
+            if state.sessions[index].isPinned && !state.sessions[index].isDeleted {
+                if state.sessions[index].isAutoDismissed || state.sessions[index].autoDismissedAt != nil {
+                    state.sessions[index].isAutoDismissed = false
+                    state.sessions[index].autoDismissedAt = nil
+                    changed = true
+                }
+            }
             let session = state.sessions[index]
             let value: Date?
-            if session.isInbox || session.isDeleted || session.isAutoDismissed || occupied.contains(session.id) {
+            if session.isInbox || session.isPinned || session.isDeleted || session.isAutoDismissed || occupied.contains(session.id) {
                 value = nil
             } else {
                 let before = previousSessions[session.id]
                 let restored = before?.isDeleted == true || before?.isAutoDismissed == true
-                let initial = restored ? now : session.emptySince
+                let unpinned = before?.isPinned == true
+                let initial = restored || unpinned ? now : session.emptySince
                     ?? (before == nil ? session.createdAt : now)
                 value = max(initial, departures[session.id] ?? .distantPast)
             }
@@ -45,7 +55,7 @@ enum EmptySessionCleanupPolicy {
     static func expiredIDs(in state: AppState, interval: TimeInterval, excluding: Set<UUID> = [], now: Date) -> [UUID] {
         let occupied = Set(state.comments.filter { !$0.isDeleted }.map(\.sessionID))
         return state.sessions.compactMap { session in
-            guard !session.isInbox, !session.isDeleted, !session.isAutoDismissed,
+            guard !session.isInbox, !session.isPinned, !session.isDeleted, !session.isAutoDismissed,
                   !occupied.contains(session.id), !excluding.contains(session.id),
                   let since = session.emptySince, now.timeIntervalSince(since) >= interval else { return nil }
             return session.id

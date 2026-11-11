@@ -4,7 +4,6 @@ import CryptoKit
 struct SnapshotVersion: Codable, Identifiable, Equatable, Sendable {
     let formatVersion: Int
     let id: UUID
-    let parentID: UUID?
     let deviceID: UUID
     let deviceName: String
     let createdAt: Date
@@ -12,7 +11,7 @@ struct SnapshotVersion: Codable, Identifiable, Equatable, Sendable {
     let imageCount: Int
     let contentHash: String
     let archiveHash: String
-    var supersededIDs: [UUID]? = nil
+    var archiveName: String = ""
     /// Content time travels with the data. Archive creation and download times
     /// are deliberately not used as substitutes for older snapshots.
     var contentModifiedAt: Date? = nil
@@ -63,6 +62,7 @@ enum SnapshotArchive {
         var state = original
         state.unknownFields.removeValue(forKey: "_snapshotReceipt")
         state.unknownFields.removeValue(forKey: "_snapshotContentStamp")
+        state.unknownFields.removeValue(forKey: "_snapshotUndo")
         // Selection and live agent delivery belong to this Mac. They must not
         // make a snapshot dirty or wake a process when a snapshot is applied.
         state.activeSessionID = nil
@@ -135,9 +135,25 @@ enum SnapshotArchive {
         return "\(h.prefix(8))-\(h.dropFirst(8).prefix(4))-\(h.dropFirst(12).prefix(4))-\(h.dropFirst(16).prefix(4))-\(h.dropFirst(20).prefix(12))".uppercased()
     }
 
+    static func filename(date: Date, deviceName: String, id: UUID, timeZone: TimeZone = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ssZ"
+        let name = String(deviceName.unicodeScalars.map {
+            CharacterSet.alphanumerics.contains($0) || $0 == "-" || $0 == "_" ? String($0) : "-"
+        }.joined().prefix(40))
+        return "\(formatter.string(from: date))_\(name.isEmpty ? "Mac" : name)_\(id.uuidString.prefix(8)).zip"
+    }
+
+    static func validArchiveName(_ name: String) -> Bool {
+        name.range(of: #"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}[+-]\d{4}_[\p{L}\p{N}_-]{1,40}_[A-F0-9]{8}\.zip$"#,
+                   options: .regularExpression) != nil
+    }
+
     static func create(_ prepared: Prepared, in directory: URL, deviceID: UUID,
-                       deviceName: String, parentID: UUID?, supersededIDs: [UUID] = [],
-                       contentModifiedAt: Date? = nil) throws -> SnapshotVersion {
+                       deviceName: String, contentModifiedAt: Date? = nil) throws -> SnapshotVersion {
         let fm = FileManager.default
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let stage = fm.temporaryDirectory.appendingPathComponent("remarc-snapshot-\(UUID())")
@@ -150,17 +166,21 @@ enum SnapshotArchive {
             try bytes.write(to: stage.appendingPathComponent("files/\(name)"))
         }
         let id = UUID()
-        let zip = directory.appendingPathComponent("\(id).zip")
+        let createdAt = Date()
+        let archiveName = filename(date: createdAt, deviceName: deviceName, id: id)
+        let zip = directory.appendingPathComponent(archiveName)
+        guard !fm.fileExists(atPath: zip.path) else {
+            throw SnapshotError.message(L10n.tr("The existing cloud snapshot has different contents. It has not been overwritten."))
+        }
         do {
             _ = try command("/usr/bin/ditto", ["-c", "-k", "--norsrc", stage.path, zip.path])
-            var version = SnapshotVersion(formatVersion: 1, id: id, parentID: parentID,
-                deviceID: deviceID, deviceName: deviceName, createdAt: Date(),
+            var version = SnapshotVersion(formatVersion: 2, id: id,
+                deviceID: deviceID, deviceName: deviceName, createdAt: createdAt,
                 commentCount: prepared.state.comments.filter { !$0.isDeleted }.count,
                 imageCount: prepared.files.keys.filter { $0.hasSuffix(".png") && !$0.hasSuffix(".base.png") }.count,
                 contentHash: prepared.hash, archiveHash: try fileDigest(zip))
-            if !supersededIDs.isEmpty { version.supersededIDs = supersededIDs }
+            version.archiveName = archiveName
             version.contentModifiedAt = contentModifiedAt
-            try encode(version).write(to: directory.appendingPathComponent("\(id).json"), options: .atomic)
             return version
         } catch {
             try? fm.removeItem(at: zip)
@@ -169,7 +189,7 @@ enum SnapshotArchive {
     }
 
     static func read(_ version: SnapshotVersion, archive: URL) throws -> Prepared {
-        guard version.formatVersion == 1 else { throw SnapshotError.message(L10n.tr("This snapshot requires a newer version of Remarc.")) }
+        guard version.formatVersion == 2 else { throw SnapshotError.message(L10n.tr("This snapshot requires a newer version of Remarc.")) }
         guard try fileDigest(archive) == version.archiveHash else { throw SnapshotError.message(L10n.tr("Snapshot verification failed. Your local data has not been changed.")) }
         let entries = String(decoding: try command("/usr/bin/unzip", ["-Z1", archive.path], limit: 8_000_000), as: UTF8.self)
             .split(separator: "\n").map(String.init)
@@ -179,7 +199,7 @@ enum SnapshotArchive {
         }
         let stateData = try command("/usr/bin/unzip", ["-p", archive.path, "state.json"], limit: 64_000_000)
         let inventoryData = try command("/usr/bin/unzip", ["-p", archive.path, "inventory.json"], limit: 8_000_000)
-        // Version 1 hashes the exact JSON bytes written by the publishing Mac.
+        // Hash the exact JSON bytes written by the publishing Mac.
         // JSONEncoder.sortedKeys does not canonicalize floating-point spelling
         // across Foundation versions (notably Ventura and newer macOS).
         var sourceIdentity = stateData

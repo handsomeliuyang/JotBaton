@@ -32,24 +32,10 @@ struct SnapshotSyncIssue: Codable, Equatable, Sendable {
     var needsAuthorization: Bool { kind == .permission }
     var needsICloudSettings: Bool { kind == .cloudUnavailable || kind == .quota || kind == .unavailable }
     var isWarning: Bool { (stage == .uploadConfirmation && kind != .permission && kind != .quota) || kind == .review }
-    var recovery: String {
-        switch kind {
-        case .permission: return L10n.tr("Allow Remarc access to iCloud Drive, then retry. Your local tasks are kept.")
-        case .cloudUnavailable: return L10n.tr("Check your network and iCloud Drive in System Settings, then check again.")
-        case .quota: return L10n.tr("Free up iCloud storage, then retry the same snapshot.")
-        case .unavailable: return L10n.tr("Check that iCloud Drive is enabled and the \(AppIdentity.current.directoryName) folder is available.")
-        case .review: return L10n.tr("Review the cloud versions and choose which complete state to keep.")
-        case .other: return L10n.tr("Your local tasks are kept. Retry, or copy the diagnostic details if the problem continues.")
-        }
-    }
     var diagnostic: String {
         // Error userInfo can contain paths, account identifiers, and file data.
         // Store only domains/codes, the operation, date, and snapshot identifier.
         "Stage: \(stage.rawValue)\nTime: \(date.formatted(date: .numeric, time: .standard))\nVersion: \(versionID?.uuidString ?? "none")\nErrors: \(codes.joined(separator: " → "))"
-    }
-
-    static func review(_ message: String, stage: Stage = .publishing) -> Self {
-        Self(kind: .review, stage: stage, message: message, codes: [], date: Date(), versionID: nil)
     }
 
     static func make(_ error: Error, stage: Stage, versionID: UUID? = nil) -> Self {
@@ -91,10 +77,13 @@ struct SnapshotSyncIssue: Codable, Equatable, Sendable {
 }
 
 struct SnapshotPublication: Codable, Equatable, Sendable {
-    enum Phase: String, Codable, Sendable { case savedLocally, awaitingUpload, unconfirmed, confirmed }
+    enum Phase: String, Codable, Sendable { case awaitingUpload, unconfirmed, confirmed }
     let version: SnapshotVersion
     var phase: Phase
     var confirmedAt: Date?
+    var previousID: UUID? = nil
+    var currentCommitted = false
+    var cleanupNames: [String] = []
     var isPending: Bool { phase != .confirmed }
 }
 
@@ -149,54 +138,12 @@ enum SnapshotComparison: Equatable {
 
 enum SnapshotSyncStore {
     static func load(from root: URL) throws -> SnapshotSyncRecord {
-        let url = root.appendingPathComponent("snapshot-sync-state.json")
+        let url = root.appendingPathComponent("snapshot-sync-v2.json")
         guard FileManager.default.fileExists(atPath: url.path) else { return SnapshotSyncRecord() }
         return try JSONDecoder().decode(SnapshotSyncRecord.self, from: Data(contentsOf: url))
     }
     static func save(_ record: SnapshotSyncRecord, to root: URL) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try SnapshotArchive.encode(record).write(to: root.appendingPathComponent("snapshot-sync-state.json"), options: .atomic)
-    }
-    static func outbox(in root: URL) -> URL { root.appendingPathComponent("snapshot-outbox", isDirectory: true) }
-}
-
-struct SnapshotSyncPresentation: Equatable {
-    enum Action: String { case enable, publish, retry, authorize, check, apply, choose }
-    enum Tone: Equatable { case neutral, success, warning, error }
-    let title: String
-    let action: Action
-    let tone: Tone
-
-    static func make(enabled: Bool, directoryReady: Bool, progress: String?, issue: SnapshotSyncIssue?,
-                     publication: SnapshotPublication?, hasLocalChanges: Bool, remoteCount: Int,
-                     comparison: SnapshotComparison? = nil) -> Self {
-        if let progress { return Self(title: progress, action: .check, tone: .neutral) }
-        if !enabled { return Self(title: L10n.tr("iCloud snapshots are off"), action: .enable, tone: .neutral) }
-        if let issue {
-            let action: Action = issue.kind == .review || issue.stage == .applying ? .choose : issue.needsAuthorization ? .authorize : .retry
-            return Self(title: L10n.lookup(issue.message), action: action, tone: issue.isWarning ? .warning : .error)
-        }
-        if !directoryReady { return Self(title: L10n.tr("Check iCloud Drive access"), action: .check, tone: .warning) }
-        if let publication, publication.isPending {
-            switch publication.phase {
-            case .savedLocally: return Self(title: L10n.tr("Snapshot saved locally · not uploaded"), action: .retry, tone: .warning)
-            case .awaitingUpload: return Self(title: L10n.tr("Snapshot saved · waiting for iCloud"), action: .check, tone: .warning)
-            case .unconfirmed: return Self(title: L10n.tr("Snapshot saved · upload not confirmed"), action: .check, tone: .warning)
-            case .confirmed: break
-            }
-        }
-        if let comparison {
-            switch comparison {
-            case .same: return Self(title: L10n.tr("This Mac matches the current cloud data"), action: .publish, tone: .success)
-            case .publish: return Self(title: L10n.tr("Local changes are ready to publish"), action: .publish, tone: .neutral)
-            case .receive: return Self(title: L10n.tr("New cloud data is ready to apply"), action: .apply, tone: .neutral)
-            case .choose: return Self(title: L10n.tr("The data differs · choose which to keep"), action: .choose, tone: .warning)
-            }
-        }
-        if remoteCount > 1 || (remoteCount > 0 && hasLocalChanges) { return Self(title: L10n.tr("Local and iCloud versions need review"), action: .choose, tone: .warning) }
-        if remoteCount == 1 { return Self(title: L10n.tr("New iCloud version available"), action: .apply, tone: .neutral) }
-        if hasLocalChanges { return Self(title: L10n.tr("Local changes not published"), action: .publish, tone: .neutral) }
-        if publication?.phase == .confirmed { return Self(title: L10n.tr("Uploaded to iCloud"), action: .publish, tone: .success) }
-        return Self(title: L10n.tr("Using the selected version"), action: .publish, tone: .neutral)
+        try SnapshotArchive.encode(record).write(to: root.appendingPathComponent("snapshot-sync-v2.json"), options: .atomic)
     }
 }

@@ -18,8 +18,7 @@ struct SessionSidebarView: View {
     @FocusState private var isSearchFocused: Bool
 
     private var visibleSessions: [Session] {
-        let sessions = persistence.activeSessions
-        let ordered = sessions.filter(\.isInbox) + sessions.filter { !$0.isInbox }
+        let ordered = persistence.activeSessions
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         return ordered.filter {
             $0.id == renamingSessionID || query.isEmpty || displayName($0).localizedStandardContains(query)
@@ -148,6 +147,7 @@ struct SessionSidebarView: View {
                 guard !session.isInbox else { return }
                 beginRename(session)
             },
+            onTogglePin: { persistence.setSessionPinned(session.id, to: !session.isPinned) },
             contextMenu: { sessionContextMenu(for: session) }
         )
     }
@@ -157,6 +157,13 @@ struct SessionSidebarView: View {
     @ViewBuilder
     private func sessionContextMenu(for session: Session) -> some View {
         if !session.isInbox {
+            Button {
+                persistence.setSessionPinned(session.id, to: !session.isPinned)
+            } label: {
+                Label(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"),
+                      systemImage: session.isPinned ? "pin.slash" : "pin")
+            }
+            Divider()
             Button {
                 beginRename(session)
             } label: {
@@ -276,65 +283,93 @@ private struct SessionSidebarRow<MenuContent: View>: View {
     var isBeingDeleted: Bool = false
     let onTap: () -> Void
     let onDoubleClick: () -> Void
+    let onTogglePin: () -> Void
     @ViewBuilder let contextMenu: () -> MenuContent
 
     @State private var isHovered = false
     @State private var lastClickDate: Date?
+    @FocusState private var isPinFocused: Bool
 
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
-        Button(action: handleClick) {
-            HStack(spacing: 5) {
-                if session.isInbox {
-                    Image(systemName: "tray")
-                        .font(.system(size: 11))
-                } else {
-                    if session.origin == .manual {
-                        Image(systemName: "folder")
+        HStack(spacing: 5) {
+            Button(action: handleClick) {
+                HStack(spacing: 5) {
+                    if session.isInbox {
+                        Image(systemName: "tray")
                             .font(.system(size: 11))
                     } else {
-                        SessionOriginBadge(origin: session.origin)
+                        if session.origin == .manual {
+                            Image(systemName: "folder")
+                                .font(.system(size: 11))
+                        } else {
+                            SessionOriginBadge(origin: session.origin)
+                        }
                     }
+                    Text(title)
+                        .font(.system(size: 11, weight: isActive ? .semibold : .medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Text(title)
-                    .font(.system(size: 11, weight: isActive ? .semibold : .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("\(commentCount)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
-                    .frame(minWidth: 16, alignment: .trailing)
-                    .fixedSize()
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
-            .frame(minHeight: 30)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))
-            )
-            .overlay(alignment: .leading) {
-                if isActive {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(brandColor)
-                        .frame(width: 2)
-                        .padding(.vertical, 6)
+            .buttonStyle(.plain)
+            .help(title)
+            .accessibilityLabel(title)
+            .accessibilityValue(L10n.tr("\(commentCount) unresolved comments"))
+            .accessibilityHint(session.isPinned ? L10n.tr("Pinned session") : "")
+            .accessibilityAddTraits(isActive ? .isSelected : [])
+            .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
+
+            if !session.isInbox {
+                Button {
+                    lastClickDate = nil
+                    onTogglePin()
+                } label: {
+                    Image(systemName: session.isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 10))
+                        .frame(width: 16, height: 20)
                 }
+                .buttonStyle(.plain)
+                .focused($isPinFocused)
+                .opacity(session.isPinned || isHovered || isPinFocused ? 1 : 0)
+                .allowsHitTesting(session.isPinned || isHovered || isPinFocused)
+                .help(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
+                .accessibilityLabel(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
+                .accessibilityIdentifier("remarc.session.pin.\(session.id.uuidString)")
             }
-            .contentShape(Rectangle())
+
+            Text("\(commentCount)")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
+                .frame(minWidth: 16, alignment: .trailing)
+                .fixedSize()
+                .onTapGesture(perform: handleClick)
+                .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
+        .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .frame(minHeight: 30)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))
+        )
+        .overlay(alignment: .leading) {
+            if isActive {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(brandColor)
+                    .frame(width: 2)
+                    .padding(.vertical, 6)
+            }
+        }
+        .contentShape(Rectangle())
         .contextMenu { contextMenu() }
-        .help(title)
-        .accessibilityLabel(title)
-        .accessibilityValue(L10n.tr("\(commentCount) unresolved comments"))
-        .accessibilityAddTraits(isActive ? .isSelected : [])
-        .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
+        .accessibilityElement(children: .contain)
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .opacity(isBeingDeleted ? 0 : 1)

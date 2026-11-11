@@ -93,6 +93,7 @@ enum AppStateMerge {
             }
         }
         pick(\.name)
+        pick(\.isPinned)
         pick(\.origin)
         pick(\.claudeCodeSessionId)
         pick(\.isDeleted)

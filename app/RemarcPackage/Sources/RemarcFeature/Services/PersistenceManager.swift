@@ -170,7 +170,7 @@ public final class PersistenceManager: ObservableObject {
     }
 
     public var activeSessions: [Session] {
-        appState.sessions.filter { !$0.isDeleted && !$0.isAutoDismissed }
+        SessionPinningPolicy.activeSessions(in: appState.sessions)
     }
 
     public func setActiveSession(_ id: UUID) {
@@ -203,6 +203,11 @@ public final class PersistenceManager: ObservableObject {
         guard let index = appState.sessions.firstIndex(where: { $0.id == id }),
               !appState.sessions[index].isInbox else { return }
         appState.sessions[index].name = name
+        scheduleSave()
+    }
+
+    public func setSessionPinned(_ id: UUID, to pinned: Bool) {
+        guard SessionPinningPolicy.setPinned(pinned, for: id, in: &appState, now: Date()) else { return }
         scheduleSave()
     }
 
@@ -314,7 +319,8 @@ public final class PersistenceManager: ObservableObject {
     }
 
     public func dismissSession(_ id: UUID) {
-        guard let index = appState.sessions.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = appState.sessions.firstIndex(where: { $0.id == id }),
+              !appState.sessions[index].isPinned else { return }
         appState.sessions[index].isAutoDismissed = true
         appState.sessions[index].autoDismissedAt = Date()
 
@@ -794,6 +800,8 @@ public final class PersistenceManager: ObservableObject {
         return try? JSONDecoder().decode(SnapshotContentStamp.self, from: bytes)
     }
 
+    var snapshotUndo: SnapshotVersion? { SnapshotRollbackStore.version(in: appState) }
+
     func recordSnapshotReceipt(_ receipt: SnapshotReceipt) async throws {
         await acquireDocumentSlot()
         defer { releaseDocumentSlot() }
@@ -804,7 +812,8 @@ public final class PersistenceManager: ObservableObject {
 
     /// Intentionally replaces the complete document. Never pass an imported
     /// snapshot through AppStateMerge: doing so resurrects local-only records.
-    func applySnapshot(_ prepared: SnapshotArchive.Prepared, version: SnapshotVersion, expected: AppState) async throws {
+    func applySnapshot(_ prepared: SnapshotArchive.Prepared, version: SnapshotVersion, expected: AppState,
+                       undo: SnapshotVersion? = nil, undoing: Bool = false) async throws {
         await acquireDocumentSlot()
         defer { releaseDocumentSlot() }
         while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
@@ -817,8 +826,10 @@ public final class PersistenceManager: ObservableObject {
             ?? replacement.sessions.first(where: { $0.isInbox && !$0.isDeleted })?.id
             ?? replacement.sessions.first(where: { !$0.isDeleted && !$0.isAutoDismissed })?.id
         let receipt = SnapshotReceipt(version: version, contentHash: prepared.hash, appliedAt: Date())
-        replacement.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt))
-        let stamp = SnapshotContentStamp(contentHash: prepared.hash, modifiedAt: version.contentModifiedAt)
+        if undoing { replacement.unknownFields.removeValue(forKey: "_snapshotReceipt") }
+        else { replacement.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt)) }
+        try SnapshotRollbackStore.set(undo, in: &replacement)
+        let stamp = SnapshotContentStamp(contentHash: prepared.hash, modifiedAt: undoing ? Date() : version.contentModifiedAt)
         replacement.unknownFields["_snapshotContentStamp"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(stamp))
         try SnapshotReplacement.commit(replacement, expected: lastPersisted, fileURL: fileURL)
         snapshotGeneration += 1

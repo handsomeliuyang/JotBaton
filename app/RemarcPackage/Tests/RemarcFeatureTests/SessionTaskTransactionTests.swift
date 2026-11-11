@@ -77,6 +77,40 @@ struct SessionTaskTransactionTests {
         #expect(try read(file) == commit.state)
     }
 
+    @Test("A pin just written by another process protects a session before the UI reloads")
+    func freshPinProtectsSession() throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        let baseline = fixture()
+        var pinned = baseline
+        pinned.sessions[1].isPinned = true
+        for (disk, candidate) in [(pinned, baseline), (baseline, pinned)] {
+            try write(disk, to: file)
+            let commit = try SessionTaskTransactions.cleanupEmpty(fileURL: file, candidate: candidate, baseline: baseline,
+                interval: 1800, excluding: [], now: now)
+            #expect(commit.value.isEmpty && commit.state.sessions[1].isPinned)
+            #expect(!commit.state.sessions[1].isDeleted && commit.state.sessions[1].emptySince == nil)
+            #expect(commit.state.activeSessionID == baseline.activeSessionID)
+            #expect(try read(file) == commit.state)
+        }
+    }
+
+    @Test("An external unpin starts a full empty interval before cleanup, even with an old timestamp")
+    func externalUnpin() throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        var baseline = fixture()
+        baseline.sessions[1].isPinned = true
+        var disk = baseline
+        disk.sessions[1].isPinned = false
+        try write(disk, to: file)
+        let commit = try SessionTaskTransactions.cleanupEmpty(fileURL: file, candidate: baseline, baseline: baseline,
+            interval: 1800, excluding: [], now: now)
+        #expect(commit.value.isEmpty && !commit.state.sessions[1].isDeleted)
+        #expect(commit.state.sessions[1].emptySince == now)
+        #expect(try read(file) == commit.state)
+    }
+
     @Test("A busy document is skipped without queued deletion; a subsequent task remains protected")
     func busyDocument() throws {
         let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }

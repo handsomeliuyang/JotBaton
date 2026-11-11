@@ -22,11 +22,17 @@ final class SnapshotSyncTests {
         return AppState(sessions: [session], comments: [comment], activeSessionID: session.id, totalCommentsCreated: 1)
     }
 
-    private func makeVersion(_ prepared: SnapshotArchive.Prepared, parent: UUID? = nil) throws -> SnapshotVersion {
-        try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office Mac", parentID: parent)
+    private func makeVersion(_ prepared: SnapshotArchive.Prepared) throws -> SnapshotVersion {
+        try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office Mac")
     }
 
-    /// Build a version-1 wire fixture without the receiving OS re-encoding it.
+    private func publishForTest(_ version: SnapshotVersion, from archive: URL, to cloud: URL) throws {
+        let previous = try SnapshotDisk.current(in: cloud)
+        try SnapshotDisk.stageArchive(version, from: archive, to: cloud)
+        try SnapshotDisk.commitCurrent(version, replacing: previous?.id, in: cloud)
+    }
+
+    /// Build a current-format wire fixture without the receiving OS re-encoding it.
     private func wireVersion(stateData: Data, contentHash: String? = nil) throws -> SnapshotVersion {
         let stage = directory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
@@ -35,7 +41,8 @@ final class SnapshotSyncTests {
         try stateData.write(to: stage.appendingPathComponent("state.json"))
         try inventoryData.write(to: stage.appendingPathComponent("inventory.json"))
         let id = UUID()
-        let archive = directory.appendingPathComponent("\(id).zip")
+        let archiveName = SnapshotArchive.filename(date: Date(), deviceName: "Ventura", id: id)
+        let archive = directory.appendingPathComponent(archiveName)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-c", "-k", "--norsrc", stage.path, archive.path]
@@ -44,9 +51,10 @@ final class SnapshotSyncTests {
         #expect(process.terminationStatus == 0)
         var identity = stateData
         identity.append(inventoryData)
-        return SnapshotVersion(formatVersion: 1, id: id, parentID: nil, deviceID: UUID(),
+        return SnapshotVersion(formatVersion: 2, id: id, deviceID: UUID(),
             deviceName: "Ventura Mac", createdAt: Date(), commentCount: 1, imageCount: 0,
-            contentHash: contentHash ?? SnapshotArchive.digest(identity), archiveHash: try SnapshotArchive.fileDigest(archive))
+            contentHash: contentHash ?? SnapshotArchive.digest(identity), archiveHash: try SnapshotArchive.fileDigest(archive),
+            archiveName: archiveName)
     }
 
     @Test func testVenturaNumberSpellingVerifiesOriginalBytesAndTracksLocalFingerprint() throws {
@@ -60,7 +68,7 @@ final class SnapshotSyncTests {
         for spelling in ["815627460.20340097", "815627460.203401"] {
             let sourceData = Data(localJSON.replacingOccurrences(of: localNumber, with: spelling).utf8)
             let version = try wireVersion(stateData: sourceData)
-            let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
+            let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName))
             #expect(restored.state == prepared.state)
             #expect(restored.hash == prepared.hash)
             let installed = try SnapshotArchive.installFiles(restored, root: directory)
@@ -77,8 +85,25 @@ final class SnapshotSyncTests {
         changed.comments[0].commentText = "changed after the content hash was recorded"
         let version = try wireVersion(stateData: SnapshotArchive.encode(changed), contentHash: prepared.hash)
         #expect(throws: (any Error).self) {
-            try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
+            try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName))
         }
+    }
+
+    @Test func testPinnedProjectSurvivesSnapshotAndChangesItsContentHash() throws {
+        let original = state()
+        let before = try SnapshotArchive.prepare(original, root: directory)
+        var pinned = original
+        pinned.sessions[0].isPinned = true
+        pinned.sessions[0].emptySince = Date(timeIntervalSinceReferenceDate: 1)
+        let prepared = try SnapshotArchive.prepare(pinned, root: directory)
+        #expect(prepared.hash != before.hash)
+        let version = try makeVersion(prepared)
+        let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName))
+        #expect(restored.state.sessions[0].isPinned)
+        #expect(restored.state.sessions[0].emptySince == nil)
+        let installed = try SnapshotArchive.installFiles(restored, root: directory)
+        #expect(installed.state.sessions[0].isPinned)
+        #expect(try SnapshotArchive.prepare(installed.state, root: directory).hash == prepared.hash)
     }
 
     @Test func testLocalFingerprintBaselineDoesNotHideEditsOrOtherCloudVersions() throws {
@@ -108,7 +133,7 @@ final class SnapshotSyncTests {
         original.comments[0].deletedAt = Date()
         let prepared = try SnapshotArchive.prepare(original, root: directory)
         let version = try makeVersion(prepared)
-        let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip"))
+        let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName))
         #expect(restored.state.comments[0].isDeleted)
         #expect(restored.state.comments[0].customTitle == "Office review")
         #expect(restored.state.comments[0].deletedAt == original.comments[0].deletedAt)
@@ -128,18 +153,19 @@ final class SnapshotSyncTests {
         original.comments[0].wakeRequestedAt = Date()
         original.unknownFields["_snapshotReceipt"] = .string("local bookkeeping")
         original.unknownFields["_snapshotContentStamp"] = .string("local clock")
+        original.unknownFields[SnapshotRollbackStore.key] = .string("local undo")
         #expect(try first.hash == SnapshotArchive.prepare(original, root: directory).hash)
         original.comments[0].commentText = "edited"
         #expect(try first.hash != SnapshotArchive.prepare(original, root: directory).hash)
     }
 
-    @Test func testContentTimeSurvivesArchiveAndLegacyMetadata() throws {
+    @Test func testContentTimeSurvivesArchiveAndMetadata() throws {
         let prepared = try SnapshotArchive.prepare(state(), root: directory)
         let time = Date(timeIntervalSince1970: 123456)
-        let version = try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office", parentID: nil, contentModifiedAt: time)
+        let version = try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office", contentModifiedAt: time)
         let decoded = try JSONDecoder().decode(SnapshotVersion.self, from: SnapshotArchive.encode(version))
         #expect(decoded.contentModifiedAt == time)
-        #expect(try SnapshotArchive.read(decoded, archive: directory.appendingPathComponent("\(version.id).zip")).hash == prepared.hash)
+        #expect(try SnapshotArchive.read(decoded, archive: directory.appendingPathComponent(version.archiveName)).hash == prepared.hash)
         var json = try #require(JSONSerialization.jsonObject(with: SnapshotArchive.encode(version)) as? [String: Any])
         json.removeValue(forKey: "contentModifiedAt")
         #expect(try JSONDecoder().decode(SnapshotVersion.self, from: JSONSerialization.data(withJSONObject: json)).contentModifiedAt == nil)
@@ -175,100 +201,6 @@ final class SnapshotSyncTests {
         #expect(compare(cloud.contentHash, nil, baseline: cloud.id, edits: false, multiple: true) == .choose)
     }
 
-    @Test func testSharedPresentationUsesContentComparison() {
-        let comparisons: [(SnapshotComparison, SnapshotSyncPresentation.Action)] = [(.same, .publish), (.publish, .publish), (.receive, .apply), (.choose, .choose)]
-        for (comparison, action) in comparisons {
-            let result = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil, issue: nil, publication: nil, hasLocalChanges: true, remoteCount: 1, comparison: comparison)
-            #expect(result.action == action)
-        }
-    }
-
-    private func cardState(_ comparison: SnapshotComparison = .same,
-                           transfer: SnapshotCloudTransfer = .ready,
-                           publication: SnapshotPublication? = nil,
-                           issue: SnapshotSyncIssue? = nil,
-                           busy: Bool = false, enabled: Bool = true,
-                           directoryReady: Bool = true) -> SnapshotSyncCardPresentation {
-        let presentation = SnapshotSyncPresentation.make(enabled: enabled, directoryReady: directoryReady,
-            progress: busy ? "Checking iCloud…" : nil, issue: issue, publication: publication,
-            hasLocalChanges: comparison == .publish, remoteCount: 1, comparison: comparison)
-        return .make(enabled: enabled, directoryReady: directoryReady, busy: busy,
-            transfer: transfer, comparison: comparison, publication: publication, issue: issue,
-            presentation: presentation, cloudCount: 1)
-    }
-
-    @Test func testMatchingCardsRefreshInsteadOfPublishingAndHideContentTimes() {
-        let cards = cardState()
-        #expect(cards.cloud.action == .check)
-        #expect(cards.local.action == .check)
-        #expect(cards.cloud.tone == .success)
-        #expect(!cards.showsContentTimes)
-        #expect(cardState(busy: true).cloud.isWorking)
-        #expect(!cardState(busy: true).showsContentTimes)
-    }
-
-    @Test @MainActor func testSyncToolbarSymbolsExistAndUnknownSymbolsFallBackToCloud() {
-        let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError), stage: .connection)
-        let states = [cardState(), cardState(.publish), cardState(.receive), cardState(.choose),
-                      cardState(transfer: .failed), cardState(issue: issue), cardState(enabled: false)]
-        for state in states {
-            #expect(NSImage(systemSymbolName: state.toolbarSymbol, accessibilityDescription: nil) != nil,
-                    "Missing sync toolbar symbol: \(state.toolbarSymbol)")
-        }
-        #expect(RemarcSymbols.syncToolbar("remarc.missing.symbol") == "icloud")
-        #expect(NSImage(systemSymbolName: RemarcSymbols.syncToolbar("remarc.missing.symbol"), accessibilityDescription: nil) != nil)
-    }
-
-    @Test func testDifferentContentOffersOnlyTheRelevantOperation() {
-        let incoming = cardState(.receive)
-        #expect(incoming.cloud.action == .apply)
-        #expect(incoming.local.action == nil)
-        #expect(incoming.showsContentTimes)
-        let outgoing = cardState(.publish)
-        #expect(outgoing.cloud.action == nil)
-        #expect(outgoing.local.action == .publish)
-        #expect(outgoing.showsContentTimes)
-        let divergent = cardState(.choose)
-        #expect(divergent.cloud.action == .choose)
-        #expect(divergent.local.action == .choose)
-    }
-
-    @Test func testTransfersAndChecksCannotOfferDataReplacement() {
-        for comparison in [SnapshotComparison.same, .publish, .receive, .choose] {
-            for transfer in [SnapshotCloudTransfer.uploading, .downloading, .transferring, .waiting, .failed] {
-                let cards = cardState(comparison, transfer: transfer)
-                #expect(cards.cloud.action != .apply && cards.cloud.action != .choose)
-                #expect(cards.local.action != .publish && cards.local.action != .choose)
-                #expect(cards.cloud.tone != .success && cards.local.tone != .success)
-            }
-            let busy = cardState(comparison, busy: true)
-            #expect(busy.cloud.action == nil && busy.local.action == nil)
-        }
-    }
-
-    @Test func testUnconfirmedPublicationNeverLooksSyncedOrOffersAnotherPublish() throws {
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        for phase in [SnapshotPublication.Phase.savedLocally, .awaitingUpload, .unconfirmed] {
-            let pending = SnapshotPublication(version: version, phase: phase)
-            let cards = cardState(publication: pending)
-            #expect(cards.cloud.tone != .success && cards.local.tone != .success)
-            #expect(cards.cloud.action == (phase == .savedLocally ? .retry : .check))
-            #expect(cards.local.action == nil)
-            #expect(cardState(transfer: .failed, publication: pending).cloud.action == .recover)
-        }
-        #expect(cardState(publication: SnapshotPublication(version: version, phase: .confirmed)).cloud.tone == .success)
-    }
-
-    @Test func testConnectionAndRecoveryDoNotExposePublishOrApply() {
-        #expect(cardState(enabled: false).cloud.action == .enable)
-        #expect(cardState(enabled: false).local.action == nil)
-        #expect(cardState(directoryReady: false).cloud.action == .check)
-        #expect(!cardState(directoryReady: false).showsContentTimes)
-        let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError), stage: .connection)
-        #expect(cardState(.receive, issue: issue).cloud.action == .recover)
-        #expect(cardState(.publish, issue: issue).local.action == nil)
-    }
-
     @Test func testAbsoluteAndRelativeImageLocationsProduceTheSameContentIdentity() throws {
         var original = state()
         let name = "\(UUID()).png"
@@ -293,25 +225,16 @@ final class SnapshotSyncTests {
         let prepared = try SnapshotArchive.prepare(original, root: directory)
         #expect(try prepared.hash == SnapshotArchive.prepare(prepared.state, root: directory).hash)
         let version = try makeVersion(prepared)
-        #expect(throws: Never.self) { try SnapshotArchive.read(version, archive: directory.appendingPathComponent("\(version.id).zip")) }
+        #expect(throws: Never.self) { try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName)) }
     }
 
     @Test func testCorruptArchiveIsRefusedBeforeLocalDataChanges() throws {
         let prepared = try SnapshotArchive.prepare(state(), root: directory)
         let version = try makeVersion(prepared)
-        let archive = directory.appendingPathComponent("\(version.id).zip")
+        let archive = directory.appendingPathComponent(version.archiveName)
         try Data("truncated".utf8).write(to: archive)
         #expect(throws: (any Error).self) { try SnapshotArchive.read(version, archive: archive) }
         #expect(FileManager.default.fileExists(atPath: directory.appendingPathComponent("images").path))
-    }
-
-    @Test func testVersionAncestryWinsOverClockDifferencesAndForksRemainVisible() throws {
-        let prepared = try SnapshotArchive.prepare(state(), root: directory)
-        let first = try makeVersion(prepared)
-        let next = try makeVersion(prepared, parent: first.id)
-        let fork = try makeVersion(prepared, parent: first.id)
-        #expect(SnapshotDisk.heads([first, next]).map(\.id) == [next.id])
-        #expect(Set(SnapshotDisk.heads([first, next, fork]).map(\.id)) == Set([next.id, fork.id]))
     }
 
     @Test func testPublishedArchiveCanBeDiscoveredAndAppliedFromAnotherDirectory() throws {
@@ -319,8 +242,8 @@ final class SnapshotSyncTests {
         let version = try makeVersion(prepared)
         let cloud = directory.appendingPathComponent("cloud")
         try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
-        try SnapshotDisk.publish(version, from: directory.appendingPathComponent("\(version.id).zip"), to: cloud)
-        #expect(try SnapshotDisk.versions(in: cloud).map(\.id) == [version.id])
+        try publishForTest(version, from: directory.appendingPathComponent(version.archiveName), to: cloud)
+        #expect(try SnapshotDisk.current(in: cloud)?.id == version.id)
         let downloaded = directory.appendingPathComponent("downloaded.zip")
         try SnapshotDisk.download(version, from: cloud, to: downloaded)
         #expect(try SnapshotArchive.read(version, archive: downloaded).hash == prepared.hash)
@@ -365,15 +288,6 @@ final class SnapshotSyncTests {
         #expect(try Data(contentsOf: source) == Data("edited image".utf8))
         #expect(installed.state.comments[0].type.imagePath != path)
         #expect(try SnapshotArchive.prepare(installed.state, root: directory).hash == prepared.hash)
-    }
-
-    @Test func testExplicitLocalOverrideClosesAllPreviouslyDiscoveredVersions() throws {
-        let prepared = try SnapshotArchive.prepare(state(), root: directory)
-        let first = try makeVersion(prepared)
-        let second = try makeVersion(prepared)
-        let override = try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(),
-            deviceName: "Home Mac", parentID: first.id, supersededIDs: [first.id, second.id])
-        #expect(SnapshotDisk.heads([first, second, override]).map(\.id) == [override.id])
     }
 
     private func cloudFacts(root: URL) -> (URL) throws -> SnapshotCloudLocation.Facts {
@@ -447,15 +361,15 @@ final class SnapshotSyncTests {
         #expect(SnapshotCloudLocation.isAuthorizationLocation(directory.appendingPathComponent("Remarc"), root: directory))
         #expect(!SnapshotCloudLocation.isAuthorizationLocation(directory.appendingPathComponent("Other"), root: directory))
     }
-    @Test func testRetryUsesTheSameArchiveAndVersionWithoutDuplicatingCloudFiles() throws {
+    @Test func testStagingTheSamePayloadDoesNotDuplicateFiles() throws {
         let prepared = try SnapshotArchive.prepare(state(), root: directory)
         let version = try makeVersion(prepared)
         let cloud = directory.appendingPathComponent("retry-cloud")
         try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
-        let archive = directory.appendingPathComponent("\(version.id).zip")
-        try SnapshotDisk.publish(version, from: archive, to: cloud)
-        try SnapshotDisk.publish(version, from: archive, to: cloud)
-        #expect(try SnapshotDisk.versions(in: cloud).map(\.id) == [version.id])
+        let archive = directory.appendingPathComponent(version.archiveName)
+        try publishForTest(version, from: archive, to: cloud)
+        try publishForTest(version, from: archive, to: cloud)
+        #expect(try SnapshotDisk.current(in: cloud)?.id == version.id)
         #expect(try FileManager.default.contentsOfDirectory(atPath: cloud.path).count == 2)
     }
 
@@ -464,23 +378,24 @@ final class SnapshotSyncTests {
         let version = try makeVersion(prepared)
         let cloud = directory.appendingPathComponent("different-cloud")
         try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
-        let target = cloud.appendingPathComponent("\(version.id).zip")
+        let target = cloud.appendingPathComponent(version.archiveName)
         try Data("different content".utf8).write(to: target)
         #expect(throws: (any Error).self) {
-            try SnapshotDisk.publish(version, from: directory.appendingPathComponent("\(version.id).zip"), to: cloud)
+            try publishForTest(version, from: directory.appendingPathComponent(version.archiveName), to: cloud)
         }
         #expect(try Data(contentsOf: target) == Data("different content".utf8))
     }
 
-    @Test func testPartialPublicationCanRetryItsMissingManifest() throws {
+    @Test func testStagedPayloadIsNotCurrentUntilCommitted() throws {
         let prepared = try SnapshotArchive.prepare(state(), root: directory)
         let version = try makeVersion(prepared)
         let cloud = directory.appendingPathComponent("partial-cloud")
         try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
-        let archive = directory.appendingPathComponent("\(version.id).zip")
-        try FileManager.default.copyItem(at: archive, to: cloud.appendingPathComponent("\(version.id).zip"))
-        try SnapshotDisk.publish(version, from: archive, to: cloud)
-        #expect(try SnapshotDisk.versions(in: cloud).map(\.id) == [version.id])
+        let archive = directory.appendingPathComponent(version.archiveName)
+        try SnapshotDisk.stageArchive(version, from: archive, to: cloud)
+        #expect(try SnapshotDisk.current(in: cloud) == nil)
+        try SnapshotDisk.commitCurrent(version, replacing: nil, in: cloud)
+        #expect(try SnapshotDisk.current(in: cloud)?.id == version.id)
     }
 
     @Test func testBothCloudFilesMustConfirmUpload() throws {
@@ -541,77 +456,16 @@ final class SnapshotSyncTests {
         #expect(issue.diagnostic.contains("NSCocoaErrorDomain (513)"))
     }
 
-    @Test func testPendingSnapshotAndFailureSurviveRestart() throws {
+    @Test func testCloudUploadMarkerAndFailureSurviveRestartWithoutAnOutbox() throws {
         let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
         let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError),
             stage: .publishing, versionID: version.id)
-        let record = SnapshotSyncRecord(publication: SnapshotPublication(version: version, phase: .savedLocally), issue: issue)
+        let record = SnapshotSyncRecord(publication: SnapshotPublication(version: version, phase: .awaitingUpload), issue: issue)
         try SnapshotSyncStore.save(record, to: directory)
         let restored = try SnapshotSyncStore.load(from: directory)
         #expect(restored.publication?.version.id == version.id)
-        #expect(restored.publication?.phase == .savedLocally)
+        #expect(restored.publication?.phase == .awaitingUpload)
         #expect(restored.issue == issue)
-    }
-
-    @Test func testUploadFailureOverridesOtherwiseHealthyStatusOnBothSurfaces() throws {
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        let issue = SnapshotSyncIssue.make(NSError(domain: NSCocoaErrorDomain,
-            code: NSUbiquitousFileUbiquityServerNotAvailable), stage: .uploadConfirmation)
-        let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: issue, publication: SnapshotPublication(version: version, phase: .unconfirmed),
-            hasLocalChanges: false, remoteCount: 0)
-        #expect(view.tone == .warning)
-        #expect(view.action == .retry)
-        #expect(view.title != L10n.tr("Uploaded to iCloud"))
-    }
-
-    @Test func testDirectoryAccessAloneNeverClaimsUploadSuccess() {
-        let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: nil, publication: nil, hasLocalChanges: false, remoteCount: 0)
-        #expect(view.title != L10n.tr("Uploaded to iCloud"))
-        #expect(view.tone != .success)
-    }
-
-    @Test func testWaitingSnapshotOffersCheckWithoutCreatingAnotherVersion() throws {
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: nil, publication: SnapshotPublication(version: version, phase: .awaitingUpload),
-            hasLocalChanges: true, remoteCount: 0)
-        #expect(view.action == .check)
-        #expect(view.tone == .warning)
-    }
-
-    @Test func testSuccessfulRecheckClearsOldFailurePresentation() throws {
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        let view = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: nil, publication: SnapshotPublication(version: version, phase: .confirmed, confirmedAt: Date()),
-            hasLocalChanges: false, remoteCount: 0)
-        #expect(view.title == L10n.tr("Uploaded to iCloud"))
-        #expect(view.tone == .success)
-    }
-
-    @Test func testRemoteUpdateAndDivergenceOfferDirectApplyOrChoice() {
-        let remote = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: nil, publication: nil, hasLocalChanges: false, remoteCount: 1)
-        let conflict = SnapshotSyncPresentation.make(enabled: true, directoryReady: true, progress: nil,
-            issue: nil, publication: nil, hasLocalChanges: true, remoteCount: 1)
-        #expect(remote.action == .apply)
-        #expect(conflict.action == .choose)
-    }
-
-    @Test func testCloudWriteFailureKeepsTheLocalArchiveForTheSameVersionRetry() throws {
-        let outbox = SnapshotSyncStore.outbox(in: directory)
-        let prepared = try SnapshotArchive.prepare(state(), root: directory)
-        let version = try SnapshotArchive.create(prepared, in: outbox, deviceID: UUID(), deviceName: "Office", parentID: nil)
-        let archive = outbox.appendingPathComponent("\(version.id).zip")
-        let blocked = directory.appendingPathComponent("blocked-cloud")
-        try Data("not a folder".utf8).write(to: blocked)
-        #expect(throws: (any Error).self) { try SnapshotDisk.publish(version, from: archive, to: blocked) }
-        #expect(try SnapshotArchive.fileDigest(archive) == version.archiveHash)
-        try FileManager.default.removeItem(at: blocked)
-        try FileManager.default.createDirectory(at: blocked, withIntermediateDirectories: false)
-        try SnapshotDisk.publish(version, from: archive, to: blocked)
-        #expect(try SnapshotDisk.versions(in: blocked).map(\.id) == [version.id])
     }
 
     @Test func testReportedUploadErrorIsPropagatedUntilBothFilesAreConfirmed() {
@@ -656,41 +510,6 @@ final class SnapshotSyncTests {
         #expect(SnapshotDisk.transferState(from: [stale, failed]) == .failed)
     }
 
-    @Test func testDirectoryTransferIgnoresHistoryButIncludesIncomingAndPendingPairs() throws {
-        let prepared = try SnapshotArchive.prepare(state(), root: directory)
-        let old = try makeVersion(prepared)
-        let current = try makeVersion(prepared, parent: old.id)
-        let pending = try makeVersion(prepared, parent: current.id)
-        let incomingID = UUID()
-        let names = ["\(old.id).zip", "\(old.id).json", "\(current.id).zip", "\(current.id).json", ".\(incomingID).json.icloud", "notes.txt"]
-        let files = SnapshotDisk.transferFileNames(versions: [old, current], pending: pending, discoveredNames: names)
-        #expect(files == Set([current.id, pending.id, incomingID].flatMap { ["\($0).json", "\($0).zip"] }))
-        #expect(!files.contains("\(old.id).zip"))
-    }
-
-    @Test func testArchiveArrivingBeforeManifestStillWaitsForCompleteData() {
-        let id = UUID()
-        let files = SnapshotDisk.transferFileNames(versions: [], pending: nil, discoveredNames: ["\(id).zip"])
-        #expect(files == Set(["\(id).json", "\(id).zip"]))
-    }
-
-    @Test func testCloudMetadataReadDoesNotMistakeAnOrdinaryFolderForReadyData() throws {
-        #expect(try SnapshotDisk.transferState(in: directory, versions: [], pending: nil) == .empty)
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        #expect(try SnapshotDisk.transferState(in: directory, versions: [version], pending: nil) == .unknown)
-        try FileManager.default.removeItem(at: directory.appendingPathComponent("\(version.id).zip"))
-        #expect(try SnapshotDisk.transferState(in: directory, versions: [version], pending: nil) == .waiting)
-    }
-
-    @Test func testCloudPlaceholderReadReportsWaitingWithoutReadingTaskData() throws {
-        let id = UUID()
-        let placeholder = directory.appendingPathComponent(".\(id).json.icloud")
-        let bytes = Data("placeholder is not a snapshot".utf8)
-        try bytes.write(to: placeholder)
-        #expect(try SnapshotDisk.transferState(in: directory, versions: [], pending: nil) == .waiting)
-        #expect(try Data(contentsOf: placeholder) == bytes)
-    }
-
     @Test func testIncompleteCloudTransferPreventsReplacingEitherCopy() {
         for status: SnapshotCloudTransfer in [.uploading, .downloading, .transferring, .waiting, .failed] {
             #expect(status.blocksReplacement)
@@ -700,6 +519,122 @@ final class SnapshotSyncTests {
         #expect(!SnapshotCloudTransfer.unknown.blocksReplacement)
         #expect(!SnapshotCloudTransfer.empty.blocksReplacement)
         #expect(!SnapshotCloudTransfer.ready.blocksReplacement)
+    }
+
+    @Test func testReadableFilenameIncludesSecondsZoneDeviceAndIdentity() {
+        let id = UUID(uuidString: "12345678-1234-1234-1234-123456789ABC")!
+        let name = SnapshotArchive.filename(date: Date(timeIntervalSince1970: 0), deviceName: "Office / Mac",
+                                            id: id, timeZone: TimeZone(secondsFromGMT: 28800)!)
+        #expect(name == "1970-01-01_08-00-00+0800_Office---Mac_12345678.zip")
+        #expect(SnapshotArchive.validArchiveName(name))
+        #expect(!SnapshotArchive.validArchiveName("../" + name))
+        #expect(!SnapshotArchive.validArchiveName("current.json"))
+    }
+
+    @Test func testPublishSwitchKeepsOldCopyUntilCommitAndCleanupLeavesOnlyCurrentPair() throws {
+        let cloud = directory.appendingPathComponent("current-cloud")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: false)
+        let first = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        try publishForTest(first, from: directory.appendingPathComponent(first.archiveName), to: cloud)
+        let legacy = UUID().uuidString
+        for ext in ["zip", "json"] { try Data("obsolete".utf8).write(to: cloud.appendingPathComponent("\(legacy).\(ext)")) }
+        try Data("user file".utf8).write(to: cloud.appendingPathComponent("notes.txt"))
+        let names = try SnapshotDisk.cleanupCandidates(in: cloud, current: first, abandoned: nil)
+        let next = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        try SnapshotDisk.stageArchive(next, from: directory.appendingPathComponent(next.archiveName), to: cloud)
+        #expect(try SnapshotDisk.current(in: cloud)?.id == first.id)
+        #expect(FileManager.default.fileExists(atPath: cloud.appendingPathComponent(first.archiveName).path))
+        try SnapshotDisk.commitCurrent(next, replacing: first.id, in: cloud)
+        #expect(try SnapshotDisk.current(in: cloud)?.id == next.id)
+        // Another Mac started uploading after our deletion list was captured.
+        let concurrent = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        try SnapshotDisk.stageArchive(concurrent, from: directory.appendingPathComponent(concurrent.archiveName), to: cloud)
+        try SnapshotDisk.cleanup(names, keeping: next, in: cloud)
+        #expect(!FileManager.default.fileExists(atPath: cloud.appendingPathComponent(first.archiveName).path))
+        #expect(!FileManager.default.fileExists(atPath: cloud.appendingPathComponent("\(legacy).zip").path))
+        #expect(FileManager.default.fileExists(atPath: cloud.appendingPathComponent(next.archiveName).path))
+        #expect(FileManager.default.fileExists(atPath: cloud.appendingPathComponent(concurrent.archiveName).path))
+        #expect(try Data(contentsOf: cloud.appendingPathComponent("notes.txt")) == Data("user file".utf8))
+        #expect(Set(try FileManager.default.contentsOfDirectory(atPath: cloud.path))
+                == Set(["current.json", next.archiveName, concurrent.archiveName, "notes.txt"]))
+    }
+
+    @Test func testConcurrentPublishDoesNotOverwriteAnotherMacOrDeleteItsPayload() throws {
+        let cloud = directory.appendingPathComponent("concurrent-cloud")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: false)
+        let first = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        let second = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        try publishForTest(first, from: directory.appendingPathComponent(first.archiveName), to: cloud)
+        try SnapshotDisk.stageArchive(second, from: directory.appendingPathComponent(second.archiveName), to: cloud)
+        #expect(throws: (any Error).self) { try SnapshotDisk.commitCurrent(second, replacing: nil, in: cloud) }
+        #expect(try SnapshotDisk.current(in: cloud)?.id == first.id)
+        try SnapshotDisk.cleanup([first.archiveName], keeping: second, in: cloud)
+        #expect(FileManager.default.fileExists(atPath: cloud.appendingPathComponent(first.archiveName).path))
+    }
+
+    @Test func testCurrentManifestRejectsOldProtocolAndUnsafePayloadPaths() throws {
+        let cloud = directory.appendingPathComponent("invalid-current")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: false)
+        var version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        version.archiveName = "../outside.zip"
+        try SnapshotArchive.encode(version).write(to: cloud.appendingPathComponent("current.json"))
+        #expect(throws: (any Error).self) { try SnapshotDisk.current(in: cloud) }
+        version.archiveName = SnapshotArchive.filename(date: version.createdAt, deviceName: version.deviceName, id: version.id)
+        var raw = try #require(JSONSerialization.jsonObject(with: SnapshotArchive.encode(version)) as? [String: Any])
+        raw["formatVersion"] = 1
+        try JSONSerialization.data(withJSONObject: raw).write(to: cloud.appendingPathComponent("current.json"))
+        #expect(throws: (any Error).self) { try SnapshotDisk.current(in: cloud) }
+    }
+
+    @Test func testUndoPointerSurvivesRestartAndFailedApplicationPreservesPreviousUndo() throws {
+        let rollbackRoot = SnapshotRollbackStore.directory(in: directory)
+        let original = state()
+        let previousUndo = try SnapshotArchive.create(SnapshotArchive.prepare(original, root: directory), in: rollbackRoot,
+                                                     deviceID: UUID(), deviceName: "Office")
+        var before = original
+        try SnapshotRollbackStore.set(previousUndo, in: &before)
+        let file = directory.appendingPathComponent("comments.json")
+        try SnapshotArchive.encode(before).write(to: file)
+        let stagedUndo = try SnapshotArchive.create(SnapshotArchive.prepare(before, root: directory), in: rollbackRoot,
+                                                   deviceID: UUID(), deviceName: "Office")
+        var replacement = state()
+        try SnapshotRollbackStore.set(stagedUndo, in: &replacement)
+        var later = before
+        later.comments[0].commentText = "Integration edited while applying"
+        try SnapshotArchive.encode(later).write(to: file)
+        #expect(throws: (any Error).self) { try SnapshotReplacement.commit(replacement, expected: before, fileURL: file) }
+        let restored = try JSONDecoder().decode(AppState.self, from: Data(contentsOf: file))
+        #expect(SnapshotRollbackStore.version(in: restored)?.id == previousUndo.id)
+        try SnapshotRollbackStore.cleanup(in: directory, keeping: SnapshotRollbackStore.version(in: restored))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: rollbackRoot.path) == [previousUndo.archiveName])
+        let recovered = try SnapshotArchive.read(previousUndo, archive: rollbackRoot.appendingPathComponent(previousUndo.archiveName)).state
+        #expect(recovered.comments == original.comments && recovered.sessions == original.sessions)
+    }
+
+    @Test func testSuccessfulApplicationReplacesSingleUndoAndRollbackConsumesIt() throws {
+        let rollbackRoot = SnapshotRollbackStore.directory(in: directory)
+        let first = try SnapshotArchive.create(SnapshotArchive.prepare(state(), root: directory), in: rollbackRoot,
+                                               deviceID: UUID(), deviceName: "Office")
+        let file = directory.appendingPathComponent("comments.json")
+        var before = state()
+        try SnapshotRollbackStore.set(first, in: &before)
+        try SnapshotArchive.encode(before).write(to: file)
+        let undo = try SnapshotArchive.create(SnapshotArchive.prepare(before, root: directory), in: rollbackRoot,
+                                              deviceID: UUID(), deviceName: "Office")
+        var applied = state()
+        try SnapshotRollbackStore.set(undo, in: &applied)
+        try SnapshotReplacement.commit(applied, expected: before, fileURL: file)
+        let restarted = try JSONDecoder().decode(AppState.self, from: Data(contentsOf: file))
+        #expect(SnapshotRollbackStore.version(in: restarted)?.id == undo.id)
+        try SnapshotRollbackStore.cleanup(in: directory, keeping: undo)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: rollbackRoot.path) == [undo.archiveName])
+        var restored = try SnapshotArchive.read(undo, archive: rollbackRoot.appendingPathComponent(undo.archiveName)).state
+        try SnapshotRollbackStore.set(nil, in: &restored)
+        try SnapshotReplacement.commit(restored, expected: restarted, fileURL: file)
+        #expect(restored.comments == before.comments && restored.sessions == before.sessions)
+        #expect(SnapshotRollbackStore.version(in: restored) == nil)
+        try SnapshotRollbackStore.cleanup(in: directory, keeping: nil)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: rollbackRoot.path).isEmpty)
     }
 
 }
