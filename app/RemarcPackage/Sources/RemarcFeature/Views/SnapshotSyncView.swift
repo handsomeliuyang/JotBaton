@@ -32,7 +32,6 @@ struct SnapshotSyncView: View {
 
 struct SnapshotSyncControls: View {
     var compact = false
-    var onExpansionChanged: (Bool) -> Void = { _ in }
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var sync = SnapshotSyncManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -41,6 +40,11 @@ struct SnapshotSyncControls: View {
     @State private var confirmUndo = false
     @State private var confirmEnable = false
     @State private var reviewToken = UUID()
+
+    private var rollbackHelp: String {
+        guard let undo = sync.rollback else { return L10n.tr("No application to undo") }
+        return L10n.tr("Restore data saved before applying at \(undo.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -67,43 +71,38 @@ struct SnapshotSyncControls: View {
             if let notice = sync.notice {
                 Text(notice).font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
             }
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 if sync.isEnabled {
-                    Button(L10n.tr("Publish")) { confirmPublish = true }
-                        .disabled(!sync.canPublish).accessibilityIdentifier("sync.publish")
-                    Button(L10n.tr("Apply")) { versionToApply = sync.cloudData }
-                        .disabled(!sync.canApply).accessibilityIdentifier("sync.apply")
+                    Button { confirmPublish = true } label: {
+                        Label(L10n.tr("Publish"), systemImage: "arrow.up")
+                    }
+                    .disabled(!sync.canPublish).accessibilityIdentifier("sync.publish")
+                    Button { versionToApply = sync.cloudData } label: {
+                        Label(L10n.tr("Apply"), systemImage: "arrow.down")
+                    }
+                    .disabled(!sync.canApply).accessibilityIdentifier("sync.apply")
                 } else {
                     Button(L10n.tr("Enable iCloud Data")) { confirmEnable = true }
                         .disabled(sync.isBusy)
                 }
+                Button { confirmUndo = true } label: {
+                    Label(L10n.tr("Roll Back"), systemImage: "arrow.uturn.backward")
+                }
+                .disabled(sync.rollback == nil || sync.isBusy)
+                .help(rollbackHelp)
+                .accessibilityIdentifier("sync.undo")
                 if compact {
                     Spacer(minLength: 0)
                     Button {
                         PreferencesWindowController.shared.show(tab: L10n.tr("iCloud Sync"))
-                    } label: { Image(systemName: "gearshape") }
-                    .help(L10n.tr("Settings"))
-                }
-            }
-            .buttonStyle(.bordered).controlSize(.small)
-            .tint(Color.remarcPrimary(for: colorScheme))
-            Divider()
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.tr("Undo Last Apply")).font(.system(size: 11, weight: .semibold))
-                    if let undo = sync.rollback {
-                        Text(undo.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))
-                            .font(.system(size: 10)).foregroundStyle(.secondary)
-                    } else {
-                        Text(L10n.tr("No application to undo")).font(.system(size: 10)).foregroundStyle(.secondary)
+                    } label: {
+                        Image(systemName: "gearshape").frame(width: 12)
                     }
+                    .help(L10n.tr("Settings"))
+                    .accessibilityLabel(L10n.tr("Settings"))
                 }
-                Spacer()
-                Button(L10n.tr("Undo")) { confirmUndo = true }
-                    .buttonStyle(.bordered).controlSize(.small)
-                    .disabled(sync.rollback == nil || sync.isBusy)
-                    .accessibilityIdentifier("sync.undo")
             }
+            .buttonStyle(SnapshotSyncActionButtonStyle())
             if let issue = sync.issue {
                 HStack {
                     if issue.needsAuthorization {
@@ -136,7 +135,7 @@ struct SnapshotSyncControls: View {
         }
         .alert(L10n.tr("Undo last application?"), isPresented: $confirmUndo) {
             Button(L10n.tr("Cancel"), role: .cancel) {}
-            Button(L10n.tr("Undo"), role: .destructive) { Task { await sync.undoLastApply() } }
+            Button(L10n.tr("Roll Back"), role: .destructive) { Task { await sync.undoLastApply() } }
         } message: {
             Text(L10n.tr("Restore this Mac's complete data from before the last application? Changes made since then will be replaced. Cloud data stays unchanged."))
         }
@@ -171,7 +170,6 @@ struct SnapshotSyncToolbarButton: View {
     @ObservedObject private var panel = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showing = false
-    @State private var anchorRef = AnchorViewRef()
 
     private var tint: Color {
         if sync.issue != nil { return .remarcWarning(for: colorScheme) }
@@ -187,13 +185,10 @@ struct SnapshotSyncToolbarButton: View {
             .foregroundStyle(tint).frame(width: 26, height: 26).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(DropdownAnchor(ref: anchorRef))
+        .background(SnapshotSyncPopoverAnchor(isPresented: $showing, colorScheme: colorScheme))
         .help(L10n.tr("iCloud · \(sync.summary)"))
         .accessibilityLabel(L10n.tr("iCloud · \(sync.shortStatus)"))
         .accessibilityIdentifier("sync.toolbar")
-        .popover(isPresented: $showing, arrowEdge: .top) {
-            SnapshotSyncPopoverContent(screenSize: NSScreen.bestScreen(for: anchorRef.view?.window).visibleFrame.size)
-        }
         .task { await sync.checkIfNeeded() }
         .onRemarcChange(of: panel.isVisible) { visible in
             if !visible && !panel.isDetached { showing = false }
@@ -204,44 +199,40 @@ struct SnapshotSyncToolbarButton: View {
     }
 }
 
-/// Measure the full content inside a single scroll view. An explicit viewport
-/// size lets the popover grow and shrink instead of preserving its initial height.
-private struct SnapshotSyncPopoverContent: View {
-    let screenSize: CGSize
-    @State private var expanded = false
-    @State private var contentSize: CGSize = .zero
-
-    private var width: CGFloat {
-        min(expanded ? 460 : 340, max(1, screenSize.width - 32))
+/// A consistent action row whose disabled controls still explain their purpose.
+private struct SnapshotSyncActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        SnapshotSyncActionButtonBody(label: configuration.label, isPressed: configuration.isPressed)
     }
+}
 
-    private var height: CGFloat {
-        min(contentSize.height > 0 ? contentSize.height : 180, screenSize.height * 0.8)
-    }
+private struct SnapshotSyncActionButtonBody<Label: View>: View {
+    let label: Label
+    let isPressed: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovered = false
 
     var body: some View {
-        ScrollView {
-            SnapshotSyncControls(compact: true, onExpansionChanged: { expanded = $0 })
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear { updateContentSize(geometry.size) }
-                            .onRemarcChange(of: geometry.size) { updateContentSize($0) }
-                    }
-                }
-        }
-        .frame(width: width, height: height)
-        .fixedSize()
-        .animation(.easeInOut(duration: 0.18), value: expanded)
-        .animation(.easeInOut(duration: 0.18), value: contentSize.height)
-        .accessibilityIdentifier("sync.popover")
-    }
-
-    private func updateContentSize(_ size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        contentSize = CGSize(width: ceil(size.width), height: ceil(size.height))
+        let brand = Color.remarcPrimary(for: colorScheme)
+        label
+            .font(.system(size: 11, weight: .medium))
+            .labelStyle(.titleAndIcon)
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .foregroundStyle(isEnabled ? (isHovered ? brand : .primary.opacity(0.8)) : .secondary.opacity(0.55))
+            .background {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(isEnabled && (isHovered || isPressed)
+                          ? brand.opacity(isPressed ? 0.18 : 0.10) : Color.primary.opacity(isEnabled ? 0.055 : 0.025))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(isEnabled && isHovered ? brand.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 0.5)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 7))
+            .onHover { isHovered = $0 }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
     }
 }

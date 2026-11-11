@@ -323,37 +323,20 @@ private struct SessionSidebarRow<MenuContent: View>: View {
             .accessibilityAddTraits(isActive ? .isSelected : [])
             .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
 
-            if !session.isInbox {
-                Button {
-                    lastClickDate = nil
-                    onTogglePin()
-                } label: {
-                    Image(systemName: session.isPinned ? "pin.fill" : "pin")
-                        .font(.system(size: 10))
-                        .frame(width: 16, height: 20)
-                }
-                .buttonStyle(.plain)
-                .focused($isPinFocused)
-                .opacity(session.isPinned || isHovered || isPinFocused ? 1 : 0)
-                .allowsHitTesting(session.isPinned || isHovered || isPinFocused)
-                .help(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
-                .accessibilityLabel(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
-                .accessibilityIdentifier("remarc.session.pin.\(session.id.uuidString)")
-            }
-
             Text("\(commentCount)")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
                 .frame(minWidth: 16, alignment: .trailing)
                 .fixedSize()
+                .padding(.top, session.isInbox ? 0 : 12)
                 .onTapGesture(perform: handleClick)
                 .accessibilityHidden(true)
         }
         .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
         .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .frame(minHeight: 30)
+        .padding(.vertical, 5)
+        .frame(minHeight: 34)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 6)
@@ -365,6 +348,29 @@ private struct SessionSidebarRow<MenuContent: View>: View {
                     .fill(brandColor)
                     .frame(width: 2)
                     .padding(.vertical, 6)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if !session.isInbox {
+                Button {
+                    lastClickDate = nil
+                    onTogglePin()
+                } label: {
+                    Image(systemName: session.isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 9))
+                        .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(isActive ? brandColor : .primary.opacity(0.65))
+                .focused($isPinFocused)
+                .opacity(session.isPinned || isHovered || isPinFocused ? 1 : 0)
+                .allowsHitTesting(session.isPinned || isHovered || isPinFocused)
+                .help(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
+                .accessibilityLabel(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
+                .accessibilityIdentifier("remarc.session.pin.\(session.id.uuidString)")
+                .padding(.top, 2)
+                .padding(.trailing, 8)
             }
         }
         .contentShape(Rectangle())
