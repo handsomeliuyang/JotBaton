@@ -804,6 +804,7 @@
   "Update remarc": "更新 remarc",
   "Updated {0}": "更新于 {0}",
   "Updates aren't automatic for this marketplace. Turn them on once: run /plugin, open Marketplaces, select remarc, then Enable auto-update.": "此插件市场未开启自动更新。运行 /plugin，打开 Marketplaces，选择 remarc，然后启用 Enable auto-update。",
+  "Updating tasks...": "正在更新任务…",
   "Upload confirmed {0}. Your other Mac must check and apply the version manually.": "已于 {0} 确认上传，其他 Mac 需手动检查并应用此版本。",
   "Upload is unconfirmed. Check iCloud again": "上传尚未确认，请重新检查 iCloud",
   "Uploaded to iCloud": "已上传到 iCloud",

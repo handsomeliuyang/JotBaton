@@ -140,7 +140,7 @@ struct SessionTaskPolicyTests {
         #expect(state.comments.map(\.status) == comments.map(\.status))
     }
 
-    @Test("Immediate resolved deletion waits for the Undo window; a retained completed task still protects the session")
+    @Test("Retained completions protect the Undo window from later cleanup")
     func undoProtection() {
         let session = Session(name: "Work")
         var state = AppState(sessions: [session], comments: [task(session)])
@@ -153,5 +153,42 @@ struct SessionTaskPolicyTests {
         #expect(state.sessions[0].emptySince == nil)
         _ = CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(2))
         #expect(ResolvedCommentDeletionPolicy.expiredIDs(in: state.comments, interval: 0, now: now.addingTimeInterval(6)).isEmpty)
+    }
+
+    @Test("Immediate completion archives in the same operation and Undo restores the original live task")
+    func immediateArchiveAndUndo() {
+        let session = Session(name: "Work"), other = Session(name: "Other")
+        let comments = [task(session), task(session, status: .open), task(other)]
+        var state = AppState(sessions: [session, other], comments: comments, activeSessionID: session.id)
+        let receipt = CommentCompletionPolicy.complete(
+            &state, in: session.id, scope: .inProgress, archiveImmediately: true, now: now)
+        #expect(receipt.count == 1)
+        #expect(state.comments[0].status == .resolved)
+        #expect(state.comments[0].isDeleted && state.comments[0].deletedAt == now)
+        #expect(receipt.entries[0].completed == state.comments[0], "Undo must pin the archived version")
+        #expect(state.comments[1] == comments[1] && state.comments[2] == comments[2])
+
+        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)) == [comments[0].id])
+        #expect(state.comments[0].status == .inProgress)
+        #expect(!state.comments[0].isDeleted && state.comments[0].deletedAt == nil)
+        #expect(state.comments[0].resolvedAt == comments[0].resolvedAt)
+        #expect(state.comments[0].commentText == comments[0].commentText)
+        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(2)).isEmpty)
+    }
+
+    @Test("Undo of an archived completion preserves later history edits, moves and manual restores")
+    func archiveUndoPreservesLaterChanges() {
+        let session = Session(name: "Work"), other = Session(name: "Other")
+        var state = AppState(sessions: [session, other], comments: (0..<4).map { _ in task(session) })
+        let receipt = CommentCompletionPolicy.complete(
+            &state, in: session.id, scope: .inProgress, archiveImmediately: true, now: now)
+        state.comments[0].commentText = "Later history edit"
+        state.comments[1].sessionID = other.id
+        state.comments[2].isDeleted = false
+        state.comments[2].deletedAt = nil
+        let later = state
+        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)) == [later.comments[3].id])
+        #expect(state.comments.prefix(3) == later.comments.prefix(3))
+        #expect(!state.comments[3].isDeleted && state.comments[3].status == .inProgress)
     }
 }

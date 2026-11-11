@@ -53,6 +53,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     private var panel: NSPanel?
     private var panelVEV: NSVisualEffectView?
     private var panelHostingView: NSView?
+    private let screenshotCopyButton = ScreenshotCopyButtonController()
     private let clickOutsideMonitor = ClickOutsideMonitor()
     private var heightCancellable: AnyCancellable?
     private var isAboveSelection: Bool = true
@@ -148,6 +149,8 @@ public final class CommentInputController: NSObject, ObservableObject {
             return nil
         }
 
+        screenshotCopyButton.teardown()
+
         cancelAutoSaveCountdown()
         removeScreenshotKeyMonitor()
         if #available(macOS 26, *) {
@@ -185,6 +188,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     }
 
     private func endDraftState() {
+        screenshotCopyButton.teardown()
         draftGeneration &+= 1
         wakeOnSave = false
         cancelAutoSaveCountdown()
@@ -839,7 +843,9 @@ public final class CommentInputController: NSObject, ObservableObject {
 
     /// Save, wake-save, dismissal, annotate entry and exit, and zoom are all
     /// refused unless this is `.idle`.
-    @Published private(set) var captureTransaction: CaptureTransaction = .idle
+    @Published private(set) var captureTransaction: CaptureTransaction = .idle {
+        didSet { updateScreenshotCopyButton() }
+    }
 
     /// Everything needed to put the capture back exactly as it was. Retained for
     /// the whole transaction; nothing is cleared until finalize.
@@ -1159,6 +1165,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     private func keepCommentPanelAboveSelectionOverlay() {
         guard isScreenshotMode, let panel else { return }
         panel.level = screenshotPanelLevel
+        updateScreenshotCopyButton()
 
         guard let overlayPanel = ScreenCaptureService.shared.overlayPanel,
               overlayPanel.isVisible,
@@ -1166,6 +1173,15 @@ public final class CommentInputController: NSObject, ObservableObject {
         else { return }
 
         panel.order(.above, relativeTo: overlayPanel.windowNumber)
+    }
+
+    private func updateScreenshotCopyButton() {
+        guard isScreenshotMode, isVisible, panelLayoutReady, let panel, panel.isVisible,
+              captureTransaction == .idle || captureTransaction == .copying else {
+            screenshotCopyButton.hide()
+            return
+        }
+        screenshotCopyButton.show(for: panel, controller: self)
     }
 
     private func show(near rect: CGRect?, useAdjacentPositioning: Bool = false) {
@@ -1283,11 +1299,10 @@ public final class CommentInputController: NSObject, ObservableObject {
 
     private func setupHeightObserver() {
         heightCancellable?.cancel()
-        heightCancellable = Publishers.Merge4(
+        heightCancellable = Publishers.Merge3(
             $currentText.map { _ in () },
             $currentAttachments.map { _ in () },
-            $currentSelection.map { _ in () },
-            $screenshotCopyError.map { _ in () }
+            $currentSelection.map { _ in () }
         )
         .sink { [weak self] _ in
             // Defer to next run loop so SwiftUI has finished its layout pass
@@ -1308,6 +1323,7 @@ public final class CommentInputController: NSObject, ObservableObject {
                 panelLayoutReady = true
                 onPanelLayoutReady?()
             }
+            updateScreenshotCopyButton()
         }
         let fittingSize = hostingView.fittingSize
         // Round to whole points to prevent sub-pixel oscillation between layout passes

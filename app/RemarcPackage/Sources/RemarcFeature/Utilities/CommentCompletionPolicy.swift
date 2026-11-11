@@ -23,7 +23,8 @@ public struct CommentCompletionReceipt: Sendable {
 }
 
 enum CommentCompletionPolicy {
-    static func complete(_ state: inout AppState, in sessionID: UUID, scope: CommentCompletionScope, now: Date) -> CommentCompletionReceipt {
+    static func complete(_ state: inout AppState, in sessionID: UUID, scope: CommentCompletionScope,
+                         archiveImmediately: Bool = false, now: Date) -> CommentCompletionReceipt {
         var entries: [CommentCompletionReceipt.Entry] = []
         for index in state.comments.indices {
             let before = state.comments[index]
@@ -33,6 +34,10 @@ enum CommentCompletionPolicy {
             state.comments[index].resolvedBy = nil
             state.comments[index].resolutionSummary = nil
             state.comments[index].updatedAt = now
+            if archiveImmediately {
+                state.comments[index].isDeleted = true
+                state.comments[index].deletedAt = now
+            }
             entries.append(.init(before: before, completed: state.comments[index]))
         }
         return CommentCompletionReceipt(sessionID: sessionID, entries: entries)

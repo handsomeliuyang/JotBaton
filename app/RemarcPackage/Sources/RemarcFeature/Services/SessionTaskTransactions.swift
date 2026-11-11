@@ -9,12 +9,14 @@ struct SessionTaskCommit<Value: Sendable>: Sendable {
 /// No singleton or real user directory is needed to exercise them in tests.
 enum SessionTaskTransactions {
     static func complete(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
-                         scope: CommentCompletionScope, now: Date) throws -> SessionTaskCommit<CommentCompletionReceipt> {
+                         scope: CommentCompletionScope, archiveImmediately: Bool = false,
+                         now: Date) throws -> SessionTaskCommit<CommentCompletionReceipt> {
         try update(fileURL: fileURL, candidate: candidate, baseline: baseline, now: now) { state in
             guard state.sessions.contains(where: { $0.id == sessionID && !$0.isDeleted && !$0.isAutoDismissed }) else {
                 throw PersistenceError.sessionUnavailable
             }
-            return CommentCompletionPolicy.complete(&state, in: sessionID, scope: scope, now: now)
+            return CommentCompletionPolicy.complete(&state, in: sessionID, scope: scope,
+                                                    archiveImmediately: archiveImmediately, now: now)
         }
     }
 
@@ -69,5 +71,24 @@ enum SessionTaskTransactions {
         } catch is DocumentLock.TimedOut {
             throw PersistenceError.lockTimeout
         }
+    }
+}
+
+/// Lock polling, document decoding and atomic writes run on this actor's
+/// executor, never on the UI's main actor. The on-disk lock still coordinates
+/// with the MCP server and hooks.
+actor SessionTaskWriter {
+    func complete(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
+                  scope: CommentCompletionScope, archiveImmediately: Bool,
+                  now: Date) throws -> SessionTaskCommit<CommentCompletionReceipt> {
+        try SessionTaskTransactions.complete(
+            fileURL: fileURL, candidate: candidate, baseline: baseline, sessionID: sessionID,
+            scope: scope, archiveImmediately: archiveImmediately, now: now)
+    }
+
+    func undo(fileURL: URL, candidate: AppState, baseline: AppState,
+              receipt: CommentCompletionReceipt, now: Date) throws -> SessionTaskCommit<[UUID]> {
+        try SessionTaskTransactions.undo(fileURL: fileURL, candidate: candidate,
+                                         baseline: baseline, receipt: receipt, now: now)
     }
 }

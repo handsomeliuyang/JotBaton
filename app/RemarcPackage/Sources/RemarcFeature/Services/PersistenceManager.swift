@@ -14,6 +14,8 @@ public final class PersistenceManager: ObservableObject {
     private var lastPersisted: AppState
     /// Serializes background writes off the main actor (see DocumentWriter).
     private let documentWriter = DocumentWriter()
+    private let sessionTaskWriter = SessionTaskWriter()
+    @Published public private(set) var taskCompletionInFlight = false
     private var backgroundSaveInFlight = false
     /// A mutation arrived while a save was in flight; that save's snapshot is
     /// stale, so another must follow it.
@@ -645,16 +647,29 @@ public final class PersistenceManager: ObservableObject {
     }
 
     /// The receipt pins the exact completed versions and original states for Undo.
-    public func completeComments(in sessionID: UUID, scope: CommentCompletionScope = .inProgress) -> Result<CommentCompletionReceipt, PersistenceError> {
-        guard !documentWriteInFlight, !backgroundSaveInFlight else { return .failure(.lockTimeout) }
+    public func completeComments(in sessionID: UUID, scope: CommentCompletionScope = .inProgress) async -> Result<CommentCompletionReceipt, PersistenceError> {
+        guard !taskCompletionInFlight else { return .failure(.lockTimeout) }
+        taskCompletionInFlight = true
+        defer { taskCompletionInFlight = false }
+        await acquireDocumentSlot()
+        defer { releaseDocumentSlot() }
         do {
-            let commit = try SessionTaskTransactions.complete(
-                fileURL: fileURL, candidate: appState, baseline: lastPersisted,
-                sessionID: sessionID, scope: scope, now: Date()
+            // A routine save may already be running when we take the slot.
+            // Drain its publication before fixing this transaction's merge base.
+            while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
+            let launchState = appState
+            pinnedSessionIDs.insert(sessionID)
+            defer { pinnedSessionIDs.remove(sessionID) }
+            let commit = try await sessionTaskWriter.complete(
+                fileURL: fileURL, candidate: launchState, baseline: lastPersisted,
+                sessionID: sessionID, scope: scope,
+                archiveImmediately: SettingsManager.shared.resolvedCommentDeletion == .immediately,
+                now: Date()
             )
-            appState = commit.state
-            lastPersisted = commit.state
+            adoptTaskCommit(commit.state, launchedFrom: launchState)
             let receipt = commit.value
+            // Immediate archiving is already part of the committed state.
+            // This deadline only retains Undo protection for housekeeping.
             let deadline = Date().addingTimeInterval(5.2)
             for id in receipt.commentIDs { completionUndoDeadlines[id] = deadline }
             for entry in receipt.entries { WebhookService.shared.dispatch(.commentResolved, comment: entry.completed) }
@@ -674,14 +689,21 @@ public final class PersistenceManager: ObservableObject {
         catch { return .failure(.writeFailed("\(error)")) }
     }
 
-    public func undoCompletion(_ receipt: CommentCompletionReceipt) -> Result<Int, PersistenceError> {
-        guard !documentWriteInFlight, !backgroundSaveInFlight else { return .failure(.lockTimeout) }
+    public func undoCompletion(_ receipt: CommentCompletionReceipt) async -> Result<Int, PersistenceError> {
+        guard !taskCompletionInFlight else { return .failure(.lockTimeout) }
+        taskCompletionInFlight = true
+        defer { taskCompletionInFlight = false }
+        await acquireDocumentSlot()
+        defer { releaseDocumentSlot() }
         do {
-            let commit = try SessionTaskTransactions.undo(
-                fileURL: fileURL, candidate: appState, baseline: lastPersisted, receipt: receipt, now: Date()
+            while backgroundSaveInFlight { try await Task.sleep(for: .milliseconds(10)) }
+            let launchState = appState
+            pinnedSessionIDs.insert(receipt.sessionID)
+            defer { pinnedSessionIDs.remove(receipt.sessionID) }
+            let commit = try await sessionTaskWriter.undo(
+                fileURL: fileURL, candidate: launchState, baseline: lastPersisted, receipt: receipt, now: Date()
             )
-            appState = commit.state
-            lastPersisted = commit.state
+            adoptTaskCommit(commit.state, launchedFrom: launchState)
             for id in commit.value {
                 completionUndoDeadlines.removeValue(forKey: id)
                 if let comment = appState.comments.first(where: { $0.id == id }) {
@@ -691,6 +713,14 @@ public final class PersistenceManager: ObservableObject {
             return .success(commit.value.count)
         } catch let error as PersistenceError { return .failure(error) }
         catch { return .failure(.writeFailed("\(error)")) }
+    }
+
+    private func adoptTaskCommit(_ committed: AppState, launchedFrom launchState: AppState) {
+        // Session switching, text edits and new comments can arrive while IO is
+        // suspended. Rebase them rather than publishing the older snapshot.
+        appState = AppStateMerge.merge(base: launchState, ours: appState, theirs: committed)
+        lastPersisted = committed
+        if appState != committed { scheduleSave() }
     }
 
     private func isCompletionUndoProtected(_ id: UUID, now: Date) -> Bool {

@@ -177,4 +177,77 @@ struct SessionTaskTransactionTests {
         #expect(original.hash == changed.hash)
         #expect(changed.state.sessions.allSatisfy { $0.emptySince == nil })
     }
+
+    @Test("Immediate completion and archive are persisted together, with a receipt that can undo from History")
+    func atomicArchiveAndUndo() throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        var baseline = fixture()
+        baseline.comments = [task(baseline.sessions[1].id)]
+        try write(baseline, to: file)
+        let commit = try SessionTaskTransactions.complete(
+            fileURL: file, candidate: baseline, baseline: baseline, sessionID: baseline.sessions[1].id,
+            scope: .inProgress, archiveImmediately: true, now: now)
+        let saved = try read(file)
+        #expect(saved == commit.state)
+        #expect(saved.comments[0].isDeleted && saved.comments[0].status == .resolved)
+        #expect(saved.comments[0].deletedAt == now)
+        #expect(saved.sessions[1].emptySince == now, "archiving the last task starts the empty-session clock")
+        let undo = try SessionTaskTransactions.undo(
+            fileURL: file, candidate: saved, baseline: saved, receipt: commit.value, now: now.addingTimeInterval(1))
+        #expect(undo.value == [baseline.comments[0].id])
+        #expect(!undo.state.comments[0].isDeleted && undo.state.comments[0].status == .inProgress)
+        #expect(undo.state.sessions[1].emptySince == nil)
+        #expect(try read(file) == undo.state)
+    }
+
+    @Test("Waiting for the document lock leaves the main actor responsive")
+    @MainActor
+    func completionWriterDoesNotBlockMainActor() async throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        var baseline = fixture()
+        baseline.comments = [task(baseline.sessions[1].id)]
+        try write(baseline, to: file)
+        let lock = DocumentLock.lockURL(for: file)
+        try FileManager.default.createDirectory(at: lock, withIntermediateDirectories: false)
+        let writer = SessionTaskWriter()
+        let candidate = baseline
+        let started = Date()
+        let pending = Task {
+            try await writer.complete(fileURL: file, candidate: candidate, baseline: candidate,
+                sessionID: candidate.sessions[1].id, scope: .inProgress,
+                archiveImmediately: true, now: now)
+        }
+        // This resumes while the writer is still polling the held lock. Running
+        // the transaction on MainActor would stall here for its 2-second timeout.
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(Date().timeIntervalSince(started) < 1)
+        try FileManager.default.removeItem(at: lock)
+        let commit = try await pending.value
+        #expect(commit.state.comments[0].isDeleted)
+        #expect(try read(file) == commit.state)
+    }
+
+    @Test("Publishing completion retains UI text edits, new tasks and session switching during the background write")
+    func completionPublicationRebase() throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        var baseline = fixture()
+        baseline.comments = [task(baseline.sessions[1].id)]
+        try write(baseline, to: file)
+        let commit = try SessionTaskTransactions.complete(
+            fileURL: file, candidate: baseline, baseline: baseline, sessionID: baseline.sessions[1].id,
+            scope: .inProgress, archiveImmediately: true, now: now)
+        var local = baseline
+        local.comments[0].commentText = "Edited while saving"
+        let added = task(baseline.sessions[0].id, status: .open)
+        local.comments.append(added)
+        local.activeSessionID = baseline.sessions[0].id
+        let published = AppStateMerge.merge(base: baseline, ours: local, theirs: commit.state)
+        #expect(published.comments[0].commentText == "Edited while saving")
+        #expect(published.comments[0].isDeleted && published.comments[0].status == .resolved)
+        #expect(published.comments[1] == added)
+        #expect(published.activeSessionID == local.activeSessionID)
+    }
 }

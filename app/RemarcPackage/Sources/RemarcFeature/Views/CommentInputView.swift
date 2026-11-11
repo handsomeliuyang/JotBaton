@@ -348,37 +348,10 @@ struct CommentInputView: View {
                     Text(L10n.tr("Screenshot"))
                         .font(.system(size: 11))
                         .foregroundStyle(.primary.opacity(0.45))
-                    Spacer()
-                    Button(action: { controller.copyScreenshot() }) {
-                        Label(
-                            L10n.tr(controller.captureTransaction == .copying ? "Copying..." : "Copy Image"),
-                            systemImage: "doc.on.doc"
-                        )
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.remarcPrimary(for: colorScheme).opacity(0.1))
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(controller.captureTransaction != .idle)
-                    .help(L10n.tr("Copy the screenshot and annotations without saving a comment"))
-                    .accessibilityIdentifier("remarc.commentInput.copyImageButton")
                 }
                 .padding(.leading, 8)
-                .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .quoteBorder()
-                if let error = controller.screenshotCopyError {
-                    Text(error)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("remarc.commentInput.copyImageError")
-                }
             } else {
                 HStack(spacing: 4) {
                     Image(systemName: "note.text")

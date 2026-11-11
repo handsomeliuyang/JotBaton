@@ -598,7 +598,7 @@ struct PopoverContentView: View {
 
     /// Session-wide actions are off while searching or viewing history.
     private var sessionActionsDisabled: Bool {
-        !hasComments || isSearching || showingHistory
+        !hasComments || isSearching || showingHistory || persistence.taskCompletionInFlight
     }
 
     private var footer: some View {
@@ -617,12 +617,15 @@ struct PopoverContentView: View {
             .disabled(sessionActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
-            primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks")) {
+            primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks"),
+                                isWorking: persistence.taskCompletionInFlight) {
                 completeTasks(scope: .inProgress)
             }
-            .help(L10n.tr("Mark in-progress tasks as complete (\(inProgressTaskCount))"))
+            .help(persistence.taskCompletionInFlight
+                  ? L10n.tr("Updating tasks...")
+                  : L10n.tr("Mark in-progress tasks as complete (\(inProgressTaskCount))"))
             .disabled(sessionActionsDisabled || inProgressTaskCount == 0)
-            .opacity(sessionActionsDisabled || inProgressTaskCount == 0 ? 0.4 : 1)
+            .opacity(!persistence.taskCompletionInFlight && (sessionActionsDisabled || inProgressTaskCount == 0) ? 0.4 : 1)
             .accessibilityIdentifier("remarc.footer.completeInProgress")
 
             mcpButton
@@ -890,8 +893,15 @@ struct PopoverContentView: View {
     }
 
     private func completeTasks(scope: CommentCompletionScope) {
-        guard let sessionID = persistence.appState.activeSessionID else { return }
-        switch persistence.completeComments(in: sessionID, scope: scope) {
+        guard !persistence.taskCompletionInFlight,
+              let sessionID = persistence.appState.activeSessionID else { return }
+        Task { @MainActor in
+            await performCompletion(in: sessionID, scope: scope)
+        }
+    }
+
+    private func performCompletion(in sessionID: UUID, scope: CommentCompletionScope) async {
+        switch await persistence.completeComments(in: sessionID, scope: scope) {
         case .failure(let error):
             ToastManager.shared.show(error.userMessage)
         case .success(let receipt):
@@ -903,13 +913,15 @@ struct PopoverContentView: View {
             ToastManager.shared.show(
                 L10n.tr("Completed \(receipt.count) task\(receipt.count == 1 ? "" : "s")"),
                 undo: {
-                    switch persistence.undoCompletion(receipt) {
-                    case .failure(let error): ToastManager.shared.show(error.userMessage)
-                    case .success(let count):
-                        if count == 0 {
-                            ToastManager.shared.show(L10n.tr("Tasks or their session changed; nothing was undone"))
-                        } else {
-                            ToastManager.shared.show(L10n.tr("Undid completion for \(count) task\(count == 1 ? "" : "s")"))
+                    Task { @MainActor in
+                        switch await persistence.undoCompletion(receipt) {
+                        case .failure(let error): ToastManager.shared.show(error.userMessage)
+                        case .success(let count):
+                            if count == 0 {
+                                ToastManager.shared.show(L10n.tr("Tasks or their session changed; nothing was undone"))
+                            } else {
+                                ToastManager.shared.show(L10n.tr("Undid completion for \(count) task\(count == 1 ? "" : "s")"))
+                            }
                         }
                     }
                 },
@@ -1317,15 +1329,23 @@ struct PopoverContentView: View {
         )
     }
 
-    private func primaryFooterButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+    private func primaryFooterButton(icon: String, title: String, isWorking: Bool = false,
+                                     action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: icon)
-                .labelStyle(.iconOnly)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                .frame(width: 30, height: 28)
+            Group {
+                if isWorking {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Label(title, systemImage: icon)
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 13, weight: .medium))
+                }
+            }
+            .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+            .frame(width: 30, height: 28)
         }
         .buttonStyle(FooterButtonStyle(restOpacity: 0.08, hoverOpacity: 0.14))
+        .accessibilityLabel(title)
     }
 
     private func footerButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
