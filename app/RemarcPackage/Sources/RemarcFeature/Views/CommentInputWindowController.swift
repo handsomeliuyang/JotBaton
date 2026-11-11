@@ -30,6 +30,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     @Published public var currentSelection: TextSelection?
     @Published public var screenshotImagePath: String?
     @Published public var isScreenshotMode: Bool = false
+    @Published private(set) var screenshotCopyError: String?
     @Published public var textResetToken = UUID()
     @Published public var currentText: String = ""
     @Published public var currentAttachments: [String] = []
@@ -178,6 +179,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         retainedWebContext = nil
         retainedRegionElements = nil
         lastPanelFrameBeforeFly = nil
+        screenshotCopyError = nil
         textResetToken = UUID()
         return draftGeneration
     }
@@ -197,6 +199,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         currentSelection = nil
         screenshotImagePath = nil
         isScreenshotMode = false
+        screenshotCopyError = nil
         currentText = ""
         currentAttachments = []
         pendingVoiceText = nil
@@ -379,6 +382,13 @@ public final class CommentInputController: NSObject, ObservableObject {
 
         // Every gate is checked here, once, rather than at each call site.
         guard captureTransaction == .idle else { return false }
+
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "c",
+           capture.annotationCanvasHasCopyFocus {
+            copyScreenshot()
+            return true
+        }
 
         // Entry is Shift-Command-A. `A` is safe to match by character because it is
         // unaffected by Shift.
@@ -783,13 +793,53 @@ public final class CommentInputController: NSObject, ObservableObject {
 
     // MARK: - Capture save transaction
 
+    /// An explicit image-only action, independent of the save-and-copy setting.
+    func copyScreenshot() {
+        guard isVisible, isScreenshotMode, captureTransaction == .idle else { return }
+        cancelAutoSaveCountdown()
+        screenshotCopyError = nil
+        captureTransaction = .copying
+        let sourceApplication = screenshotSourceBundleID.flatMap {
+            NSRunningApplication.runningApplications(withBundleIdentifier: $0).first
+        }
+        let feedbackScreen = screenshotSelectionRect.flatMap { rect in
+            NSScreen.screens.first { $0.frame.contains(NSPoint(x: rect.midX, y: rect.midY)) }
+        }
+        Task { @MainActor in
+            defer { captureTransaction = .idle }
+            // The toolbar's Done/Discard actions must not race the output
+            // render. The controller already refuses save, dismissal and zoom.
+            ScreenCaptureService.shared.orderOutToolbarForCommit()
+            do {
+                try await ScreenCaptureService.shared.copyCaptureToClipboard()
+            } catch {
+                // Nothing was dismissed or stored. The comment draft, marks,
+                // toolbar and clipboard retry action remain available.
+                ScreenCaptureService.shared.restoreToolbarAfterFailedCommit()
+                screenshotCopyError = L10n.tr("Could not copy the image. Please try again.")
+                debugLog("CommentInputController: Screenshot copy failed - \(error)")
+                return
+            }
+            panel?.orderOut(nil)
+            heightCancellable?.cancel()
+            removeClickOutsideMonitor()
+            isVisible = false
+            endDraftState()
+            WebSocketService.shared.clearPendingContext()
+            ScreenshotCopyFeedbackController.shared.show(on: feedbackScreen)
+            if sourceApplication?.bundleIdentifier != AppIdentity.current.bundleIdentifier {
+                sourceApplication?.activate(options: .activateIgnoringOtherApps)
+            }
+        }
+    }
+
     enum CaptureTransaction: Equatable {
-        case idle, preparing, animating, creating, concluding
+        case idle, copying, preparing, animating, creating, concluding
     }
 
     /// Save, wake-save, dismissal, annotate entry and exit, and zoom are all
     /// refused unless this is `.idle`.
-    private(set) var captureTransaction: CaptureTransaction = .idle
+    @Published private(set) var captureTransaction: CaptureTransaction = .idle
 
     /// Everything needed to put the capture back exactly as it was. Retained for
     /// the whole transaction; nothing is cleared until finalize.
@@ -1233,10 +1283,11 @@ public final class CommentInputController: NSObject, ObservableObject {
 
     private func setupHeightObserver() {
         heightCancellable?.cancel()
-        heightCancellable = Publishers.Merge3(
+        heightCancellable = Publishers.Merge4(
             $currentText.map { _ in () },
             $currentAttachments.map { _ in () },
-            $currentSelection.map { _ in () }
+            $currentSelection.map { _ in () },
+            $screenshotCopyError.map { _ in () }
         )
         .sink { [weak self] _ in
             // Defer to next run loop so SwiftUI has finished its layout pass

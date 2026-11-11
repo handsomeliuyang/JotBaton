@@ -687,6 +687,13 @@ public final class ScreenCaptureService {
 
     var isAnnotating: Bool { annotationSession != nil }
 
+    var annotationCanvasHasCopyFocus: Bool {
+        guard let canvas = selectionView?.annotationCanvas else { return false }
+        return canvas.window?.isKeyWindow == true
+            && canvas.window?.firstResponder === canvas
+            && !canvas.hasActiveTextEdit
+    }
+
     // MARK: - Public API
 
     /// Start a region capture flow.
@@ -1013,6 +1020,34 @@ public final class ScreenCaptureService {
     }
 
     // MARK: - Clipboard
+
+    /// Copies the final pixels entirely in memory. A failure keeps the capture
+    /// and annotation session alive so the user can retry or save a comment.
+    func copyCaptureToClipboard() async throws {
+        guard pendingQuartzRect != nil else { throw CaptureError.noPendingRegion }
+        if let session = annotationSession {
+            try await ScreenshotClipboard.copy(session)
+        } else {
+            try ScreenshotClipboard.write(capturePendingRegionImage())
+        }
+        finishCapture()
+    }
+
+    private func capturePendingRegionImage() throws -> CGImage {
+        guard let quartzRect = pendingQuartzRect else { throw CaptureError.noPendingRegion }
+        let overlayWID: CGWindowID = (overlayPanel?.windowNumber).map {
+            $0 > 0 ? CGWindowID($0) : kCGNullWindowID
+        } ?? kCGNullWindowID
+        return try captureRegionCGImage(quartzRect, belowWindowID: overlayWID)
+    }
+
+    private func finishCapture() {
+        pendingQuartzRect = nil
+        pendingSourceBundleID = nil
+        onCancelCallback = nil
+        onRegionSelectedCallback = nil
+        dismissOverlay()
+    }
 
     private func copyImageToPasteboard(_ image: NSImage) {
         let pasteboard = NSPasteboard.general
@@ -1413,11 +1448,8 @@ public final class ScreenCaptureService {
                 return .failure(CaptureError.renderFailed("\(error)"), cleanup: nil)
             }
         } else {
-            let overlayWID: CGWindowID = (overlayPanel?.windowNumber).map {
-                $0 > 0 ? CGWindowID($0) : kCGNullWindowID
-            } ?? kCGNullWindowID
             do {
-                image = try captureRegionCGImage(quartzRect, belowWindowID: overlayWID)
+                image = try capturePendingRegionImage()
             } catch {
                 report(error, operation: "prepareCommit.capture")
                 return .failure(error, cleanup: nil)
@@ -1490,11 +1522,7 @@ public final class ScreenCaptureService {
         }
 
         try? PreparedCaptureLeaseRegistry.release(path: prepared.relativePath)
-        pendingQuartzRect = nil
-        pendingSourceBundleID = nil
-        onCancelCallback = nil
-        onRegionSelectedCallback = nil
-        dismissOverlay()
+        finishCapture()
         return .finalized
     }
 

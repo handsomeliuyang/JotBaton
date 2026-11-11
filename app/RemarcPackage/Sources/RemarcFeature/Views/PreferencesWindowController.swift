@@ -419,7 +419,7 @@ struct PreferencesView: View {
                     sectionHeader(L10n.tr("Clipboard"), description: L10n.tr("How copied content is processed."))
 
                     toggleRow(L10n.tr("Clean up whitespace"), isOn: $settings.normalizeWhitespace)
-                    toggleRow(L10n.tr("Add screenshots to clipboard"), isOn: $settings.copyScreenshotToClipboard)
+                    toggleRow(L10n.tr("Copy image when saving a screenshot comment"), isOn: $settings.copyScreenshotToClipboard)
                 }
 
                 Divider()
