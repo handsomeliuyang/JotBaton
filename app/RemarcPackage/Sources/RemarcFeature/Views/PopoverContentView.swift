@@ -119,67 +119,28 @@ struct PopoverContentView: View {
             Color.remarcBackgroundGradient(for: colorScheme)
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                if showCritModeOnboarding {
-                    critModeOnboardingContent
-                } else if critModeActive {
-                    critModeContent
-                } else if showingHistory {
-                    if isHistorySearching {
-                        historySearchHeader
-                    } else {
-                        historyHeader
-                    }
-                    Divider()
-                    if historyTab == .sessions {
-                        SessionHistoryView(showingHistory: $showingHistory, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
-                    } else if #available(macOS 26, *), historyTab == .transcriptions {
-                        TranscriptionHistoryView(searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
-                    } else {
-                        CommentHistoryView(showingHistory: $showingHistory, restoredCommentID: $restoredCommentID, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
-                    }
-                } else {
-                    let model = listModel
-                    SessionBarView()
-                        .padding(.trailing, popoverController.isDetached ? 32 : 0)
-                        // Extend the top band's wash into the popover arrow strip.
-                        .background((colorScheme == .light ? Color.black.opacity(0.04) : Color.clear).padding(.top, -topInset))
-
-                    Divider()
-
-                    if isSearching {
-                        searchHeader(model: model)
-                    } else {
-                        normalHeader(counts: model.counts)
-                    }
-
-                    if model.scopeIsEmpty && !isSearching {
-                        emptyState
-                    } else {
-                        cardList(model)
-                    }
-
-                    if hasComments && !isSearching {
-                        if showAutoClearCountdown {
-                            Divider()
-                            autoClearCountdown
-                        } else if showClearPrompt {
-                            Divider()
-                            clearPrompt
-                                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                        }
-                    }
+            HStack(spacing: 0) {
+                SessionSidebarView {
+                    if showingHistory { dismissHistory() }
                 }
-                if !critModeActive && !showCritModeOnboarding {
-                    Divider()
-                    footer
-                }
+                .disabled(critModeActive || showCritModeOnboarding)
+
+                Rectangle()
+                    .fill(Color.primary.opacity(0.12))
+                    .frame(width: AppConstants.paneDividerWidth)
+
+                commentPane
+                    .frame(minWidth: AppConstants.commentPaneWidth,
+                           maxWidth: fillWidth ? .infinity : AppConstants.commentPaneWidth)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("remarc.comments.pane")
             }
             .frame(minHeight: AppConstants.popoverMinHeight)
             .padding(.top, topInset)
         }
         .frame(width: fillWidth ? nil : AppConstants.popoverWidth)
-        .frame(maxWidth: fillWidth ? .infinity : nil)
+        .frame(minWidth: fillWidth ? AppConstants.popoverWidth : nil,
+               maxWidth: fillWidth ? .infinity : nil)
         .overlay(alignment: .topTrailing) {
             if popoverController.isDetached {
                 headerButton(icon: detachedController.isPinned ? "pin.fill" : "pin") {
@@ -191,9 +152,10 @@ struct PopoverContentView: View {
                 .ignoresSafeArea()
             }
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomTrailing) {
             if let toast = toastManager.currentToast {
                 ToastOverlay(toast: toast)
+                    .frame(width: AppConstants.commentPaneWidth)
                     .padding(.bottom, !critModeActive && !showCritModeOnboarding ? 52 : 12)
             }
         }
@@ -229,16 +191,72 @@ struct PopoverContentView: View {
             }
         }
         .onRemarcChange(of: persistence.appState.activeSessionID) { _ in
+            focusedCommentID = nil
+            keyboardScrollTarget = nil
             popoverController.resizeAfterLayoutSettles()
         }
         .onRemarcChange(of: statusFilterStorage) { _ in
             popoverController.resizeAfterLayoutSettles()
         }
-
         .onRemarcChange(of: popoverController.requestCritMode) { requested in
             if requested {
                 popoverController.requestCritMode = false
                 startCritMode()
+            }
+        }
+    }
+
+    /// All comment/history controls keep the original pane width; session
+    /// navigation takes its own additional space on the leading side.
+    private var commentPane: some View {
+        VStack(spacing: 0) {
+            if showCritModeOnboarding {
+                critModeOnboardingContent
+            } else if critModeActive {
+                critModeContent
+            } else if showingHistory {
+                if isHistorySearching {
+                    historySearchHeader
+                } else {
+                    historyHeader
+                }
+                Divider()
+                if historyTab == .sessions {
+                    SessionHistoryView(showingHistory: $showingHistory, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
+                } else if #available(macOS 26, *), historyTab == .transcriptions {
+                    TranscriptionHistoryView(searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
+                } else {
+                    CommentHistoryView(showingHistory: $showingHistory, restoredCommentID: $restoredCommentID, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
+                }
+            } else {
+                let model = listModel
+                if isSearching {
+                    searchHeader(model: model)
+                } else {
+                    normalHeader(counts: model.counts)
+                }
+                Divider()
+
+                if model.scopeIsEmpty && !isSearching {
+                    emptyState
+                } else {
+                    cardList(model)
+                }
+
+                if hasComments && !isSearching {
+                    if showAutoClearCountdown {
+                        Divider()
+                        autoClearCountdown
+                    } else if showClearPrompt {
+                        Divider()
+                        clearPrompt
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+                }
+            }
+            if !critModeActive && !showCritModeOnboarding {
+                Divider()
+                footer
             }
         }
     }
@@ -268,7 +286,7 @@ struct PopoverContentView: View {
             creationButtons
         }
         .padding(.leading, 10)
-        .padding(.trailing, 14)
+        .padding(.trailing, popoverController.isDetached ? 46 : 14)
         .padding(.vertical, 8)
         .background(searchShortcut)
     }
@@ -479,6 +497,7 @@ struct PopoverContentView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .padding(.trailing, popoverController.isDetached ? 32 : 0)
         .onAppear {
             // Non-activating panels don't become key on their own, and the
             // field editor needs a key window to take focus.

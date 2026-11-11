@@ -71,7 +71,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
         window.backgroundColor = .clear
         window.isOpaque = false
         window.isMovableByWindowBackground = true
-        window.minSize = NSSize(width: 300, height: 200)
+        window.contentMinSize = NSSize(width: AppConstants.popoverWidth, height: AppConstants.popoverMinHeight)
         window.center()
         window.delegate = self
 
