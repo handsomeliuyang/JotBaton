@@ -10,8 +10,8 @@ INFOPLIST_KEY_CFBundleDisplayName = $(PRODUCT_DISPLAY_NAME)
 EXECUTABLE_NAME = Remarc
 REMARC_URL_SCHEME = remarc
 PRODUCT_BUNDLE_IDENTIFIER = com.metepolat.Remarc
-MARKETING_VERSION = 1.2.24
-CURRENT_PROJECT_VERSION = 43
+MARKETING_VERSION = 1.2.25
+CURRENT_PROJECT_VERSION = 44
 
 // ==========================================
 // Platform Configuration
