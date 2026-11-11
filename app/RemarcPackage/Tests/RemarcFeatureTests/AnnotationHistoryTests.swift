@@ -3,6 +3,10 @@ import SwiftUI
 import XCTest
 @testable import RemarcFeature
 
+private final class AnnotationHistoryTestPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 final class AnnotationHistoryTests: XCTestCase {
     private func makeSession() -> AnnotationSession {
@@ -75,11 +79,15 @@ final class AnnotationHistoryTests: XCTestCase {
                                             onUndo: { session.undo() },
                                             onRedo: { session.redo() })
         let host = NSHostingView(rootView: toolbar)
-        let window = NSPanel(contentRect: CGRect(x: 0, y: 0, width: 620, height: 42),
-                             styleMask: [.borderless, .nonactivatingPanel],
-                             backing: .buffered, defer: false)
+        let window = AnnotationHistoryTestPanel(
+            contentRect: CGRect(x: 0, y: 0, width: 620, height: 42),
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.contentView = host
         defer { window.contentView = nil; window.orderOut(nil) }
+        // SwiftUI defers updates for an off-screen hosting view. Show the same
+        // keyable, nonactivating panel used by the real toolbar so undo updates
+        // the Redo button and its key equivalent before the next command.
+        window.makeKeyAndOrderFront(nil)
         host.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
 
