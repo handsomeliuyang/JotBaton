@@ -39,7 +39,7 @@ final class PluginInstallerTests: XCTestCase {
             install: result(1, ""),
             marketplace: result(0, "ok")
         )
-        XCTAssertEqual(outcome, .failed("Install failed. Run the commands manually."))
+        XCTAssertEqual(outcome, .failed(L10n.tr("Install failed. Run the commands manually.")))
     }
 
     func testTimeoutProducesTimeoutMessage() {
@@ -50,7 +50,7 @@ final class PluginInstallerTests: XCTestCase {
         guard case .failed(let message) = outcome else {
             return XCTFail("Expected .failed, got \(outcome)")
         }
-        XCTAssertTrue(message.contains("Timed out"))
+        XCTAssertEqual(message, L10n.tr("Timed out. Check your network and try again, or run the commands manually."))
     }
 
     func testUnlaunchableInstallProducesFailure() {
@@ -70,7 +70,7 @@ final class PluginInstallerTests: XCTestCase {
         guard case .failed(let message) = outcome else {
             return XCTFail("Expected .failed, got \(outcome)")
         }
-        XCTAssertTrue(message.contains("Timed out"))
+        XCTAssertEqual(message, L10n.tr("Timed out. Check your network and try again, or run the commands manually."))
     }
 
     // MARK: - Marketplace provenance (a look-alike marketplace named remarc

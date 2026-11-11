@@ -110,7 +110,7 @@ struct ExportFormatTests {
     @Test("Short date format")
     @MainActor func shortDateFormat() {
         let date = Date(timeIntervalSince1970: 1772265600) // 2026-02-28
-        let result = ExportManager.shared.formatDate(date, format: .short)
+        let result = ExportManager.shared.formatDate(date, format: .short, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("Feb"))
         #expect(result.contains("28"))
     }
@@ -136,7 +136,7 @@ struct ExportFormatTests {
         )
         #expect(result != nil)
         #expect(result!.contains("Safari"))
-        #expect(result!.contains("Feb"))
+        #expect(result!.contains(DateFormatter().shortMonthSymbols[1]))
     }
 
     @Test("Metadata line with status")
@@ -352,7 +352,7 @@ struct ExportFormatTests {
     @Test("Short date format with time")
     @MainActor func shortDateFormatWithTime() {
         let date = Date(timeIntervalSince1970: 1772265600) // 2026-02-28
-        let result = ExportManager.shared.formatDate(date, format: .short, includeTime: true)
+        let result = ExportManager.shared.formatDate(date, format: .short, includeTime: true, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("Feb"))
         #expect(result.contains("28"))
         #expect(result.contains(":"))
@@ -369,7 +369,7 @@ struct ExportFormatTests {
     @Test("Medium date format")
     @MainActor func mediumDateFormat() {
         let date = Date(timeIntervalSince1970: 1772265600)
-        let result = ExportManager.shared.formatDate(date, format: .medium)
+        let result = ExportManager.shared.formatDate(date, format: .medium, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("Feb"))
         #expect(result.contains("28"))
         #expect(result.contains("2026"))
@@ -378,7 +378,7 @@ struct ExportFormatTests {
     @Test("Long date format")
     @MainActor func longDateFormat() {
         let date = Date(timeIntervalSince1970: 1772265600)
-        let result = ExportManager.shared.formatDate(date, format: .long)
+        let result = ExportManager.shared.formatDate(date, format: .long, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("February"))
         #expect(result.contains("28"))
         #expect(result.contains("2026"))
@@ -394,7 +394,7 @@ struct ExportFormatTests {
     @Test("Short date format with 24-hour time")
     @MainActor func shortDateFormat24Hour() {
         let date = Date(timeIntervalSince1970: 1772265600)
-        let result = ExportManager.shared.formatDate(date, format: .short, includeTime: true, use24Hour: true)
+        let result = ExportManager.shared.formatDate(date, format: .short, includeTime: true, use24Hour: true, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("Feb"))
         #expect(result.contains(":"))
         // Should NOT contain AM/PM
@@ -413,7 +413,7 @@ struct ExportFormatTests {
     @Test("Medium date format with time")
     @MainActor func mediumDateFormatWithTime() {
         let date = Date(timeIntervalSince1970: 1772265600)
-        let result = ExportManager.shared.formatDate(date, format: .medium, includeTime: true)
+        let result = ExportManager.shared.formatDate(date, format: .medium, includeTime: true, locale: Locale(identifier: "en_US_POSIX"))
         #expect(result.contains("Feb"))
         #expect(result.contains("2026"))
         #expect(result.contains(":"))

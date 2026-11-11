@@ -204,7 +204,7 @@ enum SnapshotDisk {
         return name
     }
 
-    private static func coordinate<T>(_ url: URL, writing: Bool, deleting: Bool = false, _ body: (URL) throws -> T) throws -> T {
+    static func coordinate<T>(_ url: URL, writing: Bool, deleting: Bool = false, _ body: (URL) throws -> T) throws -> T {
         let coordinator = NSFileCoordinator()
         var error: NSError?
         var result: Result<T, Error>?

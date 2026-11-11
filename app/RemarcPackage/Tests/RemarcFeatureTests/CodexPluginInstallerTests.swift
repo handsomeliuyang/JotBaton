@@ -38,7 +38,7 @@ final class CodexPluginInstallerTests: XCTestCase {
             marketplace: result(0, "")
         )
         guard case .failed(let message) = outcome else { return XCTFail("expected failure") }
-        XCTAssertTrue(message.contains("Timed out"))
+        XCTAssertEqual(message, L10n.tr("Timed out. Check your network and try again, or run the commands manually."))
     }
 
     func testCommandConstruction() {
@@ -139,7 +139,7 @@ final class CodexPluginInstallerTests: XCTestCase {
         guard case .failed(let message)? = CodexPluginInstaller.postAddOutcome(provenance: .absent) else {
             return XCTFail("expected a failure outcome")
         }
-        XCTAssertTrue(message.contains("could not be added"))
+        XCTAssertEqual(message, L10n.tr("The remarc marketplace could not be added. Run the commands manually."))
     }
 
     func testPostAddOutcomeFailsOnForeignAfterTheAdd() {

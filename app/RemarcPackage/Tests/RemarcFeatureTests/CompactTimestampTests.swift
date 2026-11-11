@@ -12,17 +12,21 @@ struct CompactTimestampTests {
     func recentTwentyFourHour() {
         let created = now.addingTimeInterval(-60 * 60) // 1h before now
         let result = created.remarcCompactTimestamp(dateFormat: .iso, use24Hour: true, now: now)
+        let symbols = DateFormatter()
+        symbols.locale = L10n.locale
         #expect(result.contains(":"))
         #expect(!result.contains("-"))            // not the .iso date tier (yyyy-MM-dd)
-        #expect(!result.contains("AM") && !result.contains("PM"))
+        #expect(!result.contains(symbols.amSymbol) && !result.contains(symbols.pmSymbol))
     }
 
     @Test("under 24h old, 12-hour mode: includes a meridiem")
     func recentTwelveHour() {
         let created = now.addingTimeInterval(-60 * 60)
         let result = created.remarcCompactTimestamp(dateFormat: .iso, use24Hour: false, now: now)
+        let symbols = DateFormatter()
+        symbols.locale = L10n.locale
         #expect(result.contains(":"))
-        #expect(result.contains("AM") || result.contains("PM"))
+        #expect(result.contains(symbols.amSymbol) || result.contains(symbols.pmSymbol))
     }
 
     @Test("exactly 24h old falls into the date tier")
