@@ -60,6 +60,7 @@ def main():
     app = args.app.resolve()
     config = json.loads((ROOT / 'signing/identities.json').read_text())
     expected = validate_identity(app, args.channel, config)
+    main_executable = app / 'Contents/MacOS' / plistlib.loads((app / 'Contents/Info.plist').read_bytes())['CFBundleExecutable']
     if args.verify_only:
         verify(app, args.channel, config)
         return
@@ -71,7 +72,9 @@ def main():
         if not keychain.is_file() or ROOT in keychain.parents or cloud in keychain.parents:
             raise ValueError('Use the dedicated production keychain outside repositories and iCloud')
         for path in sorted(app.rglob('*'), key=lambda p: len(p.parts), reverse=True):
-            if path.is_symlink():
+            # Signing the main executable also signs its enclosing app. Wait
+            # until every nested helper is signed, then sign the app below.
+            if path.is_symlink() or path == main_executable:
                 continue
             is_bundle = path.is_dir() and path.suffix in ('.app', '.framework', '.xpc')
             is_code = path.is_file() and b'Mach-O' in run('file', '-b', str(path))
@@ -116,7 +119,7 @@ def main():
             run('security', 'list-keychains', '-d', 'user', '-s', *dict.fromkeys([*original, keychain]))
             # Sign nested code from the inside out, preserving independent bundle IDs.
             for path in sorted(app.rglob('*'), key=lambda p: len(p.parts), reverse=True):
-                if path.is_symlink():
+                if path.is_symlink() or path == main_executable:
                     continue
                 is_bundle = path.is_dir() and path.suffix in ('.app', '.framework', '.xpc')
                 is_code = path.is_file() and b'Mach-O' in run('file', '-b', str(path))
