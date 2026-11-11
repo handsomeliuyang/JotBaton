@@ -2,7 +2,7 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
-## 1.2.28 - 2026-11-11
+## 1.2.29 - 2026-11-11
 
 - Production now checks this repository's GitHub Releases and opens the installer matching the Mac's architecture for manual installation.
 - Production builds, both full Swift test profiles and publication run through the manually dispatched GitHub Release workflow. Local builds are Dev only.

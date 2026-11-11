@@ -78,7 +78,7 @@ jobs:
   package-tests:
     if: ${{ inputs.skip_tests != true }}
     # arm64 supplies Metal for the complete suite; Xcode remains pinned below.
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     strategy:
       fail-fast: false

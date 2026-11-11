@@ -39,7 +39,7 @@ number and release notes. For example:
 
 ```bash
 gh workflow run release.yml -R handsomeliuyang/Remarc --ref main \
-  -f version=1.2.28 -f build_number=47 \
+  -f version=1.2.29 -f build_number=48 \
   -f release_notes='Check for updates through GitHub Releases.'
 ```
 
