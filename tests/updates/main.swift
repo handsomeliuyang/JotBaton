@@ -71,9 +71,18 @@ try expect(try CloudUpdateTrust.hasArchitecture(mach, architecture: "x86_64"), "
 try expect(try !CloudUpdateTrust.hasArchitecture(mach, architecture: "arm64"), "reject absent fat architecture")
 try Data([0xca, 0xfe, 0xba, 0xbe, 0xff, 0xff, 0xff, 0xff]).write(to: mach)
 try expect(try !CloudUpdateTrust.hasArchitecture(mach, architecture: "arm64"), "reject malformed fat header")
-if fm.fileExists(atPath: installedProduction.path) {
-    try expect(try CloudUpdateTrust.hasArchitecture(installedProduction.appendingPathComponent("Contents/MacOS/Remarc"), architecture: "x86_64"), "real Intel binary without developer tools")
-}
+// This executable has a known architecture regardless of the installed app.
+// The installed production app may be native ARM or Intel (including Rosetta).
+#if arch(arm64)
+let nativeArchitecture = "arm64"
+let otherArchitecture = "x86_64"
+#else
+let nativeArchitecture = "x86_64"
+let otherArchitecture = "arm64"
+#endif
+let testBinary = URL(fileURLWithPath: CommandLine.arguments[0])
+try expect(try CloudUpdateTrust.hasArchitecture(testBinary, architecture: nativeArchitecture), "real native binary without developer tools")
+try expect(try !CloudUpdateTrust.hasArchitecture(testBinary, architecture: otherArchitecture), "real native binary rejects other architecture")
 
 try expect(CloudUpdateTrust.validArchiveEntries(["Remarc.app/", "Remarc.app/Contents/Info.plist", "__MACOSX/._Remarc.app"]), "ditto metadata accepted")
 try expect(!CloudUpdateTrust.validArchiveEntries(["Remarc.app/../../escape"]), "ZIP traversal rejected")
