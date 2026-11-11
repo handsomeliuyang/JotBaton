@@ -49,7 +49,7 @@ public final class AnnotationSession: ObservableObject {
     public let compositor: AnnotationCompositor
 
     @Published public private(set) var items: [AnnotationItem] = []
-    @Published public var tool: AnnotationTool = .arrow
+    @Published public var tool: AnnotationTool = .rect
     @Published public var ink: AnnotationInk = AnnotationInk.presets[0]
     @Published public var stroke: AnnotationStroke = .medium
     @Published public var arrowStyle: AnnotationArrowStyle = .straight

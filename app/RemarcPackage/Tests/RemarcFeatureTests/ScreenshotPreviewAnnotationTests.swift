@@ -50,6 +50,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         XCTAssertTrue(controller.isAnnotating)
         // Measured from the decoded image, never assumed from points.
         XCTAssertEqual(controller.sessionForTesting?.pixelSize, CGSize(width: 60, height: 40))
+        XCTAssertEqual(controller.sessionForTesting?.tool, .rect)
     }
 
     /// The core of Apply: flatten into the app-owned PNG, bump the revision, and

@@ -247,13 +247,20 @@ struct AnnotationToolbarView: View {
                 if showsDiscardControls {
                     discardBar
                 } else {
-                    switch expansion {
-                    case .none: mainBar
-                    case .arrows: arrowBar
-                    case .shapes: groupBar(Self.shapeTools, title: L10n.tr("Shape"))
-                    case .redact: groupBar(Self.redactTools, title: L10n.tr("Redact"))
-                    case .colors: colorBar
-                    case .strokes: strokeBar
+                    HStack(spacing: 2) {
+                        switch expansion {
+                        case .none: mainBar
+                        case .arrows: arrowBar
+                        case .shapes: groupBar(Self.shapeTools, title: L10n.tr("Shape"))
+                        case .redact: groupBar(Self.redactTools, title: L10n.tr("Redact"))
+                        case .colors: colorBar
+                        case .strokes: strokeBar
+                        }
+                        divider
+                        historyControls
+                        if expansion == .none {
+                            resolutionControls
+                        }
                     }
                 }
             }
@@ -312,32 +319,39 @@ struct AnnotationToolbarView: View {
             AnnotationToolButton(systemImage: strokeIcon(session.stroke),
                                  label: L10n.tr("\(session.stroke.label) stroke"), shortcut: nil,
                                  hasGroup: true) { expansion = .strokes }
+        }
+    }
 
-            divider
-
+    // History stays available while a tool, color, or stroke group is open.
+    // Real key equivalents also work after a toolbar click takes canvas focus.
+    private var historyControls: some View {
+        HStack(spacing: 2) {
             AnnotationToolButton(systemImage: "arrow.uturn.backward", label: L10n.tr("Undo"),
-                                 shortcut: "Cmd Z", isEnabled: session.canUndo, action: onUndo)
+                                 shortcut: "⌘Z", isEnabled: session.canUndo && !session.isFrozen,
+                                 action: onUndo)
+                .keyboardShortcut("z", modifiers: .command)
             AnnotationToolButton(systemImage: "arrow.uturn.forward", label: L10n.tr("Redo"),
-                                 shortcut: "Shift Cmd Z", isEnabled: session.canRedo, action: onRedo)
+                                 shortcut: "⇧⌘Z", isEnabled: session.canRedo && !session.isFrozen,
+                                 action: onRedo)
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+        }
+    }
 
-            if let zoomState, zoomState.maxZoom > 1 {
-                divider
-                zoomStepper(zoomState)
-            }
+    @ViewBuilder
+    private var resolutionControls: some View {
+        if let zoomState, zoomState.maxZoom > 1 {
+            divider
+            zoomStepper(zoomState)
+        }
 
-            // Resolution lives here only where nothing else offers it. The
-            // preview panel puts Apply and Discard in its own header, beside the
-            // close button, and duplicating them in this row is what made the
-            // ending ambiguous in the first place.
-            if onApply == nil {
-                divider
-
-                AnnotationToolButton(systemImage: "trash", label: L10n.tr("Discard annotations"),
-                                     shortcut: nil, isEnabled: session.isDirty,
-                                     action: onRequestDiscard)
-                AnnotationToolButton(systemImage: "checkmark", label: L10n.tr("Done annotating"),
-                                     shortcut: "Esc", action: onDone)
-            }
+        // The saved-image preview has its own Apply and Discard header.
+        if onApply == nil {
+            divider
+            AnnotationToolButton(systemImage: "trash", label: L10n.tr("Discard annotations"),
+                                 shortcut: nil, isEnabled: session.isDirty,
+                                 action: onRequestDiscard)
+            AnnotationToolButton(systemImage: "checkmark", label: L10n.tr("Done annotating"),
+                                 shortcut: "Esc", action: onDone)
         }
     }
 

@@ -76,6 +76,7 @@ final class AnnotationEditCycleTests: XCTestCase {
         // Reopen.
         let second = try annotate(path)
         XCTAssertEqual(second.items.count, 1, "the arrow must come back as a mark, not as pixels")
+        XCTAssertEqual(second.tool, .rect, "reopening starts with the rectangle tool")
         XCTAssertEqual(second.items.first?.id, originalID, "identity survives the round trip")
         XCTAssertFalse(second.isDirty, "reopening is not an edit")
         XCTAssertFalse(second.canUndo, "history starts at the loaded state")

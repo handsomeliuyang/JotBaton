@@ -432,22 +432,36 @@ public final class AnnotationCanvasNSView: NSView {
 
     // MARK: - Keyboard
 
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // AppKit tries key equivalents before keyDown. Only the focused canvas
+        // owns these commands; another responder keeps its own editing history.
+        if window?.firstResponder === self, handleHistoryShortcut(event) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    private func handleHistoryShortcut(_ event: NSEvent) -> Bool {
+        guard isInputEnabled, let session,
+              event.charactersIgnoringModifiers?.lowercased() == "z" else { return false }
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
+        switch modifiers {
+        case .command: session.undo()
+        case [.command, .shift]: session.redo()
+        default: return false
+        }
+        needsDisplay = true
+        return true
+    }
+
     public override func keyDown(with event: NSEvent) {
         guard isInputEnabled, let session else { return super.keyDown(with: event) }
 
         // Typing consumes everything unmodified, so a label containing "arrow" does
         // not switch tools halfway through the word.
         if handleTypingKey(event) { return }
+        if handleHistoryShortcut(event) { return }
 
         if event.modifierFlags.contains(.command) {
-            switch event.charactersIgnoringModifiers?.lowercased() {
-            case "z":
-                event.modifierFlags.contains(.shift) ? session.redo() : session.undo()
-                needsDisplay = true
-                return
-            default:
-                return super.keyDown(with: event)
-            }
+            return super.keyDown(with: event)
         }
 
         switch event.keyCode {
