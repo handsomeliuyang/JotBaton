@@ -276,8 +276,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
                 let screenFrame = screen.frame
                 let visibleFrame = screen.visibleFrame
                 let x = max(visibleFrame.minX + 8,
-                            min(screenFrame.midX - AppConstants.commentPaneWidth / 2
-                                - AppConstants.sessionSidebarWidth - AppConstants.paneDividerWidth,
+                            min(screenFrame.midX - panel.frame.width / 2,
                                 visibleFrame.maxX - panel.frame.width - 8))
                 let y = visibleFrame.maxY - panel.frame.height - AppConstants.popoverGap
                 panel.setFrameOrigin(NSPoint(x: x, y: y))
@@ -306,10 +305,8 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
             panel.invalidateShadow()
         }
 
-        // Keep the original comment pane below the status item. The additional
-        // session navigation extends to its left, unless the screen edge intervenes.
-        var x = buttonFrameOnScreen.midX - AppConstants.commentPaneWidth / 2
-            - AppConstants.sessionSidebarWidth - AppConstants.paneDividerWidth
+        // Center the complete two-pane panel below the status item.
+        var x = buttonFrameOnScreen.midX - panel.frame.width / 2
         let y = buttonFrameOnScreen.minY - panel.frame.height - AppConstants.popoverGap
 
         // Clamp to screen edges
