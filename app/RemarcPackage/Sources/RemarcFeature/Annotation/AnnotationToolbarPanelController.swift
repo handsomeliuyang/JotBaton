@@ -73,7 +73,7 @@ final class AnnotationToolbarPanelController {
         if let hosting {
             hosting.rootView = AnyView(view)
         } else {
-            let hosting = NSHostingView(rootView: AnyView(view))
+            let hosting = AnnotationHostingView(rootView: AnyView(view))
             hosting.translatesAutoresizingMaskIntoConstraints = false
             (panel.contentView as? NSVisualEffectView)?.addSubview(hosting)
             if let container = panel.contentView {

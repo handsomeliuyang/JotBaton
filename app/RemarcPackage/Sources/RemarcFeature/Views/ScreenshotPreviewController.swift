@@ -112,7 +112,7 @@ public final class ScreenshotPreviewController {
         panel.contentView = visualEffectView
 
         // NSHostingView as subview of VEV
-        let hostingView = NSHostingView(rootView: previewView)
+        let hostingView = AnnotationHostingView(rootView: previewView)
         hostingView.sizingOptions = [.intrinsicContentSize]
 
         // Measure ideal size first, then size panel to fit

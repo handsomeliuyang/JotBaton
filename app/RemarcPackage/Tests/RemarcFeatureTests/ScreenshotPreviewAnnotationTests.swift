@@ -34,6 +34,8 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         let controller = ScreenshotPreviewController.shared
 
         controller.show(imagePath: path, commentText: "hello")
+        let host = try XCTUnwrap(controller.panelForTesting?.contentView?.subviews.first)
+        XCTAssertTrue(host.acceptsFirstMouse(for: nil), "preview tools must accept the first click")
         XCTAssertTrue(controller.isPanelVisibleForTesting)
         XCTAssertFalse(controller.isAnnotating, "annotation is off until toggled")
 

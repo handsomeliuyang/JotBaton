@@ -7,6 +7,9 @@ class AnnotationHistoryPanel: NSPanel {
     weak var annotationSession: AnnotationSession?
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if let canvas = firstResponder as? AnnotationCanvasNSView, canvas.hasMarkedText() {
+            return super.performKeyEquivalent(with: event)
+        }
         // Preserve native text editing, including a text field's field editor.
         if !(firstResponder is NSTextView),
            annotationSession?.performHistoryKeyEquivalent(with: event) == true {

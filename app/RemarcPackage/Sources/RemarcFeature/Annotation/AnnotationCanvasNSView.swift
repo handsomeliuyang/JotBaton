@@ -54,10 +54,12 @@ public final class AnnotationCanvasNSView: NSView {
     ///
     /// An `NSTextField` overlay meant a white rectangle sitting on the picture at a
     /// size that had nothing to do with the text, and it clipped at the image edge.
-    /// Keystrokes go into the session's pending label instead, the live patch draws
-    /// it in real ink at the exact size and position it will export at, and the only
-    /// chrome is a caret.
+    /// System input methods edit a UTF-16 buffer; the live patch draws it in the
+    /// same ink and size as export. Only the caret and composition underline are
+    /// editor chrome.
     private var isTypingText = false
+    private var textInput = AnnotationTextInputBuffer()
+    private var textInputRevision = 0
     private var caretVisible = true
     private var caretTimer: Timer?
 
@@ -115,6 +117,7 @@ public final class AnnotationCanvasNSView: NSView {
         super.setFrameSize(newSize)
         bounds.size = pixelSize
         syncDisplayScale()
+        if isTypingText { inputContext?.invalidateCharacterCoordinates() }
     }
 
     public override func setBoundsSize(_ newSize: NSSize) {
@@ -205,7 +208,7 @@ public final class AnnotationCanvasNSView: NSView {
         }
 
         drawSelectionChrome(ctx.cgContext)
-        drawTextCaret(ctx.cgContext)
+        drawTextInputChrome(ctx.cgContext)
         if drawsSelectionBorder { drawBorder(ctx.cgContext, in: full) }
     }
 
@@ -270,6 +273,7 @@ public final class AnnotationCanvasNSView: NSView {
 
     public override func mouseDown(with event: NSEvent) {
         guard isInputEnabled, let session, !session.isFrozen else { return }
+        window?.makeFirstResponder(self)
         // A click while typing commits what is there, then acts normally.
         commitTypedText()
         let point = sourcePoint(event)
@@ -338,6 +342,7 @@ public final class AnnotationCanvasNSView: NSView {
         guard !patchInFlight else { return }
         patchInFlight = true
         let token = gestureToken
+        let textRevision = textInputRevision
         Task { [weak self] in
             await session.setLivePatch(region: region, extraItems: [preview])
             guard let self else { return }
@@ -350,6 +355,9 @@ public final class AnnotationCanvasNSView: NSView {
             // the redraw has to be asked for directly.
             self.needsDisplay = true
             self.displayIfNeeded()
+            if self.isTypingText, self.textInputRevision != textRevision {
+                self.refreshTypingPreview()
+            }
         }
     }
 
@@ -440,7 +448,7 @@ public final class AnnotationCanvasNSView: NSView {
     }
 
     private func handleHistoryShortcut(_ event: NSEvent) -> Bool {
-        guard isInputEnabled,
+        guard isInputEnabled, !hasMarkedText(),
               session?.performHistoryKeyEquivalent(with: event) == true else { return false }
         needsDisplay = true
         return true
@@ -451,7 +459,13 @@ public final class AnnotationCanvasNSView: NSView {
 
         // Typing consumes everything unmodified, so a label containing "arrow" does
         // not switch tools halfway through the word.
-        if handleTypingKey(event) { return }
+        if isTypingText {
+            guard !session.isFrozen else { return }
+            if !event.modifierFlags.contains(.command) {
+                interpretKeyEvents([event])
+                return
+            }
+        }
         if handleHistoryShortcut(event) { return }
 
         if event.modifierFlags.contains(.command) {
@@ -499,6 +513,12 @@ public final class AnnotationCanvasNSView: NSView {
 
     public override func cancelOperation(_ sender: Any?) {
         if isTypingText {
+            if hasMarkedText() {
+                textInput.insert("", replacing: textInput.marked)
+                inputContext?.discardMarkedText()
+                publishTextInput()
+                return
+            }
             // One layer per invocation: cancel the edit and stop. Nothing further
             // happens on this keystroke.
             cancelTypedText()
@@ -507,18 +527,26 @@ public final class AnnotationCanvasNSView: NSView {
         onEscape?()
     }
 
-    // MARK: - Inline text field
+    // MARK: - Inline text input
 
     private func beginTypingText(at point: CGPoint) {
         guard let session else { return }
         let pointSize = session.stroke.rawValue * 4
         session.beginText(at: point, pointSize: pointSize)
+        textInput = AnnotationTextInputBuffer()
         isTypingText = true
         liveDirtyRegion = .null
         gestureToken &+= 1
         // The session can be asked for the live string by an output path that never
         // routes back through this view.
-        session.liveTextProvider = { [weak session] in session?.pendingText?.string }
+        session.liveTextProvider = { [weak self] in
+            guard let self, self.isTypingText else { return nil }
+            let string = self.textInput.string
+            self.endTyping()
+            return string
+        }
+        inputContext?.activate()
+        inputContext?.invalidateCharacterCoordinates()
         startCaretBlink()
         refreshTypingPreview()
     }
@@ -553,6 +581,8 @@ public final class AnnotationCanvasNSView: NSView {
 
     private func endTyping() {
         isTypingText = false
+        textInput.unmark()
+        inputContext?.discardMarkedText()
         stopCaretBlink()
         liveDirtyRegion = .null
         gestureToken &+= 1
@@ -561,35 +591,113 @@ public final class AnnotationCanvasNSView: NSView {
         needsDisplay = true
     }
 
-    /// Typed characters, in the same responder path as the tool shortcuts, which is
-    /// why the typing branch has to run first and consume everything.
-    /// Returns true when the event was a text keystroke.
-    private func handleTypingKey(_ event: NSEvent) -> Bool {
-        guard isTypingText, let session, var pending = session.pendingText else { return false }
-
-        switch event.keyCode {
-        case 36, 76:                       // Return, keypad Enter
-            commitTypedText()
-            return true
-        case 51:                           // Delete
-            guard !pending.string.isEmpty else { return true }
-            pending.string.removeLast()
-            session.updatePendingText(pending.string)
-            refreshTypingPreview()
-            return true
-        default:
-            break
-        }
-
-        // Anything with Command is a shortcut, not text.
-        guard !event.modifierFlags.contains(.command) else { return false }
-        guard let typed = event.characters, !typed.isEmpty else { return false }
-        let printable = typed.filter { !$0.isNewline && $0.unicodeScalars.allSatisfy { !CharacterSet.controlCharacters.contains($0) } }
-        guard !printable.isEmpty else { return false }
-
-        session.updatePendingText(pending.string + printable)
+    private func publishTextInput() {
+        textInputRevision &+= 1
+        session?.updatePendingText(textInput.string)
+        caretVisible = true
+        inputContext?.invalidateCharacterCoordinates()
         refreshTypingPreview()
-        return true
+    }
+
+    // MARK: - NSTextInputClient
+
+    public func insertText(_ string: Any, replacementRange: NSRange) {
+        guard isTypingText, session?.isFrozen == false else { return }
+        let value = (string as? NSAttributedString)?.string ?? (string as? String) ?? ""
+        textInput.insert(value, replacing: replacementRange)
+        publishTextInput()
+    }
+
+    public func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        guard isTypingText, session?.isFrozen == false else { return }
+        let value = (string as? NSAttributedString)?.string ?? (string as? String) ?? ""
+        textInput.setMarked(value, selectedRange: selectedRange, replacing: replacementRange)
+        publishTextInput()
+    }
+
+    public func unmarkText() {
+        textInput.unmark()
+        needsDisplay = true
+    }
+
+    public func selectedRange() -> NSRange {
+        isTypingText ? textInput.selection : NSRange(location: NSNotFound, length: 0)
+    }
+
+    public func markedRange() -> NSRange {
+        isTypingText ? textInput.marked : NSRange(location: NSNotFound, length: 0)
+    }
+
+    public func hasMarkedText() -> Bool { isTypingText && textInput.hasMarkedText }
+    public func validAttributesForMarkedText() -> [NSAttributedString.Key] { [] }
+
+    public func attributedSubstring(forProposedRange range: NSRange,
+                                    actualRange: NSRangePointer?) -> NSAttributedString? {
+        guard isTypingText, range.location != NSNotFound, range.location <= textInput.length else {
+            actualRange?.pointee = NSRange(location: NSNotFound, length: 0)
+            return nil
+        }
+        let actual = textInput.clamped(range)
+        actualRange?.pointee = actual
+        return NSAttributedString(string: (textInput.string as NSString).substring(with: actual))
+    }
+
+    /// Candidate windows must sit above the screenshot's screenSaver-level panel.
+    public func windowLevel() -> Int { window?.level.rawValue ?? NSWindow.Level.normal.rawValue }
+
+    private func textInputRect(for range: NSRange) -> CGRect {
+        guard let pending = session?.pendingText else { return .zero }
+        let actual = textInput.clamped(range)
+        let string = textInput.string as NSString
+        let before = string.substring(to: actual.location)
+        let through = string.substring(to: NSMaxRange(actual))
+        let x = AnnotationRenderer.textBounds(before, pointSize: pending.pointSize).width
+        let end = AnnotationRenderer.textBounds(through, pointSize: pending.pointSize).width
+        let height = max(pending.pointSize,
+                         AnnotationRenderer.textBounds(textInput.string, pointSize: pending.pointSize).height)
+        return CGRect(x: pending.at.x + x, y: pending.at.y, width: max(end - x, 0), height: height)
+    }
+
+    public func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+        guard isTypingText, let window else { return .zero }
+        let actual = textInput.clamped(range)
+        actualRange?.pointee = actual
+        return window.convertToScreen(convert(textInputRect(for: actual), to: nil))
+    }
+
+    public func characterIndex(for point: NSPoint) -> Int {
+        guard isTypingText, let window else { return NSNotFound }
+        let local = convert(window.convertPoint(fromScreen: point), from: nil)
+        var index = 0
+        while index < textInput.length {
+            let next = NSMaxRange((textInput.string as NSString).rangeOfComposedCharacterSequence(at: index))
+            let left = textInputRect(for: NSRange(location: index, length: 0)).minX
+            let right = textInputRect(for: NSRange(location: next, length: 0)).minX
+            if local.x < (left + right) / 2 { return index }
+            index = next
+        }
+        return textInput.length
+    }
+
+    public override func doCommand(by selector: Selector) {
+        guard isTypingText else { return super.doCommand(by: selector) }
+        switch NSStringFromSelector(selector) {
+        case "insertNewline:", "insertNewlineIgnoringFieldEditor:":
+            // Normally the IME consumes Return itself. If it forwards Return
+            // while composing, finish that composition before saving the label.
+            if hasMarkedText() { unmarkText() } else { commitTypedText() }
+            return
+        case "cancelOperation:": cancelOperation(nil); return
+        case "deleteBackward:": textInput.deleteBackward()
+        case "deleteForward:": textInput.deleteForward()
+        case "moveLeft:", "moveBackward:": textInput.move(-1)
+        case "moveRight:", "moveForward:": textInput.move(1)
+        case "moveToBeginningOfLine:": textInput.select(NSRange(location: 0, length: 0))
+        case "moveToEndOfLine:": textInput.select(NSRange(location: textInput.length, length: 0))
+        case "selectAll:": textInput.select(NSRange(location: 0, length: textInput.length))
+        default: return super.doCommand(by: selector)
+        }
+        publishTextInput()
     }
 
     // MARK: - Caret
@@ -598,7 +706,7 @@ public final class AnnotationCanvasNSView: NSView {
         stopCaretBlink()
         caretVisible = true
         caretTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self, self.isTypingText else { return }
                 self.caretVisible.toggle()
                 self.needsDisplay = true
@@ -615,16 +723,22 @@ public final class AnnotationCanvasNSView: NSView {
         caretVisible = true
     }
 
-    private func drawTextCaret(_ ctx: CGContext) {
-        guard isTypingText, caretVisible, let session,
+    private func drawTextInputChrome(_ ctx: CGContext) {
+        guard isTypingText, let session,
               let pending = session.pendingText else { return }
-        let measured = AnnotationRenderer.textBounds(pending.string, pointSize: pending.pointSize)
-        let x = pending.at.x + measured.width + pending.pointSize * 0.06
-        let height = max(measured.height, pending.pointSize)
+        if hasMarkedText() {
+            let rect = textInputRect(for: textInput.marked)
+            ctx.setStrokeColor(session.ink.cgColor)
+            ctx.setLineWidth(chrome.borderWidth)
+            ctx.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            ctx.strokePath()
+        }
+        guard caretVisible else { return }
+        let rect = textInputRect(for: textInput.selection)
         ctx.setFillColor(session.ink.cgColor)
-        ctx.fill(CGRect(x: x, y: pending.at.y,
-                        width: max(pending.pointSize * 0.07, chrome.borderWidth * 0.6),
-                        height: height))
+        ctx.fill(CGRect(x: rect.minX, y: rect.minY,
+                        width: max(pending.pointSize * 0.07, chrome.borderWidth * 0.6), height: rect.height))
     }
 
     /// True while an inline label is being typed, so the dismissal coordinator can
@@ -639,7 +753,20 @@ public final class AnnotationCanvasNSView: NSView {
         needsDisplay = true
         return resolution
     }
+
+    public override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if newWindow == nil, isTypingText { endTyping() }
+        super.viewWillMove(toWindow: newWindow)
+    }
 }
+
+#if compiler(>=6.0)
+// The SDK's text input protocol predates actor annotations; AppKit delivers
+// these callbacks on the UI thread, just like the NSView responder methods.
+extension AnnotationCanvasNSView: @preconcurrency NSTextInputClient {}
+#else
+extension AnnotationCanvasNSView: NSTextInputClient {}
+#endif
 
 // MARK: - Helpers
 

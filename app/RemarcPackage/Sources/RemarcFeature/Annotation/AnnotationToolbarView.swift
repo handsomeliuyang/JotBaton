@@ -1,6 +1,19 @@
 import SwiftUI
 import AppKit
 
+/// Use the button's native pressed state; a zero-distance drag recognizer on
+/// every button competes with its click, especially on the first panel click.
+private struct AnnotationButtonPressStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.94
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? pressedScale : 1)
+            .brightness(configuration.isPressed ? -0.04 : 0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 /// One toolbar control. Cloned from the preview header's button recipe
 /// (`ScreenshotPreviewController`) and extended with the pressed and selected
 /// states that recipe lacks.
@@ -17,7 +30,6 @@ struct AnnotationToolButton: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -39,31 +51,24 @@ struct AnnotationToolButton: View {
             .background(RoundedRectangle(cornerRadius: 5).fill(background))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AnnotationButtonPressStyle())
         .disabled(!isEnabled)
         .help(shortcut.map { "\(label) (\($0))" } ?? label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .onHover { isHovered = $0 && isEnabled }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in if isEnabled { isPressed = true } }
-                .onEnded { _ in isPressed = false }
-        )
         .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .animation(.easeInOut(duration: 0.12), value: isPressed)
         .animation(.easeInOut(duration: 0.12), value: isSelected)
     }
 
     private var foreground: Color {
         guard isEnabled else { return .primary.opacity(0.2) }
-        if isSelected || isHovered || isPressed { return Color.remarcPrimary(for: colorScheme) }
+        if isSelected || isHovered { return Color.remarcPrimary(for: colorScheme) }
         return .primary.opacity(0.55)
     }
 
     private var background: Color {
         guard isEnabled else { return .clear }
-        if isPressed { return Color.remarcPrimary(for: colorScheme).opacity(0.22) }
         if isSelected { return Color.remarcPrimary(for: colorScheme).opacity(0.14) }
         if isHovered { return Color.primary.opacity(0.07) }
         return .clear
@@ -84,7 +89,6 @@ struct AnnotationApplyButton: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -100,24 +104,17 @@ struct AnnotationApplyButton: View {
             .background(
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Color.remarcSuccess(for: colorScheme))
-                    .brightness(isPressed ? -0.06 : (isHovered ? 0.05 : 0))
+                    .brightness(isHovered ? 0.05 : 0)
             )
             .opacity(isEnabled ? 1 : 0.5)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AnnotationButtonPressStyle(pressedScale: 0.97))
         .disabled(!isEnabled)
         .help(isEnabled ? L10n.tr("Apply annotations to the saved image") : L10n.tr("Applying..."))
         .accessibilityLabel(L10n.tr("Apply annotations"))
-        .scaleEffect(isPressed ? 0.97 : 1)
         .onHover { isHovered = $0 && isEnabled }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
         .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .animation(.easeInOut(duration: 0.12), value: isPressed)
     }
 
     /// The success token is a deep green in light mode but a bright mint in
@@ -137,7 +134,6 @@ private struct InkSwatch: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -160,21 +156,14 @@ private struct InkSwatch: View {
             }
             .frame(width: showsChevron ? 32 : 24, height: 24)
             .contentShape(Rectangle())
-            .scaleEffect(isPressed ? 0.88 : 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AnnotationButtonPressStyle(pressedScale: 0.88))
         .help(showsChevron ? L10n.tr("Color") : L10n.tr("Use this color"))
         .accessibilityLabel(L10n.tr("Annotation color"))
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .onHover { isHovered = $0 }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
         .animation(.easeInOut(duration: 0.12), value: isSelected)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
-        .animation(.easeInOut(duration: 0.12), value: isPressed)
     }
 }
 
@@ -282,34 +271,35 @@ struct AnnotationToolbarView: View {
 
     private var mainBar: some View {
         HStack(spacing: 2) {
-            AnnotationToolButton(systemImage: "cursorarrow", label: L10n.tr("Select"), shortcut: "V",
-                                 isSelected: session.tool == .select) { session.tool = .select }
-            AnnotationToolButton(systemImage: session.arrowStyle.systemImage,
-                                 label: session.arrowStyle.label, shortcut: "A",
-                                 isSelected: session.tool == .arrow,
-                                 hasGroup: true) {
-                // First click picks the tool; a second opens the style group, so the
-                // common case stays one click.
-                if session.tool == .arrow { expansion = .arrows } else { session.tool = .arrow }
+            Group {
+                AnnotationToolButton(systemImage: "cursorarrow", label: L10n.tr("Select"), shortcut: "V",
+                                     isSelected: session.tool == .select) { session.tool = .select }
+                AnnotationToolButton(systemImage: session.arrowStyle.systemImage,
+                                     label: session.arrowStyle.label, shortcut: "A",
+                                     isSelected: session.tool == .arrow,
+                                     hasGroup: true) {
+                    session.tool = .arrow
+                    expansion = .arrows
+                }
+
+                AnnotationToolButton(systemImage: shapeIcon, label: L10n.tr("Shape"),
+                                     shortcut: "R / O / L",
+                                     isSelected: Self.shapeTools.contains { $0.0 == session.tool },
+                                     hasGroup: true) { expansion = .shapes }
+
+                AnnotationToolButton(systemImage: "scribble", label: L10n.tr("Pen"), shortcut: "P",
+                                     isSelected: session.tool == .freehand) { session.tool = .freehand }
+                AnnotationToolButton(systemImage: "highlighter", label: L10n.tr("Highlighter"), shortcut: "H",
+                                     isSelected: session.tool == .highlighter) { session.tool = .highlighter }
+                AnnotationToolButton(systemImage: "textformat", label: L10n.tr("Text"), shortcut: "T",
+                                     isSelected: session.tool == .text) { session.tool = .text }
+                AnnotationToolButton(systemImage: "number.circle", label: L10n.tr("Counter"), shortcut: "C",
+                                     isSelected: session.tool == .counter) { session.tool = .counter }
+
+                AnnotationToolButton(systemImage: redactIcon, label: L10n.tr("Redact"), shortcut: L10n.tr("B / X"),
+                                     isSelected: Self.redactTools.contains { $0.0 == session.tool },
+                                     hasGroup: true) { expansion = .redact }
             }
-
-            AnnotationToolButton(systemImage: shapeIcon, label: L10n.tr("Shape"),
-                                 shortcut: "R / O / L",
-                                 isSelected: Self.shapeTools.contains { $0.0 == session.tool },
-                                 hasGroup: true) { expansion = .shapes }
-
-            AnnotationToolButton(systemImage: "scribble", label: L10n.tr("Pen"), shortcut: "P",
-                                 isSelected: session.tool == .freehand) { session.tool = .freehand }
-            AnnotationToolButton(systemImage: "highlighter", label: L10n.tr("Highlighter"), shortcut: "H",
-                                 isSelected: session.tool == .highlighter) { session.tool = .highlighter }
-            AnnotationToolButton(systemImage: "textformat", label: L10n.tr("Text"), shortcut: "T",
-                                 isSelected: session.tool == .text) { session.tool = .text }
-            AnnotationToolButton(systemImage: "number.circle", label: L10n.tr("Counter"), shortcut: "C",
-                                 isSelected: session.tool == .counter) { session.tool = .counter }
-
-            AnnotationToolButton(systemImage: redactIcon, label: L10n.tr("Redact"), shortcut: L10n.tr("B / X"),
-                                 isSelected: Self.redactTools.contains { $0.0 == session.tool },
-                                 hasGroup: true) { expansion = .redact }
 
             divider
 

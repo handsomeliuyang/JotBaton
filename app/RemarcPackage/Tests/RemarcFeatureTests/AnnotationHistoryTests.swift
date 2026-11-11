@@ -78,6 +78,8 @@ final class AnnotationHistoryTests: XCTestCase {
                         on: screen, zoomState: nil, showsDiscardControls: false)
         let window = try XCTUnwrap(NSApp.windows.compactMap { $0 as? AnnotationHistoryPanel }
             .first { $0.annotationSession === session })
+        let host = try XCTUnwrap(window.contentView?.subviews.first)
+        XCTAssertTrue(host.acceptsFirstMouse(for: nil), "the toolbar must accept a click from the canvas")
         window.makeKeyAndOrderFront(nil)
 
         XCTAssertTrue(window.performKeyEquivalent(with: try key(.command, window: window)))
