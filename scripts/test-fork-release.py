@@ -45,7 +45,7 @@ class ReleaseTests(unittest.TestCase):
             (app / 'Contents').mkdir(parents=True)
             info = {'CFBundleIdentifier': 'com.metepolat.Remarc', 'RemarcChannel': 'production',
                     'CFBundleShortVersionString': '1.2.5', 'CFBundleVersion': '24',
-                    'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': True}
+                    'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': True, 'RemarcCloudUpdates': True}
             env = {'VERSION': '1.2.5', 'BUILD_NUMBER': '24', 'SOURCE_SHA': 'a' * 40}
             plist = app / 'Contents/Info.plist'
             with patch.dict(os.environ, env), patch.object(verify, 'run'):
@@ -54,7 +54,7 @@ class ReleaseTests(unittest.TestCase):
                 for key, wrong in [('CFBundleIdentifier', 'com.metepolat.Remarc.dev'),
                                    ('RemarcChannel', 'development'), ('CFBundleShortVersionString', '1.2.4'),
                                    ('CFBundleVersion', '23'), ('RemarcSourceCommit', 'b' * 40),
-                                   ('RemarcManualUpdates', False)]:
+                                   ('RemarcManualUpdates', False), ('RemarcCloudUpdates', False)]:
                     plist.write_bytes(plistlib.dumps({**info, key: wrong}))
                     with self.subTest(key=key), self.assertRaises(ValueError):
                         verify.verify_app(app, 'verifier.py')

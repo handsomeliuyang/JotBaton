@@ -24,12 +24,6 @@ on:
         type: choice
         options: [Debug, Release]
         default: Debug
-  pull_request:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'scripts/*ventura*'
-      - '.github/workflows/ventura.yml'
 
 permissions:
   contents: read

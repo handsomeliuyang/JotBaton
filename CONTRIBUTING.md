@@ -6,7 +6,7 @@ Thanks for your interest in improving Remarc.
 
 - Xcode 26.2 / Swift 6.2 on a supported development Mac (or the documented CLT preview SDK).
 - Runtime: macOS 14+ on Apple Silicon; the opt-in Intel build supports macOS 13+.
-- Ventura with Xcode 14 cannot compile the package; `scripts/dev-preview.sh` builds that Mac's package in the cloud **Development** workflow instead (needs an authenticated `gh` and pushed commits).
+- Ventura with Xcode 14 cannot compile the package. Receive the Intel build through iCloud from an eligible Apple Silicon build host; there is no automatic GitHub fallback.
 
 ## Build and run
 
@@ -16,12 +16,12 @@ cd Remarc
 bash scripts/dev-preview.sh
 ```
 
-This builds only the package for the current Mac: locally through
-`scripts/run-local.sh` when the host can compile it, otherwise in the cloud. Either
-way it signs or verifies, installs and relaunches `Remarc Dev.app`. Both development
-Macs reuse the committed test certificate and password in `signing/`; no Apple
-Developer account or per-machine certificate generation is needed. Production
-certificate/private key and password are exclusively in Actions Secrets.
+This builds the current Mac's development package locally when its toolchain is
+supported, signs it with the shared test identity, and installs/relaunches
+`Remarc Dev.app`. Unsupported hosts receive an error instead of dispatching cloud
+compilation. Production personal updates use `scripts/publish-icloud-update.py` on
+an eligible Apple Silicon Mac with the existing production key in a dedicated
+local keychain; see [RELEASING.md](RELEASING.md). GitHub builds are manual opt-in.
 
 Development has a DEV app icon and distinct menu icon, Bundle ID
 `com.metepolat.Remarc.dev`, local data in `Application Support/Remarc Dev`, and
@@ -64,7 +64,7 @@ Before opening a PR:
 3. UI changes include a screenshot or short recording.
 4. Keep PRs focused; unrelated cleanups belong in their own PR.
 
-CI signs development builds with the shared test fixture. Production Secrets are not required for PR builds; all checks must pass.
+Manually invoked development workflows use the shared test fixture. Push/PR events do not compile on GitHub; run relevant checks locally before delivery.
 
 ## Reporting bugs
 

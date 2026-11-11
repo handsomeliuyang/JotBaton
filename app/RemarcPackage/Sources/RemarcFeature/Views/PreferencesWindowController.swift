@@ -2772,16 +2772,31 @@ struct PreferencesView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.primary.opacity(0.35))
 
-            #if REMARC_VENTURA
-            Text(L10n.tr("Ventura compatibility build - updates installed manually"))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            #else
             Button(L10n.tr("Check for Updates\u{2026}")) {
                 UpdateManager.shared.checkForUpdates()
             }
-            .disabled(!updateManager.canCheckForUpdates)
-            #endif
+            .disabled(!updateManager.canCheckForUpdates || updateManager.isInstalling)
+
+            if updateManager.canCheckForUpdates {
+                Button(L10n.tr("Allow iCloud Access")) {
+                    Task { await UpdateManager.shared.authorizeICloudAccess() }
+                }
+                .disabled(updateManager.isInstalling)
+            }
+
+            if !updateManager.status.isEmpty {
+                Text(updateManager.status)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+            if updateManager.waitingForDownload {
+                Button(L10n.tr("Cancel Update")) { UpdateManager.shared.cancelDownload() }
+            } else if updateManager.availableVersion != nil {
+                Button(L10n.tr("Install Update")) { UpdateManager.shared.installUpdate() }
+                    .disabled(updateManager.isInstalling)
+            }
 
             HStack(spacing: 16) {
                 Link(L10n.tr("Website"), destination: URL(string: "https://remarc.app")!)

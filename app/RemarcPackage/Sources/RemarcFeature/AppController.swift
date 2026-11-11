@@ -675,6 +675,14 @@ public final class AppController: NSObject, ObservableObject {
 
         menu.addItem(NSMenuItem.separator())
 
+        if UpdateManager.shared.canCheckForUpdates {
+            let updateItem = NSMenuItem(title: L10n.tr("Check for Updates\u{2026}"), action: #selector(checkForUpdates), keyEquivalent: "")
+            updateItem.target = self
+            updateItem.isEnabled = !UpdateManager.shared.isInstalling
+            menu.addItem(updateItem)
+            menu.addItem(NSMenuItem.separator())
+        }
+
         let quitItem = NSMenuItem(title: L10n.tr("Quit"), action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)

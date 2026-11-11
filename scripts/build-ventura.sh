@@ -59,5 +59,9 @@ xcodebuild clean build \
 APP="$REPO_ROOT/app/DerivedData/Build/Products/$CONFIGURATION/$APP_NAME.app"
 python3 "$REPO_ROOT/scripts/prepare-app.py" "$APP" --channel "$CHANNEL"
 python3 "$REPO_ROOT/scripts/sign-app.py" "$APP" --channel "$CHANNEL"
-python3 "$REPO_ROOT/scripts/relaunch-app.py" "$APP"
+if [[ "$(uname -m)" = x86_64 ]]; then
+  python3 "$REPO_ROOT/scripts/relaunch-app.py" "$APP"
+else
+  echo "Cross-built Intel package; native Ventura verification runs after installation on Intel."
+fi
 python3 "$REPO_ROOT/scripts/verify-ventura-app.py" "$APP"

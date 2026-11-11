@@ -23,6 +23,7 @@ def verify_app(app, verifier):
         'CFBundleVersion': os.environ['BUILD_NUMBER'],
         'RemarcSourceCommit': os.environ['SOURCE_SHA'],
         'RemarcManualUpdates': True,
+        'RemarcCloudUpdates': True,
     }.items():
         if info.get(key) != expected:
             raise ValueError(f'{app}: {key} is {info.get(key)!r}; expected {expected!r}')
@@ -52,7 +53,7 @@ Source commit: {os.environ['SOURCE_SHA']}
 
 黑苹果 / Intel (macOS 13+):
 解压 Remarc-Ventura-x86_64.zip，退出旧版，将 Remarc.app 替换到 /Applications 后打开。
-M5 Pro / Apple Silicon (macOS 14+):
+Apple Silicon (macOS 14+):
 打开 Remarc-Apple-Silicon-arm64.dmg，将 Remarc.app 拖入 Applications 后打开。
 两个架构使用同一个固定私有发布证书，无需本机重新签名。
 首次迁移到此发布证书时，请重新授予辅助功能、屏幕录制等权限；后续更新持续复用此身份。
@@ -62,7 +63,7 @@ Remarc Dev 使用独立测试证书、com.metepolat.Remarc.dev 和 DEV 图标，
 本地数据：正式版 Application Support/Remarc；测试版 Application Support/Remarc Dev。
 iCloud：正式版 iCloud Drive/Remarc；测试版 iCloud Drive/Remarc Dev。两版不会自动迁移或共用同步数据。
 两台 Mac 需要分别授权；签名一致不会跨电脑同步 macOS 权限。
-语音功能需要 macOS 26。两个版本均为手动更新，未经过 Apple 公证。
+语音功能需要 macOS 26。正式版可从 iCloud Drive/Remarc/Updates 接收更新，测试版保持独立；均未经过 Apple 公证。
 首次打开被拦截时，前往“系统设置 → 隐私与安全性 → 仍要打开”。
 https://support.apple.com/en-us/102445
 在下载目录运行 shasum -a 256 -c SHA256SUMS 校验文件完整性。

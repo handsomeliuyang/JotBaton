@@ -15,7 +15,10 @@ dev = args.channel == 'development'
 info['CFBundleIdentifier'] = 'com.metepolat.Remarc.dev' if dev else 'com.metepolat.Remarc'
 info['CFBundleName'] = info['CFBundleDisplayName'] = 'Remarc Dev' if dev else 'Remarc'
 info['CFBundleURLTypes'] = [{'CFBundleURLName': info['CFBundleIdentifier'], 'CFBundleURLSchemes': ['remarc-dev' if dev else 'remarc']}]
-info['RemarcManualUpdates'] = True
+info['RemarcManualUpdates'] = True  # Sparkle remains disabled; iCloud has its own updater.
+info['RemarcCloudUpdates'] = not dev
+info.pop('SUFeedURL', None)
+info.pop('SUPublicEDKey', None)
 info['SUEnableAutomaticChecks'] = False
 info['RemarcChannel'] = args.channel
 info['RemarcSourceCommit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
@@ -47,3 +50,18 @@ if dev:
     if skill.exists():
         skill.write_text(skill.read_text().replace('name: remarc\n', 'name: remarc-dev\n')
                          .replace('# Remarc Comments', '# Remarc Dev Comments'))
+
+# A native, architecture-matched installer works on a new Mac without Python.
+root = Path(__file__).resolve().parents[1]
+binary = args.app / 'Contents/MacOS' / info['CFBundleExecutable']
+architectures = subprocess.check_output(['lipo', '-archs', str(binary)], text=True).split()
+if len(architectures) != 1 or architectures[0] not in ('arm64', 'x86_64'):
+    raise ValueError('Expected one architecture per update package')
+helpers = args.app / 'Contents/Helpers'
+helpers.mkdir(exist_ok=True)
+sdk = subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()
+subprocess.run(['xcrun', 'swiftc', '-O', '-sdk', sdk, '-target',
+                architectures[0] + '-apple-macosx' + info['LSMinimumSystemVersion'],
+                str(root / 'app/RemarcPackage/Sources/RemarcFeature/Services/CloudUpdatePolicy.swift'),
+                str(root / 'tools/update-installer/main.swift'),
+                '-o', str(helpers / 'RemarcUpdateInstaller')], check=True)

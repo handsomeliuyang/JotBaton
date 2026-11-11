@@ -75,17 +75,17 @@ Read the [full Remarc documentation](https://docs.remarc.app/getting-started/wha
 Download both packages from [this fork's GitHub Releases](https://github.com/handsomeliuyang/Remarc/releases/latest):
 
 - `Remarc-Ventura-x86_64.zip`: Hackintosh / Intel, macOS 13+.
-- `Remarc-Apple-Silicon-arm64.dmg`: M5 Pro / Apple Silicon, macOS 14+.
+- `Remarc-Apple-Silicon-arm64.dmg`: Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-These fork builds use a fixed private signing certificate, are not Apple-notarized, and use manual updates.
+These fork builds use a fixed private signing certificate and are not Apple-notarized. Personal production builds check `iCloud Drive/Remarc/Updates` for verified updates, ask before installing and keep one previous app/data backup. A new computer or an older app without the iCloud updater needs one manual installation.
 See [installation and release instructions](RELEASING.md) for verified installation without local re-signing,
 first launch, checksums and permissions. The upstream signed distribution is
 available separately at [remarc.app/download](https://remarc.app/download).
 
 ## Build from source
 
-Prerequisites: Xcode 26.2 / Swift 6.2. On Ventura, use GitHub Actions.
+Prerequisites: a supported build host with Xcode 26.2+ / Swift 6.2+. The default personal publisher uses any eligible Apple Silicon Mac holding the existing production identity; it builds both architectures and distributes them through iCloud. GitHub compilation is manual opt-in. Ventura with Xcode 14 is an installation/runtime test host.
 
 To build the current checkout and immediately launch its Debug app, without a commit or GitHub build:
 
@@ -93,7 +93,7 @@ To build the current checkout and immediately launch its Debug app, without a co
 ./scripts/run-local.sh
 ```
 
-With supported Xcode selected, the script clean-builds and signs `Remarc Dev.app` with the shared test identity, installs it at `/Applications/Remarc Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the paired **Development** workflow artifacts instead.
+With supported Xcode selected, the script clean-builds and signs `Remarc Dev.app` with the shared test identity, installs it at `/Applications/Remarc Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, receive the Intel personal production package from iCloud; previews never fall back to GitHub automatically.
 
 On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Voice segmentation uses the existing speech-segment fallback because CLT lacks the Foundation Models macro plugin. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 
@@ -110,8 +110,7 @@ REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh
 REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-ventura.sh
 ```
 
-The [release workflow](.github/workflows/release.yml) builds, verifies and publishes
-both packages together; see [RELEASING.md](RELEASING.md).
+For personal updates, run `python3 scripts/publish-icloud-update.py` on an eligible Apple Silicon build host after provisioning its production keychain. The optional [release workflow](.github/workflows/release.yml) builds both public packages only when explicitly dispatched. See [RELEASING.md](RELEASING.md) for signing setup, publication and installation.
 
 ## Ventura / Intel compatibility build
 
@@ -171,7 +170,7 @@ Automatic upstream updates are disabled for this independently packaged build.
 Download `Remarc-Apple-Silicon-arm64.dmg` from
 [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases).
 Drag `Remarc.app` into Applications. This works on Apple Silicon Macs, including
-M5 Pro, without Rosetta. The app uses the fixed private release certificate and is not Apple-notarized; if the
+Apple Silicon, without Rosetta. The app uses the fixed private release certificate and is not Apple-notarized; if the
 first launch is blocked, use **System Settings → Privacy & Security → Open Anyway**
 as described in [Apple's instructions](https://support.apple.com/en-us/102445).
 The artifact includes installation instructions, the source commit and SHA-256.

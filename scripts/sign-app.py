@@ -2,13 +2,14 @@
 """Sign an app with its pinned channel identity; never generate or fall back.
 
 Development credentials are deliberately shared test fixtures in this repo.
-Production credentials exist only in Actions Secrets and this process's temp dir.
+Production signing uses Actions Secrets in explicit cloud jobs, or a pinned identity in a local dedicated keychain on an Apple Silicon build host.
 """
 import argparse
 import base64
 import json
 import os
 import plistlib
+import platform
 import secrets
 import shlex
 import subprocess
@@ -62,12 +63,31 @@ def main():
     if args.verify_only:
         verify(app, args.channel, config)
         return
+    if args.channel == 'production' and os.environ.get('GITHUB_ACTIONS') != 'true':
+        if platform.machine() != 'arm64':
+            raise ValueError('Local production signing requires a supported Apple Silicon build host')
+        keychain = Path(os.environ.get('REMARC_PRODUCTION_KEYCHAIN', str(Path.home() / 'Library/Keychains/RemarcProduction.keychain-db'))).expanduser().resolve()
+        cloud = Path.home() / 'Library/Mobile Documents'
+        if not keychain.is_file() or ROOT in keychain.parents or cloud in keychain.parents:
+            raise ValueError('Use the dedicated production keychain outside repositories and iCloud')
+        for path in sorted(app.rglob('*'), key=lambda p: len(p.parts), reverse=True):
+            if path.is_symlink():
+                continue
+            is_bundle = path.is_dir() and path.suffix in ('.app', '.framework', '.xpc')
+            is_code = path.is_file() and b'Mach-O' in run('file', '-b', str(path))
+            if is_bundle or is_code:
+                extra = ['--identifier', 'RemarcUpdateInstaller'] if path.name == 'RemarcUpdateInstaller' else []
+                run('codesign', '--force', '--sign', expected['sha1'], '--keychain', str(keychain), '--timestamp=none', *extra, str(path))
+        run('codesign', '--force', '--sign', expected['sha1'], '--keychain', str(keychain), '--timestamp=none',
+            '--entitlements', str(ROOT / 'app/Config/Ventura.entitlements'), str(app))
+        verify(app, args.channel, config)
+        return
     if args.channel == 'development':
         p12 = (ROOT / 'signing/development.p12').read_bytes()
         password = (ROOT / 'signing/development-password.txt').read_text().strip()
     else:
         if os.environ.get('GITHUB_ACTIONS') != 'true':
-            raise ValueError('Production signing is restricted to GitHub Actions')
+            raise ValueError('Production signing credentials are unavailable')
         p12 = base64.b64decode(os.environ['REMARC_SIGNING_P12_BASE64'], validate=True)
         password = os.environ['REMARC_SIGNING_P12_PASSWORD']
     original = shlex.split(run('security', 'list-keychains', '-d', 'user').decode())
@@ -101,7 +121,8 @@ def main():
                 is_bundle = path.is_dir() and path.suffix in ('.app', '.framework', '.xpc')
                 is_code = path.is_file() and b'Mach-O' in run('file', '-b', str(path))
                 if is_bundle or is_code:
-                    run('codesign', '--force', '--sign', expected['sha1'], '--keychain', keychain, '--timestamp=none', str(path))
+                    extra = ['--identifier', 'RemarcUpdateInstaller'] if path.name == 'RemarcUpdateInstaller' else []
+                    run('codesign', '--force', '--sign', expected['sha1'], '--keychain', keychain, '--timestamp=none', *extra, str(path))
             run('codesign', '--force', '--sign', expected['sha1'], '--keychain', keychain,
                 '--timestamp=none', '--entitlements', str(ROOT / 'app/Config/Ventura.entitlements'), str(app))
             verify(app, args.channel, config)

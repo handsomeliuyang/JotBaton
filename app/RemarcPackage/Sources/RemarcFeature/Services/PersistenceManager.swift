@@ -1317,6 +1317,12 @@ public final class PersistenceManager: ObservableObject {
         saveToDiskBlocking()
     }
 
+    /// Refuse an update if pending edits cannot be durably written.
+    public func prepareForUpdate() -> Bool {
+        guard !documentWriteInFlight else { return false }
+        return saveToDiskBlocking()
+    }
+
     /// Synchronous save for app termination.
     ///
     /// Forced past the in-flight guard: see `saveToDisk(force:)`. Without this a

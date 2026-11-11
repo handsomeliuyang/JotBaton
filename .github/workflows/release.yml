@@ -146,10 +146,10 @@ jobs:
           notes += f'\n\nVersion: {version} ({build}) · Source: `{sha}`\n\n'
           notes += '| Package | Target |\n|---|---|\n'
           notes += '| `Remarc-Ventura-x86_64.zip` | 黑苹果 / Intel，macOS 13+ |\n'
-          notes += '| `Remarc-Apple-Silicon-arm64.dmg` | M5 Pro / Apple Silicon，macOS 14+ |\n\n'
+          notes += '| `Remarc-Apple-Silicon-arm64.dmg` | Apple Silicon，macOS 14+ |\n\n'
           notes += '两个安装包均为 Release 配置，使用同一源码提交。附带 SHA256SUMS 和安装说明。\n\n'
           notes += '两个安装包使用同一固定私有发布证书签名，未经过 Apple 公证；首次打开可能需要允许运行并重新授权。'
-          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。两个版本均为手动更新。\n\n'
+          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。正式版通过 iCloud Drive/Remarc/Updates 提示更新，测试版保持独立。\n\n'
           notes += f'[安装与发布说明](https://github.com/{repo}/blob/v{version}/RELEASING.md)\n'
           Path('build/release-notes.md').write_text(notes)
           PY

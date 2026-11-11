@@ -1,0 +1,42 @@
+name: One-time encrypted signing migration
+on:
+  workflow_dispatch:
+    inputs:
+      recipient:
+        description: 'Public age recipient generated on the eligible Apple Silicon Mac; never enter a private key'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  encrypt:
+    if: github.repository == 'handsomeliuyang/Remarc' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install encryption utility
+        run: sudo apt-get update -qq && sudo apt-get install -y age
+      - name: Encrypt directly to the destination Mac
+        env:
+          RECIPIENT: ${{ inputs.recipient }}
+          SIGNING_P12: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
+        shell: python
+        run: |
+          import base64, json, os, re, subprocess
+          recipient = os.environ['RECIPIENT']
+          if not re.fullmatch(r'age1[0-9a-z]{58}', recipient):
+              raise SystemExit('Invalid public recipient')
+          if not os.environ['SIGNING_P12'] or not os.environ['SIGNING_PASSWORD']:
+              raise SystemExit('Production signing secrets are missing')
+          base64.b64decode(os.environ['SIGNING_P12'], validate=True)
+          payload = json.dumps({'p12': os.environ['SIGNING_P12'], 'password': os.environ['SIGNING_PASSWORD']}).encode()
+          result = subprocess.run(['age', '-r', recipient, '-o', 'production-signing.age'], input=payload, capture_output=True)
+          if result.returncode:
+              raise SystemExit('Encryption failed; no private output was logged')
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: encrypted-production-signing
+          path: production-signing.age
+          retention-days: 1
+          if-no-files-found: error
