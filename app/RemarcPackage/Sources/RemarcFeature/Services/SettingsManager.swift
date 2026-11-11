@@ -198,6 +198,10 @@ public final class SettingsManager: ObservableObject {
         didSet { defaults.set(referenceStyle.rawValue, forKey: Keys.referenceStyle) }
     }
 
+    @Published public var clipboardLayout: ClipboardLayout {
+        didSet { clipboardLayout.save(to: defaults) }
+    }
+
     @Published public var numberingStyle: NumberingStyle {
         didSet { defaults.set(numberingStyle.rawValue, forKey: Keys.numberingStyle) }
     }
@@ -590,11 +594,13 @@ public final class SettingsManager: ObservableObject {
             self.inactiveSessionCleanupInterval = .after30Minutes
         }
 
+        self.clipboardLayout = ClipboardLayout.load(from: defaults)
+
         if let saved = defaults.string(forKey: Keys.referenceStyle),
            let style = ReferenceStyle(rawValue: saved) {
             self.referenceStyle = style
         } else {
-            self.referenceStyle = .blockquote
+            self.referenceStyle = .plain
         }
 
         if let saved = defaults.string(forKey: Keys.numberingStyle),
@@ -987,12 +993,14 @@ public final class SettingsManager: ObservableObject {
     }
 
     public enum ReferenceStyle: String, CaseIterable, Sendable {
+        case plain
         case blockquote
         case rePrefix
         case quoted
 
         public var label: String {
             switch self {
+            case .plain: return L10n.tr("Plain text")
             case .blockquote: return L10n.tr("> Blockquote")
             case .rePrefix: return L10n.tr("Re: Prefix")
             case .quoted: return L10n.tr("\"Quoted\"")

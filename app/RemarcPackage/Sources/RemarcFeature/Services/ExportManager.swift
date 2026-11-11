@@ -1,8 +1,16 @@
 import AppKit
 import UniformTypeIdentifiers
 
+@MainActor
+protocol TextClipboardDestination {
+    @discardableResult func clearContents() -> Int
+    func setString(_ string: String, forType: NSPasteboard.PasteboardType) -> Bool
+}
+
+extension NSPasteboard: TextClipboardDestination {}
+
 public enum ExportHighlight: Hashable, Sendable {
-    case reference, numbering, commentPrefix, divider, dateFormat, metadataDivider
+    case reference, screenshotPrefix, attachmentPrefix, layout, numbering, commentPrefix, divider, dateFormat, metadataDivider
     case source, date, status, remarkID, aiHint, type
 }
 
@@ -85,6 +93,7 @@ public final class ExportManager {
             let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleaned.isEmpty else { return nil }
             switch style {
+            case .plain: return cleaned
             case .blockquote:
                 return cleaned.components(separatedBy: "\n").map { "> \($0)" }.joined(separator: "\n")
             case .rePrefix:
@@ -104,6 +113,7 @@ public final class ExportManager {
             let parts = [name, path].compactMap { $0 }
             let label = parts.isEmpty ? "Web Element" : parts.joined(separator: " \u{00B7} ")
             switch style {
+            case .plain: return label
             case .blockquote: return "> [\(label)]"
             case .rePrefix: return "Re: \(label)"
             case .quoted: return "\"\(label)\""
@@ -216,7 +226,8 @@ public final class ExportManager {
             includeType: settings.includeType,
             includeTime: settings.includeTime,
             use24Hour: settings.timeFormat.use24Hour,
-            metadataDivider: settings.metadataDividerStyle
+            metadataDivider: settings.metadataDividerStyle,
+            layout: settings.clipboardLayout
         )
         if settings.includeAIHint && MCPManager.shared.isEnabled {
             result += "\n\n<!-- These remarks are from the '\(session.name)' session in Remarc. Use MCP tool remarc_list_comments with session_id to read and resolve them. -->"
@@ -224,7 +235,7 @@ public final class ExportManager {
         return result
     }
 
-    /// Core formatting method used by both real export and preview.
+    /// The preview and all Markdown exports share this renderer.
     public func markdownForComments(
         _ comments: [Comment],
         referenceStyle: SettingsManager.ReferenceStyle,
@@ -239,119 +250,193 @@ public final class ExportManager {
         includeType: Bool,
         includeTime: Bool = false,
         use24Hour: Bool = false,
-        metadataDivider: SettingsManager.MetadataDividerStyle = .pipe
+        metadataDivider: SettingsManager.MetadataDividerStyle = .pipe,
+        layout: ClipboardLayout? = nil
     ) -> String {
-        var lines: [String] = []
-        let commentPrefix = formatCommentPrefix(style: commentPrefixStyle)
+        formattedLines(
+            comments,
+            referenceStyle: referenceStyle,
+            numberingStyle: numberingStyle,
+            commentPrefixStyle: commentPrefixStyle,
+            dividerStyle: dividerStyle,
+            dateFormat: dateFormat,
+            includeRemarkID: includeRemarkID,
+            includeSource: includeSource,
+            includeDate: includeDate,
+            includeStatus: includeStatus,
+            includeType: includeType,
+            includeTime: includeTime,
+            use24Hour: use24Hour,
+            metadataDivider: metadataDivider,
+            layout: layout
+        ).map { $0.segments.map(\.text).joined() }.joined(separator: "\n")
+    }
+
+    func formattedLines(
+        _ comments: [Comment],
+        referenceStyle: SettingsManager.ReferenceStyle,
+        numberingStyle: SettingsManager.NumberingStyle,
+        commentPrefixStyle: SettingsManager.CommentPrefixStyle = .none,
+        dividerStyle: SettingsManager.DividerStyle,
+        dateFormat: SettingsManager.ExportDateFormat,
+        includeRemarkID: Bool,
+        includeSource: Bool,
+        includeDate: Bool,
+        includeStatus: Bool,
+        includeType: Bool,
+        includeTime: Bool = false,
+        use24Hour: Bool = false,
+        metadataDivider: SettingsManager.MetadataDividerStyle = .pipe,
+        layout: ClipboardLayout? = nil
+    ) -> [PreviewLine] {
+        var output: [[PreviewSegment]] = []
+        let commentPrefix = layout.map { ClipboardLayout.prefixText($0.commentPrefix) }
+            ?? formatCommentPrefix(style: commentPrefixStyle)
+
+        func textLines(_ text: String, highlights: Set<ExportHighlight> = []) -> [[PreviewSegment]] {
+            text.components(separatedBy: "\n").map { [PreviewSegment(text: $0, highlights: highlights)] }
+        }
+
+        func labeledLines(_ text: String, prefix: String, highlight: ExportHighlight) -> [[PreviewSegment]] {
+            var result = textLines(text)
+            if !prefix.isEmpty {
+                result[0].insert(PreviewSegment(text: prefix, highlights: [highlight, .layout]), at: 0)
+            }
+            return result
+        }
 
         for (index, comment) in comments.enumerated() {
-            let recordStartIndex = lines.count
-            let prefix = formatPrefix(index: index, style: numberingStyle)
-            let reference = formatReference(comment, style: referenceStyle)
-
-            if let reference {
-                lines.append("\(prefix)\(reference)")
+            var fields: [ClipboardLayout.Field: [[PreviewSegment]]] = [:]
+            if let reference = formatReference(comment, style: referenceStyle) {
+                let label: String
+                let highlight: ExportHighlight
+                if case .screenshot = comment.type {
+                    label = layout.map { ClipboardLayout.prefixText($0.screenshotPrefix) } ?? ""
+                    highlight = .screenshotPrefix
+                } else {
+                    label = layout.map { ClipboardLayout.prefixText($0.referencePrefix) } ?? ""
+                    highlight = .reference
+                }
+                if referenceStyle == .blockquote, highlight == .reference {
+                    // Keep Markdown quote markers at the start of each line.
+                    var referenceLines = textLines(reference)
+                    if !label.isEmpty, let first = referenceLines.first?.first?.text, first.hasPrefix("> ") {
+                        referenceLines[0] = [
+                            PreviewSegment(text: "> ", highlights: [.reference]),
+                            PreviewSegment(text: label, highlights: [.reference, .layout]),
+                            PreviewSegment(text: String(first.dropFirst(2)), highlights: [])
+                        ]
+                    }
+                    fields[.reference] = referenceLines
+                } else {
+                    fields[.reference] = labeledLines(reference, prefix: label, highlight: highlight)
+                }
             }
-
             if let commentText = comment.meaningfulCommentText {
-                lines.append("\(commentPrefix)\(commentText)")
+                fields[.comment] = labeledLines(commentText, prefix: commentPrefix, highlight: .commentPrefix)
+            }
+            fields[.attachments] = comment.attachments.flatMap { attachment in
+                labeledLines(markdownImage(attachment, label: "attachment"),
+                             prefix: layout.map { ClipboardLayout.prefixText($0.attachmentPrefix) } ?? "",
+                             highlight: .attachmentPrefix)
             }
 
-            // Type line (separate from metadata)
+            var metadataLines: [[PreviewSegment]] = []
+            func appendContext(_ text: String) {
+                metadataLines += textLines(text)
+            }
             if includeType {
-                lines.append("Type: \(comment.type.exportDisplayName)")
+                metadataLines += textLines("Type: \(comment.type.exportDisplayName)", highlights: [.type])
             }
-
             // Web context
             if let wc = comment.webContext, let summary = wc.displaySummary {
-                lines.append("`\(summary)`")
+                appendContext("`\(summary)`")
                 if let url = wc.pageUrl {
-                    lines.append("`URL: \(url)`")
+                    appendContext("`URL: \(url)`")
                 }
                 if let chain = wc.reactComponents, !chain.isEmpty {
-                    lines.append("`Via: \(chain)`")
+                    appendContext("`Via: \(chain)`")
                 }
                 if let elementPath = wc.elementPath {
-                    lines.append("`Element: \(wc.elementName ?? "unknown") @ \(elementPath)`")
+                    appendContext("`Element: \(wc.elementName ?? "unknown") @ \(elementPath)`")
                 } else if let elementName = wc.elementName {
-                    lines.append("`Element: \(elementName)`")
+                    appendContext("`Element: \(elementName)`")
                 }
                 if let selectedText = wc.selectedText {
-                    lines.append("`Selected text: \(selectedText)`")
+                    appendContext("`Selected text: \(selectedText)`")
                 }
                 if let selector = wc.selector {
-                    lines.append("`\(selector)`")
+                    appendContext("`\(selector)`")
                 }
                 if let cssClasses = wc.cssClasses, !cssClasses.isEmpty {
-                    lines.append("`Classes: \(cssClasses)`")
+                    appendContext("`Classes: \(cssClasses)`")
                 }
                 if let styles = wc.computedStyles, !styles.isEmpty {
-                    lines.append("`Styles: \(styles)`")
+                    appendContext("`Styles: \(styles)`")
                 }
                 if let a11y = wc.accessibility, !a11y.isEmpty {
-                    lines.append("`A11y: \(a11y)`")
+                    appendContext("`A11y: \(a11y)`")
                 }
                 if let nearby = wc.nearbyText, !nearby.isEmpty {
-                    lines.append("`Nearby: \(nearby)`")
+                    appendContext("`Nearby: \(nearby)`")
                 }
             }
 
             // Region elements
             if let elements = comment.regionElements, elements.count > 1 {
-                lines.append("Region elements (\(elements.count)):")
+                appendContext("Region elements (\(elements.count)):")
                 for el in elements.prefix(5) {
                     let label = el.displaySummary ?? el.elementName ?? el.selector ?? "unknown"
-                    lines.append("  - `\(label)`")
+                    appendContext("  - `\(label)`")
                 }
                 if elements.count > 5 {
-                    lines.append("  - ... and \(elements.count - 5) more")
+                    appendContext("  - ... and \(elements.count - 5) more")
                 }
             }
-
-            // Attachments
-            for attachment in comment.attachments {
-                lines.append(markdownImage(attachment, label: "attachment"))
+            var metadataSegments: [PreviewSegment] = []
+            func metadata(_ text: String, highlights: Set<ExportHighlight>) {
+                if !metadataSegments.isEmpty {
+                    metadataSegments.append(PreviewSegment(text: metadataDivider.separator, highlights: [.metadataDivider]))
+                }
+                metadataSegments.append(PreviewSegment(text: text, highlights: highlights))
             }
-
-            // Metadata line
-            if let metadataLine = formatMetadataLine(
-                comment,
-                includeRemarkID: includeRemarkID,
-                includeSource: includeSource,
-                includeDate: includeDate,
-                includeStatus: includeStatus,
-                includeType: includeType,
-                dateFormat: dateFormat,
-                includeTime: includeTime,
-                use24Hour: use24Hour,
-                metadataDivider: metadataDivider
-            ) {
-                lines.append(metadataLine)
+            if includeRemarkID { metadata(comment.shortID, highlights: [.remarkID]) }
+            if includeSource { metadata(comment.source, highlights: [.source]) }
+            if includeDate {
+                metadata(formatDate(comment.createdAt, format: dateFormat, includeTime: includeTime, use24Hour: use24Hour),
+                         highlights: [.date, .dateFormat])
             }
+            if includeStatus { metadata(comment.status.exportLabel, highlights: [.status]) }
+            if !metadataSegments.isEmpty { metadataLines.append(metadataSegments) }
+            fields[.metadata] = metadataLines
 
-            // A legacy payloadless Quick Note/Crit record can still exist on
-            // disk. Do not silently drop it when every optional metadata field
-            // is disabled; preserve one explicit record marker instead.
-            if lines.count == recordStartIndex {
-                lines.append("\(prefix)[\(comment.type.exportDisplayName)]")
+            var record: [[PreviewSegment]] = []
+            for field in layout?.orderedFields ?? ClipboardLayout.Field.allCases {
+                guard let block = fields[field], !block.isEmpty else { continue }
+                if !record.isEmpty && layout?.fieldSpacing == .blankLine {
+                    record.append([PreviewSegment(text: "", highlights: [.layout])])
+                }
+                record += block
             }
-
-            // Divider (not after last comment)
+            // Keep legacy payloadless records visible even with all metadata disabled.
+            if record.isEmpty { record = textLines("[\(comment.type.exportDisplayName)]") }
+            let number = formatPrefix(index: index, style: numberingStyle)
+            if !number.isEmpty {
+                record[0].insert(PreviewSegment(text: number, highlights: [.numbering]), at: 0)
+            }
+            output += record
             if index < comments.count - 1 {
+                let divider: String
                 switch dividerStyle {
-                case .horizontalRule:
-                    lines.append("---")
-                case .doubleLine:
-                    lines.append("===")
-                case .dotted:
-                    lines.append("\u{00B7}\u{00B7}\u{00B7}")
-                case .blankLine:
-                    lines.append("")
+                case .horizontalRule: divider = "---"
+                case .doubleLine: divider = "==="
+                case .dotted: divider = "···"
+                case .blankLine: divider = ""
                 }
+                output += textLines(divider, highlights: [.divider])
             }
         }
-
-        return lines.joined(separator: "\n")
+        return output.enumerated().map { PreviewLine(id: $0.offset, segments: $0.element) }
     }
 
     // MARK: - JSON Export
@@ -441,13 +526,14 @@ public final class ExportManager {
             includeType: settings.includeType,
             includeTime: settings.includeTime,
             use24Hour: settings.timeFormat.use24Hour,
-            metadataDivider: settings.metadataDividerStyle
+            metadataDivider: settings.metadataDividerStyle,
+            layout: settings.clipboardLayout
         )
     }
 
     // MARK: - Preview
 
-    private lazy var sampleComments: [Comment] = [
+    private(set) lazy var sampleComments: [Comment] = [
             Comment(
                 type: .comment(text: "let maxRetries = 42 // default"),
                 commentText: "Seems arbitrary — where does this come from?",
@@ -458,7 +544,7 @@ public final class ExportManager {
                 status: .open
             ),
             Comment(
-                type: .comment(text: "func applicationWillTerminate()"),
+                type: .screenshot(imagePath: "images/screenshot.png"),
                 commentText: "So it goes. Clean up observers before exit.",
                 source: "Xcode",
                 appBundleID: nil,
@@ -482,7 +568,8 @@ public final class ExportManager {
                 appBundleID: nil,
                 createdAt: Date().addingTimeInterval(-172800),
                 sessionID: UUID(),
-                status: .open
+                status: .open,
+                attachments: ["images/attachment.png"]
             ),
             Comment(
                 type: .critMode,
@@ -504,7 +591,7 @@ public final class ExportManager {
             ),
     ]
 
-    /// Generate structured preview lines with highlight tags for the settings preview panel.
+    /// Uses the same segments as copying, including field order and multiline content.
     public func previewLines(
         referenceStyle: SettingsManager.ReferenceStyle,
         numberingStyle: SettingsManager.NumberingStyle,
@@ -519,133 +606,30 @@ public final class ExportManager {
         includeTime: Bool = false,
         use24Hour: Bool = false,
         metadataDivider: SettingsManager.MetadataDividerStyle = .pipe,
-        includeAIHint: Bool = false
+        includeAIHint: Bool = false,
+        layout: ClipboardLayout? = nil
     ) -> [PreviewLine] {
-        var lines: [PreviewLine] = []
-        let comments = sampleComments
-        let maxSourceLen = comments.map { $0.source.count }.max() ?? 0
-
-        for (index, comment) in comments.enumerated() {
-            let prefix = formatPrefix(index: index, style: numberingStyle)
-
-            // Reference line: split so only style indicators highlight
-            switch comment.type {
-            case .comment(let text):
-                let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    .replacingOccurrences(of: "\n", with: " ")
-                var segments: [PreviewSegment] = []
-                if !prefix.isEmpty {
-                    segments.append(PreviewSegment(text: prefix, highlights: [.numbering]))
-                }
-                switch referenceStyle {
-                case .blockquote:
-                    segments.append(PreviewSegment(text: "> ", highlights: [.reference]))
-                    segments.append(PreviewSegment(text: cleaned, highlights: []))
-                case .rePrefix:
-                    segments.append(PreviewSegment(text: "Re: ", highlights: [.reference]))
-                    segments.append(PreviewSegment(text: cleaned, highlights: []))
-                case .quoted:
-                    segments.append(PreviewSegment(text: "\"", highlights: [.reference]))
-                    segments.append(PreviewSegment(text: cleaned, highlights: []))
-                    segments.append(PreviewSegment(text: "\"", highlights: [.reference]))
-                }
-                lines.append(PreviewLine(id: lines.count, segments: segments))
-            case .screenshot(let imagePath):
-                var segments: [PreviewSegment] = []
-                if !prefix.isEmpty {
-                    segments.append(PreviewSegment(text: prefix, highlights: [.numbering]))
-                }
-                segments.append(PreviewSegment(text: markdownImage(imagePath, label: "screenshot"), highlights: [.reference]))
-                lines.append(PreviewLine(id: lines.count, segments: segments))
-            case .quickNote:
-                break
-            case .critMode:
-                break
-            case .webElement:
-                break
-            }
-
-            // Hanging indent: pad continuation lines to align with content after prefix
-            let indent = prefix.isEmpty ? "" : String(repeating: " ", count: prefix.count)
-
-            // Comment text with optional prefix
-            let commentPrefixText = formatCommentPrefix(style: commentPrefixStyle)
-            var commentSegments: [PreviewSegment] = []
-            if !indent.isEmpty {
-                commentSegments.append(PreviewSegment(text: indent, highlights: []))
-            }
-            if !commentPrefixText.isEmpty {
-                commentSegments.append(PreviewSegment(text: commentPrefixText, highlights: [.commentPrefix]))
-            }
-            commentSegments.append(PreviewSegment(text: comment.commentText, highlights: []))
-            lines.append(PreviewLine(id: lines.count, segments: commentSegments))
-
-            // Type line (separate from metadata)
-            if includeType {
-                var typeSegments: [PreviewSegment] = []
-                if !indent.isEmpty {
-                    typeSegments.append(PreviewSegment(text: indent, highlights: []))
-                }
-                typeSegments.append(PreviewSegment(text: "Type: \(comment.type.exportDisplayName)", highlights: [.type]))
-                lines.append(PreviewLine(id: lines.count, segments: typeSegments))
-            }
-
-            // Metadata line: each part is its own segment with separators
-            var metaSegments: [PreviewSegment] = []
-            if !indent.isEmpty {
-                metaSegments.append(PreviewSegment(text: indent, highlights: []))
-            }
-            var metaFieldCount = 0
-            if includeRemarkID {
-                metaSegments.append(PreviewSegment(text: comment.shortID, highlights: [.remarkID]))
-                metaFieldCount += 1
-            }
-            if includeSource {
-                if metaFieldCount > 0 {
-                    metaSegments.append(PreviewSegment(text: metadataDivider.separator, highlights: [.metadataDivider]))
-                }
-                let paddedSource = comment.source.padding(toLength: maxSourceLen, withPad: " ", startingAt: 0)
-                metaSegments.append(PreviewSegment(text: paddedSource, highlights: [.source]))
-                metaFieldCount += 1
-            }
-            if includeDate {
-                if metaFieldCount > 0 {
-                    metaSegments.append(PreviewSegment(text: metadataDivider.separator, highlights: [.metadataDivider]))
-                }
-                metaSegments.append(PreviewSegment(text: formatDate(comment.createdAt, format: dateFormat, includeTime: includeTime, use24Hour: use24Hour), highlights: [.date, .dateFormat]))
-                metaFieldCount += 1
-            }
-            if includeStatus {
-                if metaFieldCount > 0 {
-                    metaSegments.append(PreviewSegment(text: metadataDivider.separator, highlights: [.metadataDivider]))
-                }
-                metaSegments.append(PreviewSegment(text: comment.status.exportLabel, highlights: [.status]))
-                metaFieldCount += 1
-            }
-            if metaFieldCount > 0 {
-                lines.append(PreviewLine(id: lines.count, segments: metaSegments))
-            }
-
-            // Divider (not after last comment)
-            if index < comments.count - 1 {
-                switch dividerStyle {
-                case .horizontalRule:
-                    lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "---", highlights: [.divider])]))
-                case .doubleLine:
-                    lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "===", highlights: [.divider])]))
-                case .dotted:
-                    lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "\u{00B7}\u{00B7}\u{00B7}", highlights: [.divider])]))
-                case .blankLine:
-                    lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "", highlights: [.divider])]))
-                }
-            }
-        }
-
-        if includeAIHint {
+        var lines = formattedLines(
+            sampleComments,
+            referenceStyle: referenceStyle,
+            numberingStyle: numberingStyle,
+            commentPrefixStyle: commentPrefixStyle,
+            dividerStyle: dividerStyle,
+            dateFormat: dateFormat,
+            includeRemarkID: includeRemarkID,
+            includeSource: includeSource,
+            includeDate: includeDate,
+            includeStatus: includeStatus,
+            includeType: includeType,
+            includeTime: includeTime,
+            use24Hour: use24Hour,
+            metadataDivider: metadataDivider,
+            layout: layout
+        )
+        if includeAIHint && MCPManager.shared.isEnabled {
             lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "", highlights: [])]))
             lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "<!-- These remarks are from the 'Session' session in Remarc. Use MCP tool remarc_list_comments with session_id to read and resolve them. -->", highlights: [.aiHint])]))
         }
-
         return lines
     }
 
@@ -663,7 +647,8 @@ public final class ExportManager {
         includeType: Bool,
         includeTime: Bool = false,
         use24Hour: Bool = false,
-        metadataDivider: SettingsManager.MetadataDividerStyle = .pipe
+        metadataDivider: SettingsManager.MetadataDividerStyle = .pipe,
+        layout: ClipboardLayout? = nil
     ) -> String {
         previewLines(
             referenceStyle: referenceStyle,
@@ -678,7 +663,8 @@ public final class ExportManager {
             includeType: includeType,
             includeTime: includeTime,
             use24Hour: use24Hour,
-            metadataDivider: metadataDivider
+            metadataDivider: metadataDivider,
+            layout: layout
         ).map { $0.segments.map(\.text).joined() }.joined(separator: "\n")
     }
 
@@ -688,16 +674,21 @@ public final class ExportManager {
         comments.filter { !$0.isDeleted && $0.sessionID == session.id }
     }
 
-    /// Only the clipboard envelope changes; the exported Markdown is kept verbatim.
-    static func clipboardMarkdown(_ content: String) -> String {
-        content.isEmpty ? content : "需求\n\(content)"
-    }
-
     @discardableResult
     public func copySessionToClipboard(
         _ session: Session,
         comments: [Comment],
         format: SettingsManager.OutputFormat
+    ) -> ExportReceipt? {
+        copySessionToClipboard(session, comments: comments, format: format, to: NSPasteboard.general)
+    }
+
+    @discardableResult
+    func copySessionToClipboard(
+        _ session: Session,
+        comments: [Comment],
+        format: SettingsManager.OutputFormat,
+        to pasteboard: any TextClipboardDestination
     ) -> ExportReceipt? {
         let snapshot = exportSnapshot(for: session, comments: comments)
         let content: String
@@ -705,13 +696,13 @@ public final class ExportManager {
 
         switch format {
         case .markdown:
-            content = Self.clipboardMarkdown(markdownForSession(session, comments: snapshot, includeMetadata: includeMetadata))
+            content = markdownForSession(session, comments: snapshot, includeMetadata: includeMetadata)
         case .json:
             content = jsonForSession(session, comments: snapshot, includeMetadata: includeMetadata)
         }
 
-        NSPasteboard.general.clearContents()
-        guard NSPasteboard.general.setString(content, forType: .string) else {
+        pasteboard.clearContents()
+        guard pasteboard.setString(content, forType: .string) else {
             debugLog("ExportManager: Clipboard write failed")
             return nil
         }
@@ -721,9 +712,14 @@ public final class ExportManager {
 
     @discardableResult
     public func copyCommentToClipboard(_ comment: Comment) -> ExportReceipt? {
-        let content = Self.clipboardMarkdown(markdownForComment(comment))
-        NSPasteboard.general.clearContents()
-        guard NSPasteboard.general.setString(content, forType: .string) else {
+        copyCommentToClipboard(comment, to: NSPasteboard.general)
+    }
+
+    @discardableResult
+    func copyCommentToClipboard(_ comment: Comment, to pasteboard: any TextClipboardDestination) -> ExportReceipt? {
+        let content = markdownForComment(comment)
+        pasteboard.clearContents()
+        guard pasteboard.setString(content, forType: .string) else {
             debugLog("ExportManager: Clipboard write failed for single comment")
             return nil
         }

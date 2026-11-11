@@ -1,16 +1,31 @@
 import Foundation
+import AppKit
 import Testing
 @testable import RemarcFeature
 
 @Suite("Requirement clipboard and development handoff")
 @MainActor
 struct RequirementCopyTests {
-    @Test("Only the fixed requirement line is added; image syntax, special prefixes and ordering remain exact")
-    func prefixOnly() {
-        for original in ["![screenshot](</a%20b/image.png>)\nComment: text", "/plan\n!literal command", "1. first\n---\n2. second"] {
-            #expect(ExportManager.clipboardMarkdown(original) == "需求\n" + original)
-        }
-        #expect(ExportManager.clipboardMarkdown("").isEmpty)
+    @Test("Single and session clipboard copies write the configured Markdown without a fixed requirement header")
+    func configuredCopy() {
+        let session = Session(name: "Copy")
+        let item = RemarcFeature.Comment(
+            type: .screenshot(imagePath: "images/screenshot.png"), commentText: "/plan\n!literal command",
+            source: "test", appBundleID: nil, sessionID: session.id,
+            attachments: ["images/attachment.png"]
+        )
+        let clipboard = TestTextClipboard()
+        #expect(ExportManager.shared.copyCommentToClipboard(item, to: clipboard) != nil)
+        #expect(clipboard.content == ExportManager.shared.markdownForComment(item))
+        #expect(clipboard.content?.hasPrefix("需求\n") == false)
+        #expect(clipboard.content?.contains("/plan\n!literal command") == true)
+
+        #expect(ExportManager.shared.copySessionToClipboard(session, comments: [item], format: .markdown, to: clipboard) != nil)
+        #expect(clipboard.content == ExportManager.shared.markdownForSession(session, comments: [item], includeMetadata: true))
+        #expect(clipboard.content?.hasPrefix("需求\n") == false)
+
+        #expect(ExportManager.shared.copySessionToClipboard(session, comments: [item], format: .json, to: clipboard) != nil)
+        #expect(clipboard.content == ExportManager.shared.jsonForSession(session, comments: [item], includeMetadata: SettingsManager.shared.includeMetadataInExport))
     }
 
     @Test("Development status changes only after a successful copy, with the intended status in the snapshot")
@@ -114,5 +129,16 @@ struct RequirementCopyTests {
             return ExportReceipt(sessionID: session.id, comments: snapshot)
         }, startDevelopment: { _ in Issue.record("Completed comments must stay completed") })
         #expect(receipt?.count == 1)
+    }
+}
+
+@MainActor
+private final class TestTextClipboard: TextClipboardDestination {
+    var content: String?
+
+    func clearContents() -> Int { content = nil; return 1 }
+    func setString(_ string: String, forType: NSPasteboard.PasteboardType) -> Bool {
+        content = string
+        return true
     }
 }
