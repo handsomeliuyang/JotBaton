@@ -16,11 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('app', type=Path)
 parser.add_argument('--channel', required=True, choices=['production', 'development'])
-parser.add_argument('--keep-one-backup', action='store_true', help='Keep only the previous production app/data backup for personal updates')
+parser.add_argument('--keep-one-backup', action='store_true', help='Keep only the previous production app/data backup for release installations')
 parser.add_argument('--reset-permissions', action='store_true', help='Reset only this channel’s Accessibility and ScreenCapture grants for a certificate migration')
 args = parser.parse_args()
 if args.keep_one_backup and args.channel != 'production':
-    parser.error('--keep-one-backup is for production personal updates only')
+    parser.error('--keep-one-backup is for production release installations only')
 app = args.app.resolve()
 info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
 identity = json.loads((ROOT / 'signing/identities.json').read_text())[args.channel]

@@ -45,8 +45,17 @@ jobs:
         with:
           fetch-depth: 0
           ref: main
-      - name: Test release validation
-        run: python3 -B scripts/test-fork-release.py
+      - name: Test release and local build policies
+        run: |
+          python3 -B scripts/test-fork-release.py
+          python3 -B scripts/test-build-policy.py
+      - name: Test browser extension
+        run: |
+          node --test tests/extension/*.test.mjs
+          for file in extension/*.js extension/*.mjs; do
+            node --check "$file"
+          done
+          python3 -m json.tool extension/manifest.json >/dev/null
       - name: Validate and commit the release version
         id: version
         run: |
@@ -149,7 +158,7 @@ jobs:
           notes += '| `Remarc-Apple-Silicon-arm64.dmg` | Apple Silicon，macOS 14+ |\n\n'
           notes += '两个安装包均为 Release 配置，使用同一源码提交。附带 SHA256SUMS 和安装说明。\n\n'
           notes += '两个安装包使用同一固定私有发布证书签名，未经过 Apple 公证；首次打开可能需要允许运行并重新授权。'
-          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。正式版通过 iCloud Drive/Remarc/Updates 提示更新，测试版保持独立。\n\n'
+          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。正式版从本仓库 GitHub Releases 检查新版本，并打开对应架构的安装包链接供手动安装；测试版保持独立。\n\n'
           notes += f'[安装与发布说明](https://github.com/{repo}/blob/v{version}/RELEASING.md)\n'
           Path('build/release-notes.md').write_text(notes)
           PY

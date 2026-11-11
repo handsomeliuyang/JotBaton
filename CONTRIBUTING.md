@@ -6,7 +6,7 @@ Thanks for your interest in improving Remarc.
 
 - Xcode 26.2 / Swift 6.2 on a supported development Mac (or the documented CLT preview SDK).
 - Runtime: macOS 14+ on Apple Silicon; the opt-in Intel build supports macOS 13+.
-- Ventura with Xcode 14 cannot compile the package. Receive the Intel build through iCloud from an eligible Apple Silicon build host; there is no automatic GitHub fallback.
+- Ventura with Xcode 14 cannot compile the package. Download the Intel package from GitHub Releases; there is no automatic GitHub fallback.
 
 ## Build and run
 
@@ -19,9 +19,10 @@ bash scripts/dev-preview.sh
 This builds the current Mac's development package locally when its toolchain is
 supported, signs it with the shared test identity, and installs/relaunches
 `Remarc Dev.app`. Unsupported hosts receive an error instead of dispatching cloud
-compilation. Production personal updates use `scripts/publish-icloud-update.py` on
-an eligible Apple Silicon Mac with the existing production key in a dedicated
-local keychain; see [RELEASING.md](RELEASING.md). GitHub builds are manual opt-in.
+compilation. Local builds are Dev only and skip full tests by default; add
+`--with-tests` explicitly when needed. Production uses the manually dispatched
+GitHub Release workflow with full tests and both native packages; see
+[RELEASING.md](RELEASING.md).
 
 Development has a DEV app icon and distinct menu icon, Bundle ID
 `com.metepolat.Remarc.dev`, local data in `Application Support/Remarc Dev`, and

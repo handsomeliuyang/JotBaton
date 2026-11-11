@@ -76,7 +76,9 @@ jobs:
         fi
 
     - name: Test fork release validation
-      run: python3 -B scripts/test-fork-release.py
+      run: |
+        python3 -B scripts/test-fork-release.py
+        python3 -B scripts/test-build-policy.py
 
     - name: Scan current snapshot for secrets
       run: |

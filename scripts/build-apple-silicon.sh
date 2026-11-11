@@ -3,11 +3,15 @@ set -euo pipefail
 export REMARC_SIGNING_IN_BUILDER=1
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export REMARC_VENTURA=0
-CONFIGURATION="${REMARC_BUILD_CONFIGURATION:-Release}"
+CONFIGURATION="${REMARC_BUILD_CONFIGURATION:-Debug}"
 case "$CONFIGURATION" in Debug|Release) ;; *) echo "Unsupported configuration" >&2; exit 1 ;; esac
 CHANNEL=production
 APP_NAME=Remarc
 if [[ "$CONFIGURATION" = Debug ]]; then CHANNEL=development; APP_NAME="Remarc Dev"; fi
+if [[ "$CONFIGURATION" = Release && "${GITHUB_ACTIONS:-}" != true ]]; then
+  echo "Production builds run only in GitHub Actions. Use scripts/dev-preview.sh locally." >&2
+  exit 2
+fi
 cd "$REPO_ROOT/app"
 bash "$REPO_ROOT/scripts/resolve-packages.sh" "$REPO_ROOT/app/RemarcPackage"
 xcodebuild clean build \

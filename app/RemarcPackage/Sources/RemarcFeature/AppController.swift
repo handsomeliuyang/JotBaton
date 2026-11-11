@@ -678,7 +678,7 @@ public final class AppController: NSObject, ObservableObject {
         if UpdateManager.shared.canCheckForUpdates {
             let updateItem = NSMenuItem(title: L10n.tr("Check for Updates\u{2026}"), action: #selector(checkForUpdates), keyEquivalent: "")
             updateItem.target = self
-            updateItem.isEnabled = !UpdateManager.shared.isInstalling
+            updateItem.isEnabled = !UpdateManager.shared.isChecking
             menu.addItem(updateItem)
             menu.addItem(NSMenuItem.separator())
         }

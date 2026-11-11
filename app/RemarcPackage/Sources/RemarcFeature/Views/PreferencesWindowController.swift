@@ -2775,14 +2775,7 @@ struct PreferencesView: View {
             Button(L10n.tr("Check for Updates\u{2026}")) {
                 UpdateManager.shared.checkForUpdates()
             }
-            .disabled(!updateManager.canCheckForUpdates || updateManager.isInstalling)
-
-            if updateManager.canCheckForUpdates {
-                Button(L10n.tr("Allow iCloud Access")) {
-                    Task { await UpdateManager.shared.authorizeICloudAccess() }
-                }
-                .disabled(updateManager.isInstalling)
-            }
+            .disabled(!updateManager.canCheckForUpdates || updateManager.isChecking)
 
             if !updateManager.status.isEmpty {
                 Text(updateManager.status)
@@ -2791,17 +2784,15 @@ struct PreferencesView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
             }
-            if updateManager.waitingForDownload {
-                Button(L10n.tr("Cancel Update")) { UpdateManager.shared.cancelDownload() }
-            } else if updateManager.availableVersion != nil {
-                Button(L10n.tr("Install Update")) { UpdateManager.shared.installUpdate() }
-                    .disabled(updateManager.isInstalling)
+            if updateManager.availableVersion != nil {
+                Button(L10n.tr("Download from GitHub")) { UpdateManager.shared.openDownload() }
+                    .disabled(updateManager.isChecking)
             }
 
             HStack(spacing: 16) {
                 Link(L10n.tr("Website"), destination: URL(string: "https://remarc.app")!)
                 Link(L10n.tr("Documentation"), destination: URL(string: "https://docs.remarc.app")!)
-                Link(L10n.tr("GitHub"), destination: URL(string: "https://github.com/metedata/Remarc")!)
+                Link(L10n.tr("GitHub"), destination: URL(string: "https://github.com/handsomeliuyang/Remarc")!)
             }
             .font(.system(size: 12))
 

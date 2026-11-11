@@ -16,6 +16,8 @@ def verify_app(app, verifier):
     run('python3', verifier, str(app))
     run('python3', 'scripts/sign-app.py', str(app), '--channel', 'production', '--verify-only')
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+    if info.get('RemarcCloudUpdates') or (app / 'Contents/Helpers/RemarcUpdateInstaller').exists():
+        raise ValueError('Retired iCloud software updater remains in the release package')
     for key, expected in {
         'CFBundleIdentifier': 'com.metepolat.Remarc',
         'RemarcChannel': 'production',
@@ -23,7 +25,7 @@ def verify_app(app, verifier):
         'CFBundleVersion': os.environ['BUILD_NUMBER'],
         'RemarcSourceCommit': os.environ['SOURCE_SHA'],
         'RemarcManualUpdates': True,
-        'RemarcCloudUpdates': True,
+        'RemarcGitHubUpdates': True,
     }.items():
         if info.get(key) != expected:
             raise ValueError(f'{app}: {key} is {info.get(key)!r}; expected {expected!r}')
@@ -63,7 +65,7 @@ Remarc Dev 使用独立测试证书、com.metepolat.Remarc.dev 和 DEV 图标，
 本地数据：正式版 Application Support/Remarc；测试版 Application Support/Remarc Dev。
 iCloud：正式版 iCloud Drive/Remarc；测试版 iCloud Drive/Remarc Dev。两版不会自动迁移或共用同步数据。
 两台 Mac 需要分别授权；签名一致不会跨电脑同步 macOS 权限。
-语音功能需要 macOS 26。正式版可从 iCloud Drive/Remarc/Updates 接收更新，测试版保持独立；均未经过 Apple 公证。
+语音功能需要 macOS 26。正式版从 GitHub Releases 检查新版本并打开对应架构的安装包链接，手动安装；测试版保持独立；均未经过 Apple 公证。
 首次打开被拦截时，前往“系统设置 → 隐私与安全性 → 仍要打开”。
 https://support.apple.com/en-us/102445
 在下载目录运行 shasum -a 256 -c SHA256SUMS 校验文件完整性。

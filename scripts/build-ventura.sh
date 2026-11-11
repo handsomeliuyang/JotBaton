@@ -9,6 +9,10 @@ case "$CONFIGURATION" in
   Debug|Release) ;;
   *) echo "Unsupported build configuration: $CONFIGURATION" >&2; exit 1 ;;
 esac
+if [[ "$CONFIGURATION" = Release && "${GITHUB_ACTIONS:-}" != true ]]; then
+  echo "Production builds run only in GitHub Actions. Use scripts/dev-preview.sh locally." >&2
+  exit 2
+fi
 cd "$REPO_ROOT/app"
 
 # Resolve the reduced dependency graph, retaining the upstream pinned revisions.
