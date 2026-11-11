@@ -32,6 +32,7 @@ struct SnapshotSyncView: View {
 
 struct SnapshotSyncControls: View {
     var compact = false
+    var onReviewChanged: (Bool) -> Void = { _ in }
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var sync = SnapshotSyncManager.shared
     @Environment(\.colorScheme) private var colorScheme
@@ -44,6 +45,11 @@ struct SnapshotSyncControls: View {
     private var rollbackHelp: String {
         guard let undo = sync.rollback else { return L10n.tr("No application to undo") }
         return L10n.tr("Restore data saved before applying at \(undo.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))")
+    }
+
+    private func setReviewing(_ active: Bool) {
+        sync.holdAutomaticChecks(active, token: reviewToken)
+        onReviewChanged(active)
     }
 
     var body: some View {
@@ -73,19 +79,23 @@ struct SnapshotSyncControls: View {
             }
             HStack(spacing: 6) {
                 if sync.isEnabled {
-                    Button { confirmPublish = true } label: {
+                    Button { setReviewing(true); confirmPublish = true } label: {
                         Label(L10n.tr("Publish"), systemImage: "arrow.up")
                     }
                     .disabled(!sync.canPublish).accessibilityIdentifier("sync.publish")
-                    Button { versionToApply = sync.cloudData } label: {
+                    Button {
+                        guard let version = sync.cloudData else { return }
+                        setReviewing(true)
+                        versionToApply = version
+                    } label: {
                         Label(L10n.tr("Apply"), systemImage: "arrow.down")
                     }
                     .disabled(!sync.canApply).accessibilityIdentifier("sync.apply")
                 } else {
-                    Button(L10n.tr("Enable iCloud Data")) { confirmEnable = true }
+                    Button(L10n.tr("Enable iCloud Data")) { setReviewing(true); confirmEnable = true }
                         .disabled(sync.isBusy)
                 }
-                Button { confirmUndo = true } label: {
+                Button { setReviewing(true); confirmUndo = true } label: {
                     Label(L10n.tr("Roll Back"), systemImage: "arrow.uturn.backward")
                 }
                 .disabled(sync.rollback == nil || sync.isBusy)
@@ -146,10 +156,10 @@ struct SnapshotSyncControls: View {
             Text(L10n.tr("Publishing and applying are manual. One current cloud copy is kept in \(AppIdentity.current.cloudDisplayPath)."))
         }
         .onRemarcChange(of: confirmPublish || versionToApply != nil || confirmUndo || confirmEnable) { active in
-            sync.holdAutomaticChecks(active, token: reviewToken)
+            setReviewing(active)
         }
         .task { await sync.observeCloud() }
-        .onDisappear { sync.holdAutomaticChecks(false, token: reviewToken) }
+        .onDisappear { setReviewing(false) }
     }
 }
 

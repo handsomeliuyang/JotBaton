@@ -46,4 +46,14 @@ struct SnapshotSyncPopoverTests {
         #expect(controller.popover.contentSize == CGSize(width: 248, height: 132))
         #expect(!controller.popover.animates)
     }
+
+    @Test("Confirmation dialogs keep the popover alive until review ends")
+    func protectsConfirmation() {
+        let controller = SnapshotSyncPopoverController()
+        #expect(controller.popoverShouldClose(controller.popover))
+        controller.isReviewing = true
+        #expect(!controller.popoverShouldClose(controller.popover))
+        controller.isReviewing = false
+        #expect(controller.popoverShouldClose(controller.popover))
+    }
 }
