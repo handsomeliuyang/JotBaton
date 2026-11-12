@@ -43,16 +43,22 @@ Mac. Voice features additionally require their microphone permissions and macOS
 | Path | Contents |
 |------|----------|
 | `app/Remarc/` | App target: entry point, Info.plist, entitlements |
-| `app/RemarcPackage/Sources/RemarcFeature/` | Nearly all app code (services, views, models) |
+| `app/RemarcPackage/Sources/App/` | Lifecycle, routing, menu bar and dependency wiring |
+| `app/RemarcPackage/Sources/Features/` | Code grouped by business feature |
+| `app/RemarcPackage/Sources/Core/` | Platform, localization, theme and reusable UI |
+| `app/RemarcPackage/Tests/RemarcFeatureTests/` | Swift tests grouped by capability |
 | `app/Config/Shared.xcconfig` | Version numbers and deployment target |
 | `mcp/vendor/` | Vendored MCP server artifact (built in [remarc-agent-plugins](https://github.com/metedata/remarc-agent-plugins); do not edit by hand - the build verifies its sha256) |
 | `extension/` | Chrome extension |
 | `tests/` | Test suite |
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for target ownership, dependency rules and
+the relationship between feature implementations and application UI workflows.
+
 ## Code style
 
 - Swift 6 with strict concurrency; keep new code `@MainActor`-correct rather than sprinkling `@unchecked Sendable`.
-- Colors come from the token system in `app/RemarcPackage/Sources/RemarcFeature/Views/Colors.swift` (`remarcPrimary`, `remarcAccent`, ...). Never hardcode hex values in views; every token adapts to light and dark mode.
+- Colors come from the token system in `app/RemarcPackage/Sources/Core/Theme/Colors.swift` (`remarcPrimary`, `remarcAccent`, ...). Never hardcode hex values in views; every token adapts to light and dark mode.
 - Tooltips use SwiftUI's `.help()` modifier, matching the rest of the app.
 - No em dashes in user-facing strings (UI copy, release notes); use hyphens.
 

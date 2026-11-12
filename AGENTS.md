@@ -98,7 +98,7 @@ The example targets development. For a confirmed production issue, use `com.mete
 
 ### Color System
 
-All brand colors and gradients are defined in `Views/Colors.swift` as `Color` extensions. When making color-related changes:
+All brand colors and gradients are defined in `app/RemarcPackage/Sources/Core/Theme/Colors.swift` as `Color` extensions. When making color-related changes:
 
 - **Use `remarc*` tokens** (`remarcPrimary`, `remarcSecondary`, `remarcAccent`, etc.) — never hardcode brand hex values in views
 - **All tokens take `colorScheme`** — they adapt for light/dark mode automatically
@@ -112,9 +112,12 @@ When brainstorming features or writing implementation plans, **always do online 
 
 ### Architecture
 
-- `app/RemarcPackage/` — Swift Package with all app source
-- `app/RemarcPackage/Sources/RemarcFeature/` — Main feature module
-  - `Views/` — SwiftUI views and AppKit window controllers
-  - `Services/` — PersistenceManager, SelectionMonitor, ExportManager, etc.
+- `app/RemarcPackage/` — One Swift Package with explicit `Core*`, `Feature*` and application-composition targets
+- `app/RemarcPackage/Sources/App/` — Lifecycle, routing, menu bar and dependency wiring
+- `app/RemarcPackage/Sources/Features/<feature>/` — Feature-owned models, rules, repositories and native capabilities; `UI/` holds application workflows compiled by `RemarcFeature`
+- `app/RemarcPackage/Sources/Core/` — Platform, localization, theme and reusable UI; never imports features
+- `app/RemarcPackage/Tests/RemarcFeatureTests/` — Tests grouped by feature, core capability and architecture
+- `tests/architecture/` — Dependency-direction and exact source-ownership checks for both profiles
+- Read `ARCHITECTURE.md` before adding a target or moving sources. Keep manifest exclusions, tests, resources, generators and source-contract paths synchronized.
 - `scripts/` — Automation scripts
 - `tools/ax-inspect/` — Accessibility inspection CLI (standalone SPM package)

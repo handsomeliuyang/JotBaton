@@ -4,7 +4,7 @@ Target aesthetic: **Raycast** — clean, floating panels with subtle depth and m
 
 ## Color System
 
-All brand colors are defined in `Views/Colors.swift` as `Color` extensions. Use `remarc*` tokens — never hardcode hex values in views. All tokens take `colorScheme` and adapt for light/dark mode automatically.
+All brand colors are defined in `app/RemarcPackage/Sources/Core/Theme/Colors.swift` as `Color` extensions. Use `remarc*` tokens — never hardcode hex values in views. All tokens take `colorScheme` and adapt for light/dark mode automatically.
 
 ### Brand Colors
 

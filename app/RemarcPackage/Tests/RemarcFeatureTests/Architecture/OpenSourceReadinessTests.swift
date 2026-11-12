@@ -1,0 +1,190 @@
+@testable import RemarcFeature
+import Foundation
+import XCTest
+
+final class OpenSourceReadinessTests: XCTestCase {
+    private let fileManager = FileManager.default
+
+    private var repositoryRoot: URL {
+        let url = RepositoryPaths.repository()
+        return url
+    }
+
+    func testPublicRepositoryContract() throws {
+        let requiredPaths = [
+            "LICENSE",
+            "README.md",
+            "CONTRIBUTING.md",
+            "SECURITY.md",
+            "CHANGELOG.md",
+            "THIRD-PARTY-NOTICES.md",
+            ".gitleaks.toml",
+            ".github/workflows/ci.yml",
+            ".github/workflows/release.yml",
+        ]
+        for path in requiredPaths {
+            XCTAssertTrue(
+                fileManager.fileExists(atPath: repositoryRoot.appendingPathComponent(path).path),
+                "Public repository is missing required path: \(path)"
+            )
+        }
+
+        let forbiddenPaths = [
+            ".mcp.json",
+            "appcast.xml",
+            "docs/internal",
+            "landing-pages",
+            "scripts/build-clean-mirror.sh",
+            "supabase",
+            "app/RemarcPackage/Sources/RemarcFeature/Services/SentryService.swift",
+            "app/RemarcPackage/Sources/RemarcFeature/Services/FeedbackService.swift",
+            "app/RemarcPackage/Sources/RemarcFeature/Views/FeedbackInputController.swift",
+        ]
+        for path in forbiddenPaths {
+            XCTAssertFalse(
+                fileManager.fileExists(atPath: repositoryRoot.appendingPathComponent(path).path),
+                "Private or retired path must not be published: \(path)"
+            )
+        }
+    }
+
+    func testShippingSourcesContainNoRetiredTelemetryOrFeedbackBackend() throws {
+        let roots = [
+            "app/RemarcPackage/Package.swift",
+            "app/RemarcPackage/Package.resolved",
+            "app/RemarcPackage/Sources",
+            "app/Remarc",
+            "app/Config",
+        ]
+        let forbiddenMarkers = [
+            "sentry-cocoa",
+            "SentrySDK",
+            "SentryService",
+            "import Sentry",
+            "FeedbackService",
+            "FeedbackInputController",
+            "import Supabase",
+            "SUPABASE_",
+            "supabase.co",
+        ]
+
+        for relativeRoot in roots {
+            let root = repositoryRoot.appendingPathComponent(relativeRoot)
+            for file in try sourceFiles(beneath: root) {
+                let content = try String(contentsOf: file, encoding: .utf8)
+                for marker in forbiddenMarkers {
+                    XCTAssertFalse(
+                        content.contains(marker),
+                        "Retired marker '\(marker)' remains in \(relativePath(for: file))"
+                    )
+                }
+            }
+        }
+    }
+
+    func testReleaseWorkflowCannotUseRetiredDistributionOrClobberAssets() throws {
+        let workflowURL = repositoryRoot.appendingPathComponent(".github/workflows/release.yml")
+        let workflow = try String(contentsOf: workflowURL, encoding: .utf8)
+
+        let forbiddenMarkers = [
+            "R2_ACCESS_KEY_ID",
+            "R2_SECRET_ACCESS_KEY",
+            "R2_ACCOUNT_ID",
+            "wrangler r2",
+            "cd mcp",
+            "npm ci",
+            "--clobber",
+            "Sparkle-2.6.4",
+            "release notes must contain at least one '- ' bullet",
+            "GIST_PAT",
+            "SPARKLE_PRIVATE_KEY",
+            "NOTARIZE_KEY",
+        ]
+        for marker in forbiddenMarkers {
+            XCTAssertFalse(workflow.contains(marker), "Release workflow contains retired marker: \(marker)")
+        }
+
+        let requiredMarkers = [
+            "refs/heads/main",
+            "handsomeliuyang/Remarc",
+            "cancel-in-progress: false",
+            "scripts/prepare-fork-release.py",
+            "scripts/verify-fork-release.py",
+            "uses: ./.github/workflows/ventura.yml",
+            "uses: ./.github/workflows/apple-silicon.yml",
+            "configuration: Release",
+            "needs: [prepare, ventura, apple-silicon]",
+            "source_ref: ${{ needs.prepare.outputs.source_sha }}",
+            "already exists; inspect it instead of overwriting it",
+            "--verify-tag",
+            "shasum -a 256 -c SHA256SUMS",
+            "--draft",
+            "--draft=false",
+        ]
+        for marker in requiredMarkers {
+            XCTAssertTrue(workflow.contains(marker), "Release workflow is missing safeguard: \(marker)")
+        }
+
+        let repositoryGuard = try XCTUnwrap(workflow.range(of: "Require this fork and main"))
+        let checkoutStep = try XCTUnwrap(workflow.range(of: "uses: actions/checkout@"))
+        XCTAssertLessThan(
+            repositoryGuard.lowerBound,
+            checkoutStep.lowerBound,
+            "Fork and branch must be checked before source checkout and all publishing work"
+        )
+
+        let draftVerification = try XCTUnwrap(workflow.range(of: "cd build/draft-verified && shasum"))
+        let publication = try XCTUnwrap(workflow.range(of: "--draft=false --latest"))
+        let publishedVerification = try XCTUnwrap(workflow.range(of: "cd build/published-verified && shasum"))
+        XCTAssertLessThan(draftVerification.lowerBound, publication.lowerBound)
+        XCTAssertLessThan(publication.lowerBound, publishedVerification.lowerBound)
+
+        for script in ["scripts/build-ventura.sh", "scripts/build-apple-silicon.sh"] {
+            let builder = try String(contentsOf: repositoryRoot.appendingPathComponent(script), encoding: .utf8)
+            for marker in ["-onlyUsePackageVersionsFromResolvedFile", "scripts/prepare-app.py", "scripts/sign-app.py", "scripts/relaunch-app.py"] {
+                XCTAssertTrue(builder.contains(marker), "\(script) is missing safeguard: \(marker)")
+            }
+        }
+        let verifier = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("scripts/verify-fork-release.py"), encoding: .utf8
+        )
+        for marker in ["Remarc-Ventura-x86_64.zip", "Remarc-Apple-Silicon-arm64.dmg",
+                       "RemarcSourceCommit", "CFBundleShortVersionString", "CFBundleVersion", "RemarcManualUpdates"] {
+            XCTAssertTrue(verifier.contains(marker), "Package verification is missing: \(marker)")
+        }
+    }
+
+    private func sourceFiles(beneath root: URL) throws -> [URL] {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: root.path, isDirectory: &isDirectory) else {
+            XCTFail("Readiness scan root is missing: \(relativePath(for: root))")
+            return []
+        }
+        if !isDirectory.boolValue {
+            return [root]
+        }
+
+        let keys: [URLResourceKey] = [.isRegularFileKey]
+        guard let enumerator = fileManager.enumerator(
+            at: root,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        ) else {
+            XCTFail("Could not enumerate readiness scan root: \(relativePath(for: root))")
+            return []
+        }
+
+        return try enumerator.compactMap { element in
+            guard let url = element as? URL else { return nil }
+            let values = try url.resourceValues(forKeys: Set(keys))
+            let textExtensions = ["swift", "json", "plist", "xcconfig", "entitlements"]
+            return values.isRegularFile == true && textExtensions.contains(url.pathExtension)
+                ? url
+                : nil
+        }
+    }
+
+    private func relativePath(for url: URL) -> String {
+        url.path.replacingOccurrences(of: repositoryRoot.path + "/", with: "")
+    }
+}

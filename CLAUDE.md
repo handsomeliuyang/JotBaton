@@ -102,7 +102,13 @@ User must grant mic access when prompted. Do this whenever audio capture stops w
 
 ## Color System
 
-Colors/gradients defined in `Views/Colors.swift`. Use `remarc*` tokens (`remarcPrimary`, `remarcSecondary`, `remarcAccent`, etc.) — never hardcode hex values. All tokens take `colorScheme` for light/dark adaptation.
+The source map and dependency rules are in [ARCHITECTURE.md](ARCHITECTURE.md).
+App composition lives in `Sources/App`, business capabilities in
+`Sources/Features`, and reusable mechanisms in `Sources/Core` under
+`app/RemarcPackage`. Keep SwiftPM source ownership and architecture tests in sync
+when adding or moving files.
+
+Colors/gradients defined in `app/RemarcPackage/Sources/Core/Theme/Colors.swift`. Use `remarc*` tokens (`remarcPrimary`, `remarcSecondary`, `remarcAccent`, etc.) — never hardcode hex values. All tokens take `colorScheme` for light/dark adaptation.
 
 ## Copy Style
 

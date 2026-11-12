@@ -93,6 +93,7 @@ jobs:
           ref: ${{ inputs.source_ref || github.sha }}
       - name: Run full Swift suite
         run: |
+          python3 -B -m unittest discover -s tests/architecture -v
           cd app/RemarcPackage
           bash ../../scripts/resolve-packages.sh "$(pwd)"
           env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache"

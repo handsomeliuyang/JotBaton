@@ -40,7 +40,7 @@ let package = Package(name: "SnapshotChecks", platforms: [.macOS(.v14)],
 ''' % ', '.join(dependencies))
 test = checks / 'Tests/SnapshotSyncTests.swift'
 if not test.exists():
-    test.symlink_to(root / 'app/RemarcPackage/Tests/RemarcFeatureTests/SnapshotSyncTests.swift')
+    test.symlink_to(root / 'app/RemarcPackage/Tests/RemarcFeatureTests/Features/SnapshotSync/SnapshotSyncTests.swift')
 if not (checks / 'Package.resolved').exists():
     shutil.copyfile(lock, checks / 'Package.resolved')
 PYTHON
