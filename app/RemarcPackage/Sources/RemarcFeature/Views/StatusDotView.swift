@@ -23,24 +23,20 @@ struct StatusDotView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: comment.status.iconName)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                 Text(comment.status.label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10.5, weight: .medium))
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .opacity(0.7)
+                    .font(.system(size: 7, weight: .bold))
+                    .opacity(isHovered || isOpen ? 0.8 : 0.45)
             }
             .foregroundStyle(statusColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
             .background(
                 Capsule()
-                    .fill(statusColor.opacity(isHovered || isOpen ? 0.28 : 0.18))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(statusColor.opacity(0.4), lineWidth: 0.5)
+                    .fill(statusColor.opacity(isHovered || isOpen ? 0.18 : 0.10))
             )
             .contentShape(Capsule())
             .overlay(DropdownAnchor(ref: anchorRef))

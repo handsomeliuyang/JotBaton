@@ -45,9 +45,9 @@ struct CommentCardView: View {
 
     private var statusHeaderOpacity: Double {
         switch comment.status {
-        case .open: return colorScheme == .dark ? 0.12 : 0.06
-        case .resolved: return colorScheme == .dark ? 0.06 : 0.035
-        default: return colorScheme == .dark ? 0.10 : 0.05
+        case .open: return colorScheme == .dark ? 0.08 : 0.035
+        case .resolved: return colorScheme == .dark ? 0.04 : 0.02
+        default: return colorScheme == .dark ? 0.07 : 0.035
         }
     }
 
@@ -488,14 +488,14 @@ struct CardSurfaceModifier: ViewModifier {
             .background(
                 RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous)
                     .fill(colorScheme == .dark
-                        ? Color.white.opacity(isHovered ? 0.14 : 0.1)
-                        : Color.white.opacity(isHovered ? 0.85 : 0.7))
+                        ? Color.white.opacity(isHovered ? 0.11 : 0.08)
+                        : Color.white.opacity(isHovered ? 0.98 : 0.92))
                     .shadow(
                         color: .black.opacity(colorScheme == .dark
-                            ? (isHovered ? 0.5 : 0.35)
-                            : (isHovered ? 0.14 : 0.08)),
-                        radius: isHovered ? 12 : 6,
-                        y: isHovered ? 6 : 3
+                            ? (isHovered ? 0.4 : 0.25)
+                            : (isHovered ? 0.10 : 0.05)),
+                        radius: isHovered ? 10 : 4,
+                        y: isHovered ? 4 : 2
                     )
                     .shadow(
                         color: .black.opacity(colorScheme == .dark

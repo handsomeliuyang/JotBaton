@@ -98,6 +98,31 @@ extension Color {
         colorScheme == .dark ? Color(white: 0.22) : Color(white: 0.93)
     }
 
+    /// Session sidebar wash: a quiet step away from the comment pane, not a grey slab.
+    public static func remarcSidebarSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.018)
+    }
+
+    /// Ring around marks laid over sidebar icons, separating them from the glyph below.
+    public static func remarcSidebarRowKnockout(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(white: 0.17) : Color(white: 0.96)
+    }
+
+    /// Hairline separators and neutral control outlines.
+    public static func remarcHairline(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+    }
+
+    /// Neutral resting fill for icon buttons and inactive badges.
+    public static func remarcNeutralFill(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.07) : Color.black.opacity(0.05)
+    }
+
+    /// Resting icon color for toolbar buttons that only tint on hover.
+    public static func remarcIconRest(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.62) : Color.black.opacity(0.55)
+    }
+
     // MARK: - Gradients
 
     public static func remarcBrandGradient(for colorScheme: ColorScheme) -> LinearGradient {
@@ -164,11 +189,12 @@ extension Color {
     ///   - spread: How far the glow extends along the edges (default 65pt).
 
     /// Layered elliptical gradient wash for popover backgrounds
-    /// Indigo from top-left, violet from bottom-right, with .plusLighter blend
+    /// Indigo from top-left, violet from bottom-right, with .plusLighter blend.
+    /// Kept faint: the material stays neutral and the brand is only a tint.
     @ViewBuilder
     public static func remarcBackgroundGradient(for colorScheme: ColorScheme) -> some View {
-        let base = colorScheme == .dark ? Color.black.opacity(0.40) : Color.black.opacity(0.06)
-        let op = colorScheme == .dark ? 0.18 : 0.13
+        let base = colorScheme == .dark ? Color.black.opacity(0.30) : Color.white.opacity(0.18)
+        let op = colorScheme == .dark ? 0.07 : 0.05
 
         base
             .overlay(

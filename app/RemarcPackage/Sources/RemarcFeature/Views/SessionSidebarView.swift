@@ -35,8 +35,8 @@ struct SessionSidebarView: View {
         VStack(spacing: 0) {
             HStack {
                 Text(L10n.tr("Sessions"))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.primary.opacity(0.75))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
                 newSessionButton
             }
@@ -68,7 +68,7 @@ struct SessionSidebarView: View {
             .font(.system(size: 11))
             .padding(.horizontal, 7)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.05)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.remarcNeutralFill(for: colorScheme)))
             .padding(.horizontal, 8)
             .padding(.bottom, 6)
             .accessibilityIdentifier("remarc.sessions.search")
@@ -117,7 +117,7 @@ struct SessionSidebarView: View {
         }
         .frame(width: AppConstants.sessionSidebarWidth)
         .frame(maxHeight: .infinity)
-        .background(Color.primary.opacity(colorScheme == .light ? 0.035 : 0.06))
+        .background(Color.remarcSidebarSurface(for: colorScheme))
         .onRemarcChange(of: isSearchFocused) { focused in
             if focused { popoverController.makeKey() }
         }
@@ -291,43 +291,31 @@ private struct SessionSidebarRow<MenuContent: View>: View {
     @State private var lastClickDate: Date?
     @FocusState private var isPinFocused: Bool
 
+    /// The hover pin toggle takes over the count's trailing slot, so the title
+    /// never gives up width to a control that is only sometimes there.
+    private var showsPinToggle: Bool {
+        !session.isInbox && (isHovered || isPinFocused)
+    }
+
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
         Button(action: handleClick) {
-            HStack(spacing: 5) {
-                HStack(spacing: 5) {
-                    if session.isInbox {
-                        Image(systemName: "tray")
-                            .font(.system(size: 11))
-                    } else {
-                        if session.origin == .manual {
-                            Image(systemName: "folder")
-                                .font(.system(size: 11))
-                        } else {
-                            SessionOriginBadge(origin: session.origin)
-                        }
-                    }
-                    Text(title)
-                        .font(.system(size: 11, weight: isActive ? .semibold : .medium))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+            HStack(spacing: 6) {
+                leadingIcon(brandColor: brandColor)
 
-                Text("\(commentCount)")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
-                    .frame(minWidth: 16, alignment: .trailing)
-                    .fixedSize()
-                    .padding(.top, session.isInbox ? 0 : 12)
-                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(size: 11.5, weight: isActive ? .semibold : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                countBadge
+                    .opacity(showsPinToggle ? 0 : 1)
             }
-            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(minHeight: 34)
+            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.82))
+            .padding(.leading, 8)
+            .padding(.trailing, 6)
+            .frame(height: 28)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
@@ -339,38 +327,41 @@ private struct SessionSidebarRow<MenuContent: View>: View {
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isActive ? brandColor.opacity(0.13) : Color.primary.opacity(isHovered ? 0.05 : 0))
         )
         .overlay(alignment: .leading) {
             if isActive {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(brandColor)
-                    .frame(width: 2)
-                    .padding(.vertical, 6)
+                    .frame(width: 2.5)
+                    .padding(.vertical, 7)
             }
         }
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .trailing) {
             if !session.isInbox {
                 Button {
                     lastClickDate = nil
                     onTogglePin()
                 } label: {
-                    Image(systemName: session.isPinned ? "pin.fill" : "pin")
-                        .font(.system(size: 9))
-                        .frame(width: 16, height: 16)
+                    Image(systemName: session.isPinned ? "pin.slash" : "pin")
+                        .font(.system(size: 10, weight: .medium))
+                        .frame(width: 20, height: 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(Color.remarcNeutralFill(for: colorScheme))
+                        )
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(isActive ? brandColor : .primary.opacity(0.65))
                 .focused($isPinFocused)
-                .opacity(session.isPinned || isHovered || isPinFocused ? 1 : 0)
-                .allowsHitTesting(session.isPinned || isHovered || isPinFocused)
+                .opacity(showsPinToggle ? 1 : 0)
+                .allowsHitTesting(showsPinToggle)
                 .help(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
                 .accessibilityLabel(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
                 .accessibilityIdentifier("remarc.session.pin.\(session.id.uuidString)")
-                .padding(.top, 2)
-                .padding(.trailing, 8)
+                .padding(.trailing, 4)
             }
         }
         .contentShape(Rectangle())
@@ -381,6 +372,55 @@ private struct SessionSidebarRow<MenuContent: View>: View {
         .opacity(isBeingDeleted ? 0 : 1)
         .frame(height: isBeingDeleted ? 0 : nil)
         .clipped()
+    }
+
+    /// Session icon with the pinned mark laid over its corner, so pinning
+    /// costs the title no width.
+    private func leadingIcon(brandColor: Color) -> some View {
+        Group {
+            if session.isInbox {
+                Image(systemName: "tray")
+                    .font(.system(size: 11))
+            } else if session.origin == .manual {
+                Image(systemName: "folder")
+                    .font(.system(size: 11))
+            } else {
+                SessionOriginBadge(origin: session.origin)
+            }
+        }
+        .foregroundStyle(isActive ? brandColor : .secondary)
+        .frame(width: 16, height: 16)
+        .overlay(alignment: .bottomTrailing) {
+            if session.isPinned && !session.isInbox {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 5.5, weight: .bold))
+                    .foregroundStyle(.white)
+                    .rotationEffect(.degrees(35))
+                    .frame(width: 9, height: 9)
+                    .background(Circle().fill(isActive ? Color.remarcButtonBase(for: colorScheme) : Color.remarcSecondary(for: colorScheme)))
+                    .overlay(Circle().strokeBorder(Color.remarcSidebarRowKnockout(for: colorScheme), lineWidth: 1))
+                    .offset(x: 3, y: 2)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private var countBadge: some View {
+        Text("\(commentCount)")
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(commentCount == 0
+                ? AnyShapeStyle(.primary.opacity(0.28))
+                : isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary.opacity(0.6)))
+            .padding(.horizontal, 5)
+            .frame(minWidth: 18, minHeight: 15)
+            .background(
+                Capsule().fill(commentCount == 0
+                    ? Color.clear
+                    : isActive ? Color.remarcButtonBase(for: colorScheme) : Color.remarcNeutralFill(for: colorScheme))
+            )
+            .fixedSize()
+            .accessibilityHidden(true)
     }
 
     /// A single click selects immediately; a following click opens rename.

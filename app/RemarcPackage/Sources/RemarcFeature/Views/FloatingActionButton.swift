@@ -104,31 +104,14 @@ struct CreationHeaderButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isHovered ? brandColor : .primary.opacity(0.6))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isHovered ? brandColor : Color.remarcIconRest(for: colorScheme))
                 .frame(width: 28, height: 28)
                 .background(
-                    Circle()
-                        .fill(
-                            Color.white.opacity(
-                                colorScheme == .dark
-                                    ? (isHovered ? 0.12 : 0.06)
-                                    : (isHovered ? 0.65 : 0.45)
-                            )
-                        )
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isHovered ? Color.remarcNeutralFill(for: colorScheme) : Color.clear)
                 )
-                .overlay(
-                    Circle()
-                        .strokeBorder(
-                            Color.white.opacity(
-                                colorScheme == .dark
-                                    ? (isHovered ? 0.2 : 0.1)
-                                    : (isHovered ? 0.8 : 0.6)
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-                .contentShape(Circle())
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering in
