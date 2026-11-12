@@ -2,6 +2,12 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.30 - 2026-11-12
+
+- Session counts now follow the selected comment status filters, including multiple selections and all statuses when none are selected.
+- Comment status changes update each session's count immediately; sessions with zero matching comments remain visible.
+- Release artifact downloads explicitly use the current workflow run and authenticated GitHub API access.
+
 ## 1.2.29 - 2026-11-11
 
 - Production now checks this repository's GitHub Releases and opens the installer matching the Mac's architecture for manual installation.
