@@ -95,7 +95,7 @@ extension PreferencesView {
 
                 // Retention section
                 VStack(alignment: .leading, spacing: Self.itemSpacing) {
-                    sectionHeader(L10n.tr("Retention"), description: L10n.tr("How long comments and images are kept."))
+                    sectionHeader(L10n.tr("Retention"), description: L10n.tr("Comments moved to History, along with their images and attachments, are removed when the retention period ends."))
 
                     settingsRow(L10n.tr("History retention")) {
                         RemarcDropdown(
@@ -111,25 +111,6 @@ extension PreferencesView {
                             },
                             width: Self.pickerWidth
                         )
-                    }
-                    VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
-                        settingsRow(L10n.tr("Image retention")) {
-                            RemarcDropdown(
-                                selection: $settings.imageRetentionDays,
-                                options: [7, 14, 30],
-                                labelFor: { days in
-                                    switch days {
-                                    case 7: return L10n.tr("1 week")
-                                    case 14: return L10n.tr("2 weeks")
-                                    case 30: return L10n.tr("1 month")
-                                    default: return L10n.tr("\(days) days")
-                                    }
-                                },
-                                width: Self.pickerWidth
-                            )
-                        }
-                        Text(L10n.tr("Images are kept longer so exported references stay valid."))
-                            .settingDescriptionStyle()
                     }
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
                         pickerRow(L10n.tr("Move completed comments to History"), selection: $settings.resolvedCommentDeletion) { $0.label }

@@ -51,16 +51,15 @@ Two settings shape what ends up on the clipboard.
 
 Choose a folder that Remarc can write to and your agent can access. Existing images stay editable in their original locations; choosing another folder or Use Default does not migrate them. Keep those folders available for previewing and editing older images.
 
-If the selected folder becomes unavailable or a write fails, Remarc does not silently fall back to Application Support. Reconnect the folder or choose another location before saving again. Image retention continues to apply to Remarc images and their annotation sidecars in current and previous folders.
+If the selected folder becomes unavailable or a write fails, Remarc does not silently fall back to Application Support. Reconnect the folder or choose another location before saving again. History retention also covers associated Remarc images and their annotation sidecars in current and previous folders.
 
 ### Retention
 
-Retention settings decide how long Remarc keeps history, images, and resolved comments.
+History retention covers archived comments and their images and attachments. Its period starts when a comment moves to History. Expired records and their image families are removed on the next cleanup, except images still referenced by another retained comment. Exported local image references can stop working after cleanup; save a separate copy if you need it longer. Failed image deletions stay queued for retry.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| History retention | 1 day | Options: 1 day, 1 week, 1 month. |
-| Image retention | 1 week | Options: 1 week, 2 weeks, 1 month. Images are kept longer than history so exported references stay valid. |
+| History retention | 1 day | Options: 1 day, 1 week, 1 month. Comments, screenshots, attachments, and annotation files share this period. Active comments and their images are kept. |
 | Delete resolved | Never | Options: Never, Immediately, After 15 min, After 1 hour, After 1 day. |
 | Auto-delete inactive sessions | Off | When on, a "Delete after" picker appears: After 30 min through After 24 hours, default After 4 hours. The Inbox, the current session, and sessions with unresolved comments are never deleted. |
 

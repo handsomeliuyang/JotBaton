@@ -30,11 +30,11 @@ Screenshot settings live in Settings > General:
 | --- | --- | --- |
 | Add screenshots to clipboard | Off | Also copies the image to the clipboard when a capture is saved |
 | Storage folder | Application Support | Choose an accessible folder for new screenshots and pasted image attachments. |
-| Image retention | 1 week | 1 week, 2 weeks, 1 month |
+| History retention | 1 day | 1 day, 1 week, 1 month; covers archived comments and their images and attachments |
 
 Existing images stay editable in their original locations when you choose another folder or Use Default; files are not migrated automatically. Keep the selected folder available and writable, and check that your agent can access it. If saving there fails, Remarc does not silently use the default folder.
 
-Remarc keeps images longer than comment history so exported references stay valid. Image retention applies in custom folders too, including annotation sidecars. Save As in the preview panel exports a separate copy without changing the comment's stored image path.
+Images and attachments share their comment's history retention period, starting when the comment moves to History. Cleanup also removes annotation sidecars in current and previous custom folders, while preserving images still referenced by other retained comments. Exported local image references can stop working after cleanup. Save As in the preview panel exports a separate copy without changing the comment's stored image path.
 
 ## Screenshot & Send Instantly
 

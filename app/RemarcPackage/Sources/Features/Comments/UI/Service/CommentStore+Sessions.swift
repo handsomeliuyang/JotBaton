@@ -124,9 +124,14 @@ extension CommentStore {
 
     /// Keep failed cleanup records, including when the primary PNG was removed
     /// but one of its annotation sidecars could not be deleted.
-    static func pruneExpiredImages(_ orphanedImages: inout [OrphanedImage], before cutoff: Date) {
+    static func pruneExpiredImages(_ orphanedImages: inout [OrphanedImage], before cutoff: Date,
+                                   referencedPaths: Set<String> = []) {
+        // Older records may use relative paths while newer ones use absolute paths.
+        let referencedURLs = Set(referencedPaths.map { resolveImagePath($0).standardizedFileURL })
         orphanedImages.removeAll { orphan in
-            orphan.deletedAt < cutoff && deleteImageFamily(orphan.path)
+            orphan.deletedAt <= cutoff
+                && !referencedURLs.contains(resolveImagePath(orphan.path).standardizedFileURL)
+                && deleteImageFamily(orphan.path)
         }
     }
 

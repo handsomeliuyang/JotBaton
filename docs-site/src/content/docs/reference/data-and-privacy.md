@@ -33,9 +33,9 @@ The [Chrome extension](/chrome-extension/) talks to the app over a local WebSock
 
 ## Retention
 
-The retention pickers in [Settings](/reference/settings/) prune data automatically: comment history, stored images, and dictation transcriptions each have their own setting and schedule. Deleting a comment moves it to History first, where it can be restored until retention removes it.
+The retention pickers in [Settings](/reference/settings/) prune data automatically. Comment history and its images and attachments share one retention period; dictation transcriptions keep their own setting. Deleting a comment moves it to History first, where it can be restored until retention removes it.
 
-Image retention also applies to Remarc images in custom folders, including folders you used previously. Removing an image removes its annotation sidecars too. Unrelated files in those folders are left alone.
+History retention also applies to associated Remarc images in custom folders, including folders you used previously. Removing an image removes its annotation sidecars too. Active comments and images still referenced by retained comments are preserved. Failed image deletions remain queued for retry. Unrelated files in those folders are left alone.
 
 ## Debug logging
 

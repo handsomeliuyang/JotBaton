@@ -11,7 +11,7 @@ extension CommentStore {
     /// retained orphan still points at `relativePath`.
     ///
     /// Soft-deleted comments count: their images are retained on purpose until
-    /// the separate image-retention cutoff.
+    /// their history retention period expires.
     public func referencesImage(_ relativePath: String) -> Bool {
         for comment in appState.comments {
             if case .screenshot(let imagePath) = comment.type, imagePath == relativePath { return true }

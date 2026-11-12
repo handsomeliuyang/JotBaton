@@ -156,40 +156,49 @@ extension CommentStore {
         }
     }
 
+    /// History records and their image families share one deadline. Keep a
+    /// durable orphan record until deletion succeeds, including legacy orphans.
+    @discardableResult
+    static func pruneExpiredHistory(_ state: inout AppState, before cutoff: Date) -> Int {
+        var queuedPaths = Set(state.orphanedImages.map(\.path))
+        for comment in state.comments {
+            guard comment.isDeleted, let deletedAt = comment.deletedAt, deletedAt <= cutoff else { continue }
+            var paths = comment.attachments
+            if let imagePath = comment.type.imagePath {
+                paths.append(imagePath)
+            }
+            for path in paths where queuedPaths.insert(path).inserted {
+                state.orphanedImages.append(OrphanedImage(path: path, deletedAt: deletedAt))
+            }
+        }
+
+        state.comments.removeAll { comment in
+            comment.isDeleted && (comment.deletedAt ?? .distantFuture) <= cutoff
+        }
+
+        state.sessions.removeAll { session in
+            session.isDeleted && (session.deletedAt ?? .distantFuture) <= cutoff
+        }
+
+        // A remaining comment, including unexpired history, may share an image.
+        let referencedPaths = Set(state.comments.flatMap { comment in
+            comment.attachments + [comment.type.imagePath].compactMap { $0 }
+        })
+        let orphansBefore = state.orphanedImages.count
+        Self.pruneExpiredImages(&state.orphanedImages, before: cutoff, referencedPaths: referencedPaths)
+        return orphansBefore - state.orphanedImages.count
+    }
+
     func pruneExpiredHistory() {
         let historyRetention = SettingsManager.shared.historyRetentionDays
-        let imageRetention = SettingsManager.shared.imageRetentionDays
         let transcriptionRetention = SettingsManager.shared.transcriptionRetentionDays
         let now = Date()
         let historyCutoff = Calendar.current.date(byAdding: .day, value: -historyRetention, to: now) ?? now
-        let imageCutoff = Calendar.current.date(byAdding: .day, value: -imageRetention, to: now) ?? now
         let transcriptionCutoff = Calendar.current.date(byAdding: .day, value: -transcriptionRetention, to: now) ?? now
 
         let commentsBefore = appState.comments.count
         let sessionsBefore = appState.sessions.count
-
-        // Pass 1: Prune comment records, orphan their images
-        for comment in appState.comments where comment.isDeleted && (comment.deletedAt ?? Date.distantFuture) < historyCutoff {
-            let deletedAt = comment.deletedAt ?? now
-            if let imagePath = comment.type.imagePath {
-                appState.orphanedImages.append(OrphanedImage(path: imagePath, deletedAt: deletedAt))
-            }
-            for attachment in comment.attachments {
-                appState.orphanedImages.append(OrphanedImage(path: attachment, deletedAt: deletedAt))
-            }
-        }
-
-        appState.comments.removeAll { comment in
-            comment.isDeleted && (comment.deletedAt ?? Date.distantFuture) < historyCutoff
-        }
-
-        appState.sessions.removeAll { session in
-            session.isDeleted && (session.deletedAt ?? Date.distantFuture) < historyCutoff
-        }
-
-        // Pass 2: Prune orphaned images past image retention
-        let orphansBefore = appState.orphanedImages.count
-        Self.pruneExpiredImages(&appState.orphanedImages, before: imageCutoff)
+        let orphansRemoved = Self.pruneExpiredHistory(&appState, before: historyCutoff)
 
         // Sweep up pairs stranded by an older build or by a delete that failed
         // partway. Without this, sidecars orphaned before deleteImageFamily
@@ -208,8 +217,6 @@ extension CommentStore {
 
         let commentsRemoved = commentsBefore - appState.comments.count
         let sessionsRemoved = sessionsBefore - appState.sessions.count
-        let orphansRemoved = orphansBefore - appState.orphanedImages.count
-
         if commentsRemoved > 0 || sessionsRemoved > 0 || orphansRemoved > 0 || transcriptionsRemoved > 0 {
             debugLog("CommentStore: Pruned \(commentsRemoved) comments, \(sessionsRemoved) sessions, \(orphansRemoved) orphaned images, \(transcriptionsRemoved) transcriptions")
             scheduleSave()

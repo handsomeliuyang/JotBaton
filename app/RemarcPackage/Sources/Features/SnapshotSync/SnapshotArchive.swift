@@ -93,7 +93,7 @@ package enum SnapshotArchive {
             do { bytes = try Data(contentsOf: url, options: .mappedIfSafe) }
             catch {
                 if required { throw SnapshotError.message(L10n.tr("An image is unavailable: \(url.lastPathComponent). Restore the file before publishing.")) }
-                // Deleted history may outlive its image retention period.
+                // Legacy history and cleanup retries may reference missing images.
                 let missing = path.hasPrefix("images/") && validEntry("files/" + String(path.dropFirst(7)))
                     ? path : "images/\(assetID(Data(path.utf8))).png"
                 paths[path] = missing

@@ -32,8 +32,8 @@ public struct PreparedCaptureLease: Codable, Equatable, Sendable {
 /// This is deliberately NOT a directory sweep. Remarc keeps two kinds of image on
 /// disk that no comment references and that a sweep would destroy:
 ///
-///  - images of pruned comments, retained in `appState.orphanedImages` until a
-///    separate image-retention cutoff (`CommentStore.pruneExpiredHistory`)
+///  - legacy orphan images or failed image deletions, tracked in
+///    `appState.orphanedImages` for history retention and cleanup retries
 ///  - attachments, which are written before any comment references them and can
 ///    sit draft-held indefinitely (`CommentInputView`)
 ///

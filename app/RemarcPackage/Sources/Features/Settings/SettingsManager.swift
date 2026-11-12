@@ -32,7 +32,7 @@ public final class SettingsManager: ObservableObject {
         static let selectionDetectionMode = "selectionDetectionMode"
         static let includeMetadataInExport = "includeMetadataInExport"
         static let historyRetentionDays = "historyRetentionDays"
-        static let imageRetentionDays = "imageRetentionDays"
+        static let legacyImageRetentionDays = "imageRetentionDays"
 
         static let excludedAppBundleIDs = "excludedAppBundleIDs"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
@@ -108,6 +108,8 @@ public final class SettingsManager: ObservableObject {
     /// Apply the agreed History defaults once per installed channel. Later
     /// launches must preserve the user's choices, including disabling cleanup.
     package static func applyHistoryDefaults(to defaults: UserDefaults) {
+        // Images now follow history retention. Never replace the user's history choice.
+        defaults.removeObject(forKey: Keys.legacyImageRetentionDays)
         guard defaults.integer(forKey: Keys.historyDefaultsVersion) < 1 else { return }
         defaults.set(ResolvedCommentDeletion.immediately.rawValue, forKey: Keys.resolvedCommentDeletion)
         defaults.set(true, forKey: Keys.inactiveSessionCleanupEnabled)
@@ -147,10 +149,6 @@ public final class SettingsManager: ObservableObject {
 
     @Published public var historyRetentionDays: Int {
         didSet { defaults.set(historyRetentionDays, forKey: Keys.historyRetentionDays) }
-    }
-
-    @Published public var imageRetentionDays: Int {
-        didSet { defaults.set(imageRetentionDays, forKey: Keys.imageRetentionDays) }
     }
 
     @Published public var excludedAppBundleIDs: [String] {
@@ -558,9 +556,6 @@ public final class SettingsManager: ObservableObject {
 
         let savedRetention = defaults.integer(forKey: Keys.historyRetentionDays)
         self.historyRetentionDays = savedRetention > 0 ? savedRetention : CommentConstants.defaultHistoryRetentionDays
-
-        let savedImageRetention = defaults.integer(forKey: Keys.imageRetentionDays)
-        self.imageRetentionDays = savedImageRetention > 0 ? savedImageRetention : CommentConstants.defaultImageRetentionDays
 
         if defaults.object(forKey: Keys.normalizeWhitespace) != nil {
             self.normalizeWhitespace = defaults.bool(forKey: Keys.normalizeWhitespace)
