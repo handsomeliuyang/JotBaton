@@ -30,8 +30,9 @@ concurrency:
 
 jobs:
   build:
-    # Native ARM pool verified available; retain the pinned Xcode 26.2 toolchain.
-    runs-on: macos-26
+    # Use the macOS 15 ARM pool when macOS 26 cannot allocate runners.
+    # Keep the pinned Xcode 26.2 toolchain and native arm64 output.
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
