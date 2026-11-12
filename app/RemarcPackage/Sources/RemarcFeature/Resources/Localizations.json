@@ -1067,5 +1067,13 @@
   "Restore to This Mac": "恢复到本机",
   "iCloud → This Mac. Replace this Mac’s tasks, images and sessions with the selected cloud backup. You can undo this restore once. The cloud backup stays unchanged.": "iCloud → 这台 Mac\n使用所选云端备份替换本机的任务、图片和会话。此次恢复可撤销一次，云端备份保持不变。",
   "From {0}": "来自 {0}",
-  "Backed up {0}": "备份时间 {0}"
+  "Backed up {0}": "备份时间 {0}",
+  "Back Up": "备份",
+  "Working…": "处理中…",
+  "Sync needs attention": "同步异常",
+  "Awaiting upload": "上传待确认",
+  "Local update": "本机有更新",
+  "Cloud update": "云端有更新",
+  "Choose data": "请选择数据",
+  "Undo Last Restore": "撤销上次恢复"
 }

@@ -108,6 +108,8 @@ enum SnapshotComparison: Equatable {
         guard let cloud else { return .publish }
         let cloudTime = cloud.contentModifiedAt ?? cloud.createdAt
         guard let localTime else { return .choose }
+        // A new archive ID alone does not make matching content clocks newer.
+        if localTime == cloud.contentModifiedAt { return .same }
         guard let baselineID, let baselineLocalTime else {
             return localTime == cloudTime ? .same : .choose
         }
@@ -145,8 +147,8 @@ struct SnapshotActionAvailability {
          transfer: SnapshotCloudTransfer, comparison: SnapshotComparison, hasCloud: Bool) {
         let ready = enabled && !busy && connected && checked && localReady
             && !hasIssue && !pending && !transfer.blocksReplacement && transfer != .unknown
-        canPublish = ready && (!hasCloud || comparison != .same)
-        canApply = ready && hasCloud && comparison != .same
+        canPublish = ready && (!hasCloud || comparison == .publish || comparison == .choose)
+        canApply = ready && hasCloud && (comparison == .receive || comparison == .choose)
     }
 }
 

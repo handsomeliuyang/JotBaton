@@ -16,7 +16,7 @@ struct SnapshotSyncPopoverTests {
         }
         #expect(!controller.popover.isShown)
         #expect(!controller.popover.animates)
-        #expect(controller.documentSize == CGSize(width: 340, height: 292))
+        #expect(controller.documentSize == CGSize(width: 440, height: 292))
         #expect(controller.popover.contentSize == controller.documentSize)
     }
 
@@ -27,7 +27,7 @@ struct SnapshotSyncPopoverTests {
             Color.clear.frame(height: 1400)
         }
         #expect(controller.documentSize.height == 1432)
-        #expect(controller.popover.contentSize == CGSize(width: 340, height: 640))
+        #expect(controller.popover.contentSize == CGSize(width: 440, height: 640))
         let scroll = controller.popover.contentViewController?.view as? NSScrollView
         #expect(scroll?.hasVerticalScroller == true)
         #expect(scroll?.documentView?.frame.size == controller.documentSize)

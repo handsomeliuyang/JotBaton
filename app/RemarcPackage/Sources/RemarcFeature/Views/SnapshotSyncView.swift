@@ -37,7 +37,6 @@ struct SnapshotSyncControls: View {
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var sync = SnapshotSyncManager.shared
     @Environment(\.colorScheme) private var colorScheme
-    @State private var choosingCopy = false
     @State private var confirmPublish = false
     @State private var versionToApply: SnapshotVersion?
     @State private var confirmUndo = false
@@ -83,20 +82,77 @@ struct SnapshotSyncControls: View {
         }
     }
 
-    @ViewBuilder private var copyChoices: some View {
-        action(L10n.tr("Keep Using This Mac’s Data…"), symbol: "arrow.up",
-               explanation: L10n.tr("Back up this Mac to iCloud, replacing the existing cloud backup."),
-               enabled: sync.canPublish, identifier: "sync.publish", perform: reviewPublish)
-        action(L10n.tr("Use the Cloud Backup…"), symbol: "arrow.down",
-               explanation: L10n.tr("Restore the cloud backup here, replacing this Mac’s data."),
-               enabled: sync.canApply, identifier: "sync.apply", perform: reviewApply)
+    private func directionAction(_ label: String, title: String, symbol: String, explanation: String,
+                                 enabled: Bool, identifier: String,
+                                 perform: @escaping () -> Void) -> some View {
+        SnapshotSyncDirectionButton(label: label, title: title, symbol: symbol,
+                                    explanation: enabled ? explanation : sync.summary,
+                                    enabled: enabled, prominent: enabled && sync.comparison != .choose,
+                                    identifier: identifier, perform: perform)
+    }
+
+    private var copyChoices: some View {
+        VStack(spacing: 8) {
+            directionAction(L10n.tr("Back Up"),
+                            title: L10n.tr(sync.comparison == .choose ? "Keep Using This Mac’s Data…" : "Back Up to iCloud…"), symbol: "arrow.right",
+                            explanation: L10n.tr(sync.cloudData == nil
+                                ? "No cloud copy yet. Publish this Mac’s data to create one."
+                                : "Back up this Mac to iCloud, replacing the existing cloud backup."),
+                            enabled: sync.canPublish, identifier: "sync.publish", perform: reviewPublish)
+            comparisonStatus
+            directionAction(L10n.tr("Restore"), title: L10n.tr("Use the Cloud Backup…"), symbol: "arrow.left",
+                            explanation: L10n.tr("Restore the cloud backup here, replacing this Mac’s data."),
+                            enabled: sync.canApply, identifier: "sync.apply", perform: reviewApply)
+        }
+        .fixedSize()
+        .zIndex(1)
     }
 
     private var isWorking: Bool {
         sync.isBusy || sync.publication?.isPending == true || sync.cloudTransfer.isActive
     }
 
-    /// Status color shared by the header badge and the comparison arrow.
+    private var statusTitle: String {
+        if !sync.isEnabled { return L10n.tr("Off") }
+        if sync.isChecking { return L10n.tr("Checking") }
+        if sync.isBusy { return L10n.tr("Working…") }
+        if sync.issue != nil || sync.cloudTransfer == .failed { return L10n.tr("Sync needs attention") }
+        if sync.publication?.isPending == true { return L10n.tr("Awaiting upload") }
+        if sync.cloudTransfer.blocksReplacement { return sync.cloudTransfer.title }
+        guard sync.isStatusConfirmed else { return L10n.tr("Not confirmed") }
+        switch sync.comparison {
+        case .same: return L10n.tr("Up to date")
+        case .publish: return L10n.tr("Local update")
+        case .receive: return L10n.tr("Cloud update")
+        case .choose: return L10n.tr("Choose data")
+        }
+    }
+
+    private var comparisonStatus: some View {
+        HStack(spacing: 4) {
+            if sync.isBusy || sync.cloudTransfer.isActive || sync.publication?.isPending == true {
+                ProgressView().controlSize(.mini)
+            } else if sync.isStatusConfirmed && sync.comparison == .same {
+                Image(systemName: "checkmark").font(.system(size: 9, weight: .semibold))
+            } else if sync.issue != nil || sync.cloudTransfer == .failed {
+                Image(systemName: "exclamationmark.circle").font(.system(size: 10))
+            }
+            Text(statusTitle)
+                .font(.system(size: 10, weight: .medium))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(statusTint)
+        .frame(width: 100)
+        .frame(minHeight: 20)
+        .help(sync.isStatusConfirmed ? sync.guidance.explanation : sync.summary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(statusTitle)
+        .accessibilityHint(sync.isStatusConfirmed ? sync.guidance.explanation : sync.summary)
+        .accessibilityIdentifier("sync.status")
+    }
+
+    /// Color for the status between the two copies.
     private var statusTint: Color {
         if !sync.isEnabled { return .secondary }
         if sync.issue != nil || sync.cloudTransfer == .failed { return .remarcWarning(for: colorScheme) }
@@ -108,34 +164,15 @@ struct SnapshotSyncControls: View {
         }
     }
 
-    /// Which way data should flow, drawn between the two copies.
-    private var directionSymbol: String {
-        guard sync.isStatusConfirmed else { return "arrow.left.arrow.right" }
-        switch sync.comparison {
-        case .same: return "equal"
-        case .publish: return "arrow.right"
-        case .receive: return "arrow.left"
-        case .choose: return "arrow.left.arrow.right"
-        }
-    }
-
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: sync.statusSymbol)
+        HStack(spacing: 10) {
+            Image(systemName: "icloud")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(statusTint)
+                .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                 .frame(width: 32, height: 32)
-                .background(Circle().fill(statusTint.opacity(0.13)))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(sync.isStatusConfirmed ? sync.guidance.title : sync.shortStatus)
-                    .font(.system(size: 13, weight: .semibold))
-                    .fixedSize(horizontal: false, vertical: true)
-                if sync.isStatusConfirmed {
-                    Text(sync.guidance.explanation).font(.system(size: 11)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.top, sync.isStatusConfirmed ? 0 : 7)
+                .background(Circle().fill(Color.remarcPrimary(for: colorScheme).opacity(0.13)))
+            Text(L10n.tr("iCloud Sync"))
+                .font(.system(size: 13, weight: .semibold))
             Spacer(minLength: 4)
             Group {
                 if isWorking {
@@ -157,7 +194,6 @@ struct SnapshotSyncControls: View {
                 }
             }
             .frame(width: 24, height: 24)
-            .padding(.top, 4)
         }
     }
 
@@ -191,7 +227,7 @@ struct SnapshotSyncControls: View {
 
     private var comparisonCards: some View {
         let confirmed = sync.isStatusConfirmed
-        return HStack(alignment: .center, spacing: 4) {
+        return HStack(alignment: .center, spacing: 8) {
             copyCard(isSource: confirmed && sync.comparison == .publish) {
                 HStack(spacing: 4) {
                     cardTitle(L10n.tr("This Mac"), symbol: "desktopcomputer")
@@ -202,6 +238,7 @@ struct SnapshotSyncControls: View {
                 if let time = sync.localUpdatedAt, time != .distantPast {
                     Text(L10n.tr("Updated \(time.snapshotInterfaceFormatted())"))
                         .font(.system(size: 10)).foregroundStyle(.secondary)
+                        .help(L10n.tr("Updated \(time.interfaceFormatted(date: .abbreviated, time: .standard))"))
                 }
                 if let tasks = sync.localCommentCount, let images = sync.localImageCount {
                     Text(L10n.tr("\(tasks) tasks · \(images) images"))
@@ -210,11 +247,7 @@ struct SnapshotSyncControls: View {
                     Text(L10n.tr("Verifying local data…")).font(.system(size: 10)).foregroundStyle(.secondary)
                 }
             }
-            Image(systemName: directionSymbol)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(confirmed ? statusTint : Color.secondary.opacity(0.5))
-                .frame(width: 14)
-                .accessibilityHidden(true)
+            copyChoices
             copyCard(isSource: confirmed && sync.comparison == .receive) {
                 cardTitle(L10n.tr("Backup in iCloud"), symbol: "icloud")
                 if let version = sync.cloudData {
@@ -232,6 +265,9 @@ struct SnapshotSyncControls: View {
         if let issue = sync.issue {
             let warning = Color.remarcWarning(for: colorScheme)
             VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.lookup(issue.message))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
                     if !issue.needsAuthorization {
                         Button(L10n.tr("Retry")) { Task { await sync.check() } }
@@ -271,58 +307,37 @@ struct SnapshotSyncControls: View {
             header
             issueBanner
             comparisonCards
-            if sync.isStatusConfirmed {
-                switch sync.guidance {
-                case .setup:
-                    copyChoices
-                case .conflict:
-                    if choosingCopy {
-                        copyChoices
-                    } else {
-                        action(L10n.tr("Choose Which Data to Use…"), symbol: "arrow.left.arrow.right",
-                               enabled: true, identifier: "sync.choose") { choosingCopy = true }
-                    }
-                case .backup:
-                    action(L10n.tr("Back Up to iCloud…"), symbol: "arrow.up", prominent: true,
-                           enabled: sync.canPublish, identifier: "sync.publish", perform: reviewPublish)
-                case .restore:
-                    action(L10n.tr("Restore Cloud Update…"), symbol: "arrow.down", prominent: true,
-                           enabled: sync.canApply, identifier: "sync.apply", perform: reviewApply)
-                case .current:
-                    EmptyView()
-                }
-            } else if !sync.isEnabled {
+                .zIndex(1)
+            if !sync.isEnabled {
                 action(L10n.tr("Enable iCloud Data"), symbol: "icloud", enabled: !sync.isBusy, identifier: "sync.enable") {
                     setReviewing(true)
                     confirmEnable = true
                 }
-            } else if !sync.isBusy && sync.issue == nil && sync.publication?.isPending != true && !sync.cloudTransfer.isActive {
+            } else if !sync.isStatusConfirmed && !sync.isBusy && sync.issue == nil && sync.publication?.isPending != true && !sync.cloudTransfer.isActive {
                 action(L10n.tr("Check Again"), symbol: "arrow.clockwise", enabled: true, identifier: "sync.retry") {
                     Task { await sync.check() }
                 }
             }
             if let notice = sync.notice, sync.issue == nil, (!sync.isBusy || sync.isChecking),
-               !sync.cloudTransfer.blocksReplacement, sync.publication?.isPending != true {
+               !sync.cloudTransfer.blocksReplacement, sync.publication?.isPending != true,
+               notice != L10n.tr("Cloud data applied. You can undo this application once.") {
                 Text(notice).font(.system(size: 10)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            HStack {
+            HStack(spacing: 12) {
+                if sync.rollback != nil {
+                    Button {
+                        setReviewing(true)
+                        confirmUndo = true
+                    } label: {
+                        Label(L10n.tr("Undo Last Restore"), systemImage: "arrow.uturn.backward")
+                    }
+                    .disabled(sync.isBusy)
+                    .help(rollbackHelp)
+                    .accessibilityIdentifier("sync.undo")
+                }
                 if compact && sync.isStatusConfirmed && (sync.guidance == .setup || sync.guidance == .conflict) {
                     Button(L10n.tr("Decide Later"), action: onDismiss)
-                } else {
-                    Menu(L10n.tr("Other Actions")) {
-                        Button(L10n.tr("Undo Last Application")) { setReviewing(true); confirmUndo = true }
-                            .disabled(sync.rollback == nil || sync.isBusy)
-                            .help(rollbackHelp)
-                        if sync.isStatusConfirmed && sync.guidance == .backup && sync.cloudData != nil {
-                            Button(L10n.tr("Use the Cloud Backup…"), action: reviewApply)
-                        }
-                        if sync.isStatusConfirmed && sync.guidance == .restore {
-                            Button(L10n.tr("Keep Using This Mac’s Data…"), action: reviewPublish)
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
                 }
                 Spacer()
                 if compact {
@@ -383,10 +398,15 @@ struct SnapshotVersionLabel: View {
                 .font(.system(size: 11, weight: .medium))
                 .lineLimit(1)
                 .help(version.deviceName)
-            Text(L10n.tr("Backed up \(version.createdAt.snapshotInterfaceFormatted())"))
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-                .help(L10n.tr("Published \(version.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))"))
+            if let time = version.contentModifiedAt {
+                Text(L10n.tr("Updated \(time.snapshotInterfaceFormatted())"))
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .help(L10n.tr("Updated \(time.interfaceFormatted(date: .abbreviated, time: .standard))"))
+            } else {
+                Text(L10n.tr("Backed up \(version.createdAt.snapshotInterfaceFormatted())"))
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+                    .help(L10n.tr("Published \(version.createdAt.interfaceFormatted(date: .abbreviated, time: .standard))"))
+            }
             Text(L10n.tr("\(version.commentCount) tasks · \(version.imageCount) images"))
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
@@ -452,7 +472,63 @@ struct SnapshotSyncToolbarButton: View {
     }
 }
 
-/// A consistent action row whose disabled controls still explain their purpose.
+/// The enabled wrapper receives hover events even when its button is disabled.
+private struct SnapshotSyncDirectionButton: View {
+    let label: String
+    let title: String
+    let symbol: String
+    let explanation: String
+    let enabled: Bool
+    let prominent: Bool
+    let identifier: String
+    let perform: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var showsHelp = false
+
+    var body: some View {
+        ZStack {
+            Button(action: perform) {
+                HStack(spacing: 6) {
+                    if symbol == "arrow.left" { Image(systemName: symbol) }
+                    Text(label).lineLimit(1)
+                    if symbol == "arrow.right" { Image(systemName: symbol) }
+                }
+                .frame(width: 80)
+            }
+            .disabled(!enabled)
+            .buttonStyle(SnapshotSyncActionButtonStyle(prominent: prominent))
+            .accessibilityLabel(title)
+            .accessibilityHint(explanation)
+            .accessibilityIdentifier(identifier)
+        }
+        .contentShape(Rectangle())
+        .onHover { showsHelp = $0 }
+        .overlay(alignment: .bottom) {
+            if showsHelp {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.system(size: 11, weight: .semibold))
+                    Text(explanation).font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+                .frame(width: 220, alignment: .leading)
+                .padding(10)
+                .background(Color.remarcSnapshotSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.remarcSnapshotBorder(for: colorScheme), lineWidth: 0.75)
+                }
+                .shadow(color: .black.opacity(0.15), radius: 5, y: 2)
+                .fixedSize(horizontal: false, vertical: true)
+                // The control is 30pt tall; keep the help 6pt above it.
+                .offset(y: -36)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+        .zIndex(showsHelp ? 1 : 0)
+    }
+}
+
+/// Shared styling for action rows and the directional buttons between copies.
 private struct SnapshotSyncActionButtonStyle: ButtonStyle {
     var prominent = false
     func makeBody(configuration: Configuration) -> some View {

@@ -148,7 +148,6 @@ struct SessionSidebarView: View {
                 guard !session.isInbox else { return }
                 beginRename(session)
             },
-            onTogglePin: { persistence.setSessionPinned(session.id, to: !session.isPinned) },
             contextMenu: { sessionContextMenu(for: session) }
         )
     }
@@ -284,18 +283,10 @@ private struct SessionSidebarRow<MenuContent: View>: View {
     var isBeingDeleted: Bool = false
     let onTap: () -> Void
     let onDoubleClick: () -> Void
-    let onTogglePin: () -> Void
     @ViewBuilder let contextMenu: () -> MenuContent
 
     @State private var isHovered = false
     @State private var lastClickDate: Date?
-    @FocusState private var isPinFocused: Bool
-
-    /// The hover pin toggle takes over the count's trailing slot, so the title
-    /// never gives up width to a control that is only sometimes there.
-    private var showsPinToggle: Bool {
-        !session.isInbox && (isHovered || isPinFocused)
-    }
 
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
@@ -310,7 +301,6 @@ private struct SessionSidebarRow<MenuContent: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 countBadge
-                    .opacity(showsPinToggle ? 0 : 1)
             }
             .foregroundStyle(isActive ? brandColor : .primary.opacity(0.82))
             .padding(.leading, 8)
@@ -336,32 +326,6 @@ private struct SessionSidebarRow<MenuContent: View>: View {
                     .fill(brandColor)
                     .frame(width: 2.5)
                     .padding(.vertical, 7)
-            }
-        }
-        .overlay(alignment: .trailing) {
-            if !session.isInbox {
-                Button {
-                    lastClickDate = nil
-                    onTogglePin()
-                } label: {
-                    Image(systemName: session.isPinned ? "pin.slash" : "pin")
-                        .font(.system(size: 10, weight: .medium))
-                        .frame(width: 20, height: 20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.remarcNeutralFill(for: colorScheme))
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(isActive ? brandColor : .primary.opacity(0.65))
-                .focused($isPinFocused)
-                .opacity(showsPinToggle ? 1 : 0)
-                .allowsHitTesting(showsPinToggle)
-                .help(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
-                .accessibilityLabel(session.isPinned ? L10n.tr("Unpin session") : L10n.tr("Pin session"))
-                .accessibilityIdentifier("remarc.session.pin.\(session.id.uuidString)")
-                .padding(.trailing, 4)
             }
         }
         .contentShape(Rectangle())

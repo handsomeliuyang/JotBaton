@@ -38,7 +38,7 @@ final class SnapshotSyncPopoverController: NSObject, NSPopoverDelegate {
     private(set) var documentSize: CGSize = .zero
     private var hostingView: NSHostingView<AnyView>?
     private var scrollView: NSScrollView?
-    private var width: CGFloat = 340
+    private var width: CGFloat = 440
     private var maxHeight: CGFloat = 600
     private weak var anchorView: NSView?
     private var outsideClickMonitor: Any?
@@ -83,7 +83,7 @@ final class SnapshotSyncPopoverController: NSObject, NSPopoverDelegate {
     func prepare<Content: View>(screenSize: CGSize, colorScheme: ColorScheme, @ViewBuilder content: () -> Content) {
         measurementGeneration += 1
         let generation = measurementGeneration
-        width = min(340, max(1, screenSize.width - 32))
+        width = min(440, max(1, screenSize.width - 32))
         maxHeight = max(1, screenSize.height * 0.8)
         let root = content()
             .environment(\.colorScheme, colorScheme)

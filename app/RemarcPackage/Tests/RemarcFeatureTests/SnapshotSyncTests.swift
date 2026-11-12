@@ -116,11 +116,28 @@ final class SnapshotSyncTests {
         }
         #expect(compare(baseline, id: cloud.id, saved: baseline) == .same)
         #expect(compare(baseline.addingTimeInterval(1), id: cloud.id, saved: baseline) == .publish)
-        #expect(compare(baseline, id: UUID(), saved: baseline) == .receive)
+        #expect(compare(baseline, id: UUID(), saved: baseline) == .same)
         #expect(compare(baseline.addingTimeInterval(-1), id: UUID(), saved: baseline) == .choose)
         #expect(compare(baseline) == .same)
         #expect(compare(baseline.addingTimeInterval(1)) == .choose)
         #expect(compare(nil, id: cloud.id, saved: baseline) == .choose)
+        cloud.contentModifiedAt = baseline.addingTimeInterval(1)
+        #expect(compare(baseline, id: UUID(), saved: baseline) == .receive)
+    }
+
+    @Test func testMatchingContentClocksDisableActionsDespiteAnOlderReceipt() throws {
+        var cloud = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        let previous = Date(timeIntervalSince1970: 100)
+        let current = previous.addingTimeInterval(10)
+        cloud.contentModifiedAt = current
+        let comparison = SnapshotComparison.compare(localTime: current, cloud: cloud,
+            baselineID: UUID(), baselineLocalTime: previous, baselineCloudTime: previous)
+        #expect(comparison == .same)
+        let actions = SnapshotActionAvailability(enabled: true, busy: false, connected: true,
+            checked: true, localReady: true, hasIssue: false, pending: false,
+            transfer: .ready, comparison: comparison, hasCloud: true)
+        #expect(!actions.canPublish)
+        #expect(!actions.canApply)
     }
 
     @Test func testCompleteSnapshotRoundTripIncludesDeletionAndEditableImages() throws {
@@ -689,9 +706,20 @@ struct SnapshotActionAvailabilityTests {
         #expect(!result.canApply)
     }
 
-    @Test(arguments: [SnapshotComparison.publish, .receive, .choose])
-    func differentCopiesAllowAnExplicitChoice(_ comparison: SnapshotComparison) {
-        let result = actions(comparison: comparison)
+    @Test func localChangesOnlyEnablePublishing() {
+        let result = actions(comparison: .publish)
+        #expect(result.canPublish)
+        #expect(!result.canApply)
+    }
+
+    @Test func cloudChangesOnlyEnableApplying() {
+        let result = actions(comparison: .receive)
+        #expect(!result.canPublish)
+        #expect(result.canApply)
+    }
+
+    @Test func conflictingOrUnrelatedCopiesAllowBothChoices() {
+        let result = actions(comparison: .choose)
         #expect(result.canPublish)
         #expect(result.canApply)
     }
@@ -702,10 +730,12 @@ struct SnapshotActionAvailabilityTests {
         #expect(!result.canApply)
     }
 
-    @Test func unverifiedOrUnavailableStateBlocksBothDirections() {
-        let blocked = [actions(enabled: false), actions(busy: true), actions(connected: false),
-            actions(checked: false), actions(localReady: false), actions(hasIssue: true),
-            actions(pending: true)]
+    @Test(arguments: [SnapshotComparison.same, .publish, .receive, .choose])
+    func unverifiedOrUnavailableStateBlocksBothDirections(_ comparison: SnapshotComparison) {
+        let blocked = [actions(comparison: comparison, enabled: false), actions(comparison: comparison, busy: true),
+            actions(comparison: comparison, connected: false), actions(comparison: comparison, checked: false),
+            actions(comparison: comparison, localReady: false), actions(comparison: comparison, hasIssue: true),
+            actions(comparison: comparison, pending: true)]
         for result in blocked {
             #expect(!result.canPublish)
             #expect(!result.canApply)

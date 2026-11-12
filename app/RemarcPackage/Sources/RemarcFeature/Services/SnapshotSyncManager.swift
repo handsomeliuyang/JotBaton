@@ -239,7 +239,7 @@ final class SnapshotSyncManager: ObservableObject {
             let capturedTime = localUpdatedAt
             let root = remarcAppSupportURL
             let prepared = try await Task.detached(priority: .utility) { try SnapshotArchive.prepare(state, root: root) }.value
-            if fresh != nil, comparison == .same {
+            if fresh != nil, comparison != .publish && comparison != .choose {
                 noticeKey = nil
                 return
             }
@@ -338,7 +338,7 @@ final class SnapshotSyncManager: ObservableObject {
             let before = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(before)
             let local = try await Task.detached(priority: .utility) { try SnapshotArchive.prepare(before, root: root) }.value
-            guard comparison != .same else { return }
+            guard comparison == .receive || comparison == .choose else { return }
             progressKey = "Saving one undo copy…"
             let id = deviceID
             let name = deviceName
