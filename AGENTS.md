@@ -14,9 +14,11 @@ Independently maintained macOS menu bar app (SwiftUI + AppKit) for contextual co
 **MANDATORY: After a successful native app build/install, relaunch that exact channel.** The user must be able to verify changes:
 1. Use the checkout's deterministic `app/DerivedData` output. Existing Xcode builders use `-derivedDataPath "$(pwd)/DerivedData"` from `app/` and clean-build UI changes.
 2. Production delivery uses `.github/workflows/release.yml`: build both architectures from one version commit, run full standard/Ventura Swift suites and native Intel compatibility checks, verify packages/signatures/provenance, then publish both assets to one GitHub Release. Do not compile production packages locally.
-3. Intel runtime compatibility must be verified on an Intel Mac after native package installation. Do not launch Intel apps on Apple Silicon or claim Ventura runtime verification there.
+3. Intel runtime compatibility verification, when explicitly requested, must run on an Intel Mac after native package installation. Do not launch Intel apps on Apple Silicon or claim Ventura runtime verification there.
 4. Production checks the public GitHub latest Release, compares semantic versions numerically and opens the correct native asset URL in the browser for manual installation. Never offer a downgrade or consume production updates in Dev. Keep application-update settings separate from iCloud snapshot sync.
 5. For explicit manual installs use `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`; development uses `--channel development`. These verify, back up, install without re-signing, and relaunch only the matching app.
+6. Standing maintainer preference: when asked to publish a production release and update this Mac, do not rerun local suites solely for delivery, and do not run post-install diagnostics, smoke tests, UI walkthroughs or functional tests unless explicitly requested. The production installer defaults to a normal launch without diagnostics. Keep pre-install checksum/signature/architecture checks, backups and the matching-channel relaunch; read version/build metadata only to report installation. Required GitHub Release workflow checks still run. Do not ask the maintainer to repeat this preference.
+
 
 ### Development Previews
 
@@ -77,7 +79,7 @@ This repository is independently developed and released at `handsomeliuyang/Rema
 - Use a temporary branch only when isolation is needed or requested. Integrate accepted changes into `main` and remove the temporary branch after verification.
 - Keep `origin` as the only remote, pointing to `git@github.com:handsomeliuyang/Remarc.git`. Local `main` tracks `origin/main`.
 - Do not configure an `upstream` remote, synchronize from the original project, or submit changes or pull requests to it. Development and release do not depend on the original project's review or merge process.
-- Local builds are Dev only. Production delivery uses the explicitly dispatched GitHub Release workflow with full regression tests and both published native packages. Ventura Intel downloads its native Intel package from GitHub and performs runtime verification; it cannot compile the current Swift package with its installed toolchain.
+- Local builds are Dev only. Production delivery uses the explicitly dispatched GitHub Release workflow with full regression tests and both published native packages. Ventura Intel downloads its native Intel package from GitHub and performs runtime verification only when explicitly requested; it cannot compile the current Swift package with its installed toolchain.
 
 For an explicitly requested worktree, use `.worktrees/<name>`. Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable).
 

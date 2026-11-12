@@ -97,6 +97,14 @@ version that only understands iCloud updates needs one manual upgrade to this ve
 
 ## Verified installation after publication
 
+Standing maintainer preference: production delivery does not add local test runs,
+and installing a production update ends with a normal app launch. Do not run
+post-install diagnostics, smoke tests, UI walkthroughs or functional tests unless
+explicitly requested. The installer automatically skips diagnostics for the
+production channel; no reminder or extra flag is needed. Keep pre-install checksum,
+signature and architecture checks, backups and relaunch. Required GitHub Release
+workflow tests remain part of publication.
+
 Download the assets from the exact Release and run in that directory:
 
 ```bash
@@ -115,7 +123,7 @@ previous app and data under `Application Support/Remarc Update Backups/Previous`
 installs without re-signing, and relaunches `/Applications/Remarc.app`. Verify the
 running version/build matches the Release. Never launch an Intel package on ARM or
 claim Ventura runtime verification from an ARM host. Intel macOS 13 still needs its
-own installation/runtime verification.
+own runtime verification only when explicitly requested.
 
 Do not routinely reset macOS permission grants. `--reset-permissions` is reserved
 for an explicitly requested certificate migration. Production and development have

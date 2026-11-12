@@ -17,9 +17,11 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('app', type=Path)
 parser.add_argument('--channel', required=True, choices=['production', 'development'])
 parser.add_argument('--keep-one-backup', action='store_true', help='Keep only the previous production app/data backup for release installations')
-parser.add_argument('--skip-diagnostics', action='store_true', help='Launch normally without requesting a post-install diagnostic report')
+parser.add_argument('--skip-diagnostics', action='store_true', help='Launch normally without requesting a diagnostic report (always used for production)')
 parser.add_argument('--reset-permissions', action='store_true', help='Reset only this channel’s Accessibility and ScreenCapture grants for a certificate migration')
 args = parser.parse_args()
+# Production updates end with a normal launch; post-install diagnostics are disabled by policy.
+args.skip_diagnostics = args.skip_diagnostics or args.channel == 'production'
 if args.keep_one_backup and args.channel != 'production':
     parser.error('--keep-one-backup is for production release installations only')
 app = args.app.resolve()
