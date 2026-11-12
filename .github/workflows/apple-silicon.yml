@@ -14,6 +14,10 @@ on:
       source_ref:
         required: true
         type: string
+      run_full_suites:
+        description: 'Run both full Swift profiles on this native ARM build runner'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       configuration:
@@ -35,8 +39,6 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     env:
-      REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
-      REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
       REMARC_BUILD_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
       REMARC_APP_NAME: ${{ inputs.configuration == 'Debug' && 'Remarc Dev' || 'Remarc' }}
       REMARC_CHANNEL: ${{ inputs.configuration == 'Debug' && 'development' || 'production' }}
@@ -46,7 +48,30 @@ jobs:
         with:
           ref: ${{ inputs.source_ref || github.sha }}
       - name: Build, launch and verify native arm64 app
+        env:
+          REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
+          REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
         run: bash scripts/build-apple-silicon.sh
+      - name: Run full standard and Ventura Swift suites
+        if: ${{ inputs.run_full_suites == true }}
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s tests/architecture -v
+          PACKAGE="$GITHUB_WORKSPACE/app/RemarcPackage"
+          CACHE="$GITHUB_WORKSPACE/app/DerivedData/PackageCache"
+          LOCK_BACKUP="$RUNNER_TEMP/remarc-test-Package.resolved"
+          cp "$PACKAGE/Package.resolved" "$LOCK_BACKUP"
+          trap 'cp "$LOCK_BACKUP" "$PACKAGE/Package.resolved"' EXIT
+          for profile in standard ventura; do
+            cp "$LOCK_BACKUP" "$PACKAGE/Package.resolved"
+            export REMARC_VENTURA=0
+            if [[ "$profile" = ventura ]]; then export REMARC_VENTURA=1; fi
+            echo "Running full Swift suite: $profile"
+            bash scripts/resolve-packages.sh "$PACKAGE"
+            env -u THREADS_ACCESS_TOKEN swift test --package-path "$PACKAGE" \
+              --scratch-path "$GITHUB_WORKSPACE/app/DerivedData/SwiftTests-$profile" \
+              --cache-path "$CACHE"
+          done
       - name: Test packaged MCP image delivery
         run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app/Contents/Resources/remarc-mcp.js" "$REMARC_CHANNEL"
       - name: Package drag-to-install disk image

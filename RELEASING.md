@@ -52,7 +52,8 @@ The workflow:
    commit. No bot/model coauthor attribution is added.
 3. Builds Intel (macOS 13+) and ARM (macOS 14+) Release packages on native GitHub
    runners with Xcode 26.2. Full Swift suites run for **both standard and Ventura
-   profiles** on ARM runners with Metal; compatibility tests also run on Intel.
+   profiles** sequentially on the existing ARM build runner with Metal, using
+   separate scratch directories; compatibility tests also run on Intel.
    A production release cannot skip these suites.
 4. Uses the existing pinned production certificate from Actions Secrets
    `REMARC_SIGNING_P12_BASE64` and `REMARC_SIGNING_P12_PASSWORD`. Both packages use
@@ -60,6 +61,8 @@ The workflow:
    identity, fall back to ad-hoc signing, expose private material or change trust.
 5. Verifies packaged MCP behavior, all bundled Mach-O architectures and deployment
    floors, code signatures, version/build/source and GitHub update metadata.
+   Final package verification and publication use an Intel runner and never
+   launch ARM code; full Swift suites stay on the native ARM build runner.
 6. Creates a new annotated tag and draft Release, verifies uploaded assets and
    checksums, publishes the Release, then downloads and checks the published bytes.
 

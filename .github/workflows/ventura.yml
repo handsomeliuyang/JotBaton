@@ -18,6 +18,10 @@ on:
       skip_tests:
         type: boolean
         default: false
+      full_suites_in_apple_silicon_build:
+        description: 'Release runs both full suites on its existing ARM build runner'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       configuration:
@@ -76,7 +80,7 @@ jobs:
           retention-days: 14
 
   package-tests:
-    if: ${{ inputs.skip_tests != true }}
+    if: ${{ inputs.skip_tests != true && inputs.full_suites_in_apple_silicon_build != true }}
     # arm64 supplies Metal for the complete suite; Xcode remains pinned below.
     runs-on: macos-15
     timeout-minutes: 45

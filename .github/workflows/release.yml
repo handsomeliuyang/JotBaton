@@ -93,6 +93,7 @@ jobs:
     with:
       source_ref: ${{ needs.prepare.outputs.source_sha }}
       configuration: Release
+      full_suites_in_apple_silicon_build: true
 
   apple-silicon:
     needs: prepare
@@ -102,10 +103,13 @@ jobs:
     uses: ./.github/workflows/apple-silicon.yml
     with:
       source_ref: ${{ needs.prepare.outputs.source_sha }}
+      run_full_suites: true
 
   publish:
     needs: [prepare, ventura, apple-silicon]
-    runs-on: macos-15
+    # Package verification is static; Intel can verify both native apps without
+    # launching ARM code or allocating another scarce ARM runner.
+    runs-on: macos-15-intel
     timeout-minutes: 15
     permissions:
       contents: write
