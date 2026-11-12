@@ -293,8 +293,8 @@ private struct SessionSidebarRow<MenuContent: View>: View {
 
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
-        HStack(spacing: 5) {
-            Button(action: handleClick) {
+        Button(action: handleClick) {
+            HStack(spacing: 5) {
                 HStack(spacing: 5) {
                     if session.isInbox {
                         Image(systemName: "tray")
@@ -314,31 +314,30 @@ private struct SessionSidebarRow<MenuContent: View>: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help(title)
-            .accessibilityLabel(title)
-            .accessibilityValue(L10n.tr("\(commentCount) comments"))
-            .accessibilityHint(session.isPinned ? L10n.tr("Pinned session") : "")
-            .accessibilityAddTraits(isActive ? .isSelected : [])
-            .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
 
-            Text("\(commentCount)")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
-                .frame(minWidth: 16, alignment: .trailing)
-                .fixedSize()
-                .padding(.top, session.isInbox ? 0 : 12)
-                .onTapGesture(perform: handleClick)
-                .accessibilityHidden(true)
+                Text("\(commentCount)")
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(isActive ? brandColor.opacity(0.8) : .primary.opacity(commentCount == 0 ? 0.35 : 0.6))
+                    .frame(minWidth: 16, alignment: .trailing)
+                    .fixedSize()
+                    .padding(.top, session.isInbox ? 0 : 12)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .frame(minHeight: 34)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(isActive ? brandColor : .primary.opacity(0.75))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .frame(minHeight: 34)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityValue(L10n.tr("\(commentCount) comments"))
+        .accessibilityHint(session.isPinned ? L10n.tr("Pinned session") : "")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityIdentifier("remarc.session.\(session.id.uuidString)")
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isActive ? brandColor.opacity(0.12) : Color.primary.opacity(isHovered ? 0.06 : 0))

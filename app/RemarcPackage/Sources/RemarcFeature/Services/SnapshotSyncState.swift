@@ -147,3 +147,18 @@ enum SnapshotSyncStore {
         try SnapshotArchive.encode(record).write(to: root.appendingPathComponent("snapshot-sync-v2.json"), options: .atomic)
     }
 }
+
+/// Shared by the UI and operation entry points. Unknown or stale state is not actionable.
+struct SnapshotActionAvailability {
+    let canPublish: Bool
+    let canApply: Bool
+
+    init(enabled: Bool, busy: Bool, connected: Bool, checked: Bool,
+         fingerprintReady: Bool, hasIssue: Bool, pending: Bool,
+         transfer: SnapshotCloudTransfer, comparison: SnapshotComparison, hasCloud: Bool) {
+        let ready = enabled && !busy && connected && checked && fingerprintReady
+            && !hasIssue && !pending && !transfer.blocksReplacement && transfer != .unknown
+        canPublish = ready && (!hasCloud || comparison != .same)
+        canApply = ready && hasCloud && comparison != .same
+    }
+}

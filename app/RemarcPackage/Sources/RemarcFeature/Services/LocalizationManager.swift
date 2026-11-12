@@ -172,3 +172,12 @@ extension Date {
         Date.FormatStyle(date: date, time: time).locale(L10n.locale).format(self)
     }
 }
+
+extension Date {
+    /// Format before constructing Text so SwiftUI's environment cannot override the app language.
+    func snapshotInterfaceFormatted(language: AppLanguage = L10n.language) -> String {
+        let locale = Locale(identifier: language.resolved() == .simplifiedChinese ? "zh_CN" : "en_US")
+        return Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
+            .locale(locale).format(self)
+    }
+}

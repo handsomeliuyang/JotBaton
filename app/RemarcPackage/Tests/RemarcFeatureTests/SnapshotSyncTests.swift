@@ -638,3 +638,53 @@ final class SnapshotSyncTests {
     }
 
 }
+
+
+@Suite("iCloud action availability")
+struct SnapshotActionAvailabilityTests {
+    private func actions(comparison: SnapshotComparison = .publish, hasCloud: Bool = true,
+                         enabled: Bool = true, busy: Bool = false, connected: Bool = true,
+                         checked: Bool = true, fingerprintReady: Bool = true,
+                         hasIssue: Bool = false, pending: Bool = false,
+                         transfer: SnapshotCloudTransfer = .ready) -> SnapshotActionAvailability {
+        SnapshotActionAvailability(enabled: enabled, busy: busy, connected: connected, checked: checked,
+            fingerprintReady: fingerprintReady, hasIssue: hasIssue, pending: pending,
+            transfer: transfer, comparison: comparison, hasCloud: hasCloud)
+    }
+
+    @Test func matchingCopiesDisableBothDirections() {
+        let result = actions(comparison: .same)
+        #expect(!result.canPublish)
+        #expect(!result.canApply)
+    }
+
+    @Test(arguments: [SnapshotComparison.publish, .receive, .choose])
+    func differentCopiesAllowAnExplicitChoice(_ comparison: SnapshotComparison) {
+        let result = actions(comparison: comparison)
+        #expect(result.canPublish)
+        #expect(result.canApply)
+    }
+
+    @Test func firstPublicationCannotApplyAnAbsentCopy() {
+        let result = actions(hasCloud: false, transfer: .empty)
+        #expect(result.canPublish)
+        #expect(!result.canApply)
+    }
+
+    @Test func unverifiedOrUnavailableStateBlocksBothDirections() {
+        let blocked = [actions(enabled: false), actions(busy: true), actions(connected: false),
+            actions(checked: false), actions(fingerprintReady: false), actions(hasIssue: true),
+            actions(pending: true)]
+        for result in blocked {
+            #expect(!result.canPublish)
+            #expect(!result.canApply)
+        }
+    }
+
+    @Test(arguments: [SnapshotCloudTransfer.unknown, .uploading, .downloading, .transferring, .waiting, .failed])
+    func incompleteTransfersBlockBothDirections(_ transfer: SnapshotCloudTransfer) {
+        let result = actions(transfer: transfer)
+        #expect(!result.canPublish)
+        #expect(!result.canApply)
+    }
+}

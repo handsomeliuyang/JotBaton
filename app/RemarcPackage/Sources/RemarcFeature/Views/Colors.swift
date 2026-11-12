@@ -83,6 +83,21 @@ extension Color {
             : Color(red: 0.98, green: 0.98, blue: 0.98)
     }
 
+    /// Neutral, nearly opaque surfaces keep snapshot details legible over desktop material.
+    public static func remarcSnapshotSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(white: 0.16).opacity(0.96)
+            : Color(white: 0.98).opacity(0.96)
+    }
+
+    public static func remarcSnapshotBorder(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.14)
+    }
+
+    public static func remarcSnapshotButtonSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(white: 0.22) : Color(white: 0.93)
+    }
+
     // MARK: - Gradients
 
     public static func remarcBrandGradient(for colorScheme: ColorScheme) -> LinearGradient {

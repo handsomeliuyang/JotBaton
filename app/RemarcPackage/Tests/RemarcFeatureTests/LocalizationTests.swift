@@ -79,3 +79,15 @@ struct LocalizationTests {
         withExtendedLifetime(subscription) {}
     }
 }
+
+@Suite("Snapshot timestamp language")
+struct SnapshotTimestampLanguageTests {
+    @Test func explicitLanguageControlsMonthPresentation() {
+        let date = Date(timeIntervalSince1970: 1_794_485_000)
+        let chinese = date.snapshotInterfaceFormatted(language: .simplifiedChinese)
+        let english = date.snapshotInterfaceFormatted(language: .english)
+        #expect(chinese.contains("月"))
+        #expect(!english.contains("月"))
+        #expect(chinese != english)
+    }
+}
