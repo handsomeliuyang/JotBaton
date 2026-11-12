@@ -25,6 +25,7 @@ struct SnapshotReceipt: Codable, Sendable {
     /// differently without changing their decoded values.
     let contentHash: String
     var appliedAt: Date? = nil
+    var localUpdatedAt: Date? = nil
 }
 
 enum SnapshotError: LocalizedError {
@@ -63,6 +64,7 @@ enum SnapshotArchive {
         state.unknownFields.removeValue(forKey: "_snapshotReceipt")
         state.unknownFields.removeValue(forKey: "_snapshotContentStamp")
         state.unknownFields.removeValue(forKey: "_snapshotUndo")
+        state.unknownFields.removeValue(forKey: "_snapshotDataUpdatedAt")
         // Selection and live agent delivery belong to this Mac. They must not
         // make a snapshot dirty or wake a process when a snapshot is applied.
         state.activeSessionID = nil

@@ -15,10 +15,12 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
     }
 
     public func show() {
+        let wasVisible = isVisible || MenuBarPopoverController.shared.isVisible
         if window == nil { createWindow() }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         isVisible = true
+        Task { await SnapshotSyncManager.shared.mainInterfaceDidShow(wasVisible: wasVisible) }
         MenuBarPopoverController.shared.isDetached = true
         // SwiftUI .scrollIndicators(.hidden) is unreliable — walk AppKit hierarchy
         DispatchQueue.main.async { [weak self] in

@@ -175,7 +175,7 @@ public final class PersistenceManager: ObservableObject {
 
     public func setActiveSession(_ id: UUID) {
         appState.activeSessionID = id
-        scheduleSave()
+        scheduleSave(dataChanged: false)
     }
 
     @discardableResult
@@ -442,6 +442,7 @@ public final class PersistenceManager: ObservableObject {
         appState.comments.append(comment)
         appState.totalCommentsCreated += 1
 
+        appState.markSnapshotDataChanged()
         if wakeRequested {
             // Agent integrations watch this file; the comment has to be on disk
             // before the change event fires, or the woken session finds nothing.
@@ -826,10 +827,11 @@ public final class PersistenceManager: ObservableObject {
         replacement.activeSessionID = replacement.sessions.first(where: { $0.id == selection && !$0.isDeleted && !$0.isAutoDismissed })?.id
             ?? replacement.sessions.first(where: { $0.isInbox && !$0.isDeleted })?.id
             ?? replacement.sessions.first(where: { !$0.isDeleted && !$0.isAutoDismissed })?.id
-        let receipt = SnapshotReceipt(version: version, contentHash: prepared.hash, appliedAt: Date())
+        let receipt = SnapshotReceipt(version: version, contentHash: prepared.hash, appliedAt: Date(), localUpdatedAt: version.contentModifiedAt ?? version.createdAt)
         if undoing { replacement.unknownFields.removeValue(forKey: "_snapshotReceipt") }
         else { replacement.unknownFields["_snapshotReceipt"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(receipt)) }
         try SnapshotRollbackStore.set(undo, in: &replacement)
+        replacement.snapshotDataUpdatedAt = undoing ? Date() : (version.contentModifiedAt ?? version.createdAt)
         let stamp = SnapshotContentStamp(contentHash: prepared.hash, modifiedAt: undoing ? Date() : version.contentModifiedAt)
         replacement.unknownFields["_snapshotContentStamp"] = try JSONDecoder().decode(JSONValue.self, from: SnapshotArchive.encode(stamp))
         try SnapshotReplacement.commit(replacement, expected: lastPersisted, fileURL: fileURL)
@@ -843,7 +845,13 @@ public final class PersistenceManager: ObservableObject {
         // setting changes: this is an explicit restore, not newly created work.
     }
 
-    private func scheduleSave() {
+    /// An annotation can replace image bytes without changing the comment's path.
+    func recordImageContentChange() {
+        scheduleSave()
+    }
+
+    private func scheduleSave(dataChanged: Bool = true) {
+        if dataChanged { appState.markSnapshotDataChanged() }
         reconcileEmptySessions()
         saveSubject.send()
     }
@@ -1036,6 +1044,7 @@ public final class PersistenceManager: ObservableObject {
             customTitle: customTitle
         )
         candidate.comments.append(comment)
+        candidate.markSnapshotDataChanged()
         // Inside the candidate, never applied afterwards: the counter is part of
         // the encoded document and the merge resolves it by max, so incrementing
         // after the write would diverge memory from disk.
@@ -1206,6 +1215,7 @@ public final class PersistenceManager: ObservableObject {
                     merged.comments[index].updatedAt = now
                 }
 
+                if !clearableIDs.isEmpty { merged.markSnapshotDataChanged() }
                 let encoded: Data
                 do { encoded = try JSONEncoder().encode(merged) }
                 catch { throw PersistenceError.encodeFailed("\(error)") }

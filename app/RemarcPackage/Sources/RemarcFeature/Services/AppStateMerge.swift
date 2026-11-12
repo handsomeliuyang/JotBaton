@@ -49,6 +49,23 @@ enum AppStateMerge {
         let oursAdded = max(0, ours.totalCommentsCreated - base.totalCommentsCreated)
         let theirsAdded = max(0, theirs.totalCommentsCreated - base.totalCommentsCreated)
         result.totalCommentsCreated = base.totalCommentsCreated + oursAdded + theirsAdded
+        // Preserve the newest content clock across concurrent writers.
+        result.snapshotDataUpdatedAt = [ours.snapshotDataUpdatedAt, theirs.snapshotDataUpdatedAt].compactMap { $0 }.max()
+        // Older MCP/hook writers preserve unknown fields but cannot advance this clock.
+        // Detect their edits here, where the document is already being merged, never in sync checks.
+        if theirs.snapshotDataUpdatedAt == base.snapshotDataUpdatedAt {
+            var external = theirs
+            var original = base
+            external.activeSessionID = nil
+            original.activeSessionID = nil
+            external.unknownFields = [:]
+            original.unknownFields = [:]
+            for i in external.sessions.indices { external.sessions[i].claudeCodeSessionId = nil; external.sessions[i].emptySince = nil }
+            for i in original.sessions.indices { original.sessions[i].claudeCodeSessionId = nil; original.sessions[i].emptySince = nil }
+            for i in external.comments.indices { external.comments[i].wakeRequestedAt = nil }
+            for i in original.comments.indices { original.comments[i].wakeRequestedAt = nil }
+            if external != original { result.markSnapshotDataChanged() }
+        }
         return result
     }
 

@@ -17,32 +17,33 @@ final class SnapshotSyncManager: ObservableObject {
     @Published private(set) var lastCheckedAt: Date?
     @Published private(set) var cloudTransfer = SnapshotCloudTransfer.unknown
     @Published private(set) var isBusy = false
+    @Published private(set) var isChecking = false
     @Published private var progressKey: L10n.Key?
     @Published private var noticeKey: L10n.Key?
     @Published private(set) var record: SnapshotSyncRecord
     @Published private(set) var localCommentCount: Int?
     @Published private(set) var localImageCount: Int?
-    @Published private(set) var localContentHash: String?
+    @Published private(set) var localStatusReady = false
     var progress: String? { progressKey.map { L10n.tr($0) } }
     var notice: String? { noticeKey.map { L10n.tr($0) } }
     var publication: SnapshotPublication? { record.publication }
     var issue: SnapshotSyncIssue? { record.issue }
     private let deviceID: UUID
     private var subscription: AnyCancellable?
-    private var fingerprintGeneration = 0
     private var pollingTask: Task<Void, Never>?
     private var scopedFolder: URL?
     private var reviewHolders = Set<UUID>()
-    private var lastCheckAttemptAt: Date?
 
     var comparison: SnapshotComparison {
-        SnapshotComparison.compare(localHash: localContentHash, localTime: localUpdatedAt, cloud: cloudData,
-            baselineID: receipt?.version.formatVersion == 2 ? receipt?.version.id : nil,
-            localEdits: hasLocalChanges, multipleCloudHeads: false, baselineHash: receipt?.contentHash)
+        SnapshotComparison.compare(localTime: localUpdatedAt, cloud: cloudData,
+            baselineID: receipt?.version.id,
+            baselineLocalTime: receipt?.localUpdatedAt ?? receipt?.version.contentModifiedAt,
+            baselineCloudTime: receipt.map { $0.version.contentModifiedAt ?? $0.version.createdAt })
     }
+
     private var actions: SnapshotActionAvailability {
         SnapshotActionAvailability(enabled: isEnabled, busy: isBusy, connected: folder != nil,
-            checked: lastCheckedAt != nil, fingerprintReady: localContentHash != nil,
+            checked: lastCheckedAt != nil, localReady: localStatusReady,
             hasIssue: issue != nil, pending: publication?.isPending == true,
             transfer: cloudTransfer, comparison: comparison, hasCloud: cloudData != nil)
     }
@@ -56,7 +57,7 @@ final class SnapshotSyncManager: ObservableObject {
         if cloudTransfer.blocksReplacement { return cloudTransfer.title }
         if lastCheckedAt == nil { return L10n.tr("Check iCloud before choosing an action.") }
         if cloudTransfer == .unknown { return L10n.tr("iCloud transfer status is unconfirmed. Check again.") }
-        if localContentHash == nil { return L10n.tr("Local data could not be verified. Check again.") }
+        if !localStatusReady { return L10n.tr("Local data could not be verified. Check again.") }
         if cloudData == nil { return L10n.tr("No cloud copy yet. Publish this Mac’s data to create one.") }
         switch comparison {
         case .same: return L10n.tr("This Mac and iCloud match. No action needed.")
@@ -65,11 +66,34 @@ final class SnapshotSyncManager: ObservableObject {
         case .choose: return L10n.tr("This Mac and iCloud have different content.")
         }
     }
+    var isStatusConfirmed: Bool {
+        isEnabled && (!isBusy || isChecking) && issue == nil && lastCheckedAt != nil && localStatusReady
+            && publication?.isPending != true && !cloudTransfer.blocksReplacement && cloudTransfer != .unknown
+    }
+    var guidance: SnapshotGuidance {
+        SnapshotGuidance(comparison: comparison,
+            hasBaseline: receipt != nil && (receipt?.localUpdatedAt ?? receipt?.version.contentModifiedAt) != nil)
+    }
+    var statusSymbol: String {
+        if !isEnabled { return "icloud.slash" }
+        if issue != nil || cloudTransfer == .failed { return "exclamationmark.icloud" }
+        guard isStatusConfirmed else { return "icloud" }
+        switch comparison {
+        case .same: return "checkmark.icloud"
+        case .publish: return "icloud.and.arrow.up"
+        case .receive: return "icloud.and.arrow.down"
+        case .choose: return "exclamationmark.icloud"
+        }
+    }
     var shortStatus: String {
         if !isEnabled { return L10n.tr("Off") }
-        if isBusy || publication?.isPending == true { return L10n.tr("Syncing") }
-        if issue != nil { return L10n.tr("Error") }
-        return comparison == .same ? L10n.tr("Synced") : L10n.tr("Check")
+        guard isStatusConfirmed else { return summary }
+        switch comparison {
+        case .same: return L10n.tr("Up to date")
+        case .publish: return L10n.tr("Backup needed")
+        case .receive: return L10n.tr("Cloud update available")
+        case .choose: return guidance.title
+        }
     }
 
     private init() {
@@ -148,33 +172,24 @@ final class SnapshotSyncManager: ObservableObject {
         cloudTransfer = .unknown
         cloudData = nil
         lastCheckedAt = nil
-        lastCheckAttemptAt = nil
         noticeKey = nil
         UserDefaults.standard.removeObject(forKey: "snapshotICloudAccessBookmark")
         // Keep the durable pending snapshot and diagnostic for the next enable.
     }
 
-    func checkIfNeeded() async {
-        guard isEnabled, !isBusy, reviewHolders.isEmpty,
-              lastCheckAttemptAt.map({ Date().timeIntervalSince($0) > 15 }) ?? true else { return }
+    /// Only a hidden-to-visible transition of the main interface automatically checks iCloud.
+    func mainInterfaceDidShow(wasVisible: Bool) async {
+        guard SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: wasVisible, enabled: isEnabled,
+            busy: isBusy, reviewing: !reviewHolders.isEmpty) else { return }
         await check()
-    }
-
-    func observeCloud() async {
-        while !Task.isCancelled {
-            await checkIfNeeded()
-            do { try await Task.sleep(for: .seconds(3)) } catch { return }
-        }
     }
 
     func check(createIfMissing: Bool = false) async {
         guard isEnabled, !isBusy else { return }
-        lastCheckedAt = nil
-        lastCheckAttemptAt = Date()
         isBusy = true
+        isChecking = true
         progressKey = "Checking iCloud…"
-        noticeKey = nil
-        defer { isBusy = false; progressKey = nil }
+        defer { isChecking = false; isBusy = false; progressKey = nil }
         do {
             let directory = try await Task.detached(priority: .utility) {
                 try SnapshotCloudLocation.connect(createIfMissing: createIfMissing)
@@ -221,16 +236,17 @@ final class SnapshotSyncManager: ObservableObject {
             }
             let state = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(state)
+            let capturedTime = localUpdatedAt
             let root = remarcAppSupportURL
             let prepared = try await Task.detached(priority: .utility) { try SnapshotArchive.prepare(state, root: root) }.value
-            if let fresh, prepared.hash == fresh.contentHash || (receipt?.version.id == fresh.id && prepared.hash == receipt?.contentHash) {
+            if fresh != nil, comparison == .same {
                 noticeKey = nil
                 return
             }
             let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { throw SnapshotError.message(L10n.tr("Enter a name for this Mac before publishing.")) }
             let id = deviceID
-            let time = localUpdatedAt
+            let time = capturedTime
             let result = try await Task.detached(priority: .utility) {
                 let cleanup = try SnapshotDisk.cleanupCandidates(in: directory, current: fresh, abandoned: abandoned)
                 let version = try SnapshotArchive.create(prepared, in: temporary, deviceID: id, deviceName: name, contentModifiedAt: time)
@@ -287,7 +303,7 @@ final class SnapshotSyncManager: ObservableObject {
         record.publication?.currentCommitted = true
         if record.publication?.confirmedAt == nil { record.publication?.confirmedAt = Date() }
         if receipt?.version.id != version.id {
-            try await PersistenceManager.shared.recordSnapshotReceipt(SnapshotReceipt(version: version, contentHash: version.contentHash))
+            try await PersistenceManager.shared.recordSnapshotReceipt(SnapshotReceipt(version: version, contentHash: version.contentHash, localUpdatedAt: version.contentModifiedAt ?? version.createdAt))
             await refreshLocalStatus(PersistenceManager.shared.appState)
         }
         let cleanup = saved.cleanupNames
@@ -322,7 +338,7 @@ final class SnapshotSyncManager: ObservableObject {
             let before = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(before)
             let local = try await Task.detached(priority: .utility) { try SnapshotArchive.prepare(before, root: root) }.value
-            guard comparison != .same, local.hash != incoming.hash else { return }
+            guard comparison != .same else { return }
             progressKey = "Saving one undo copy…"
             let id = deviceID
             let name = deviceName
@@ -386,40 +402,24 @@ final class SnapshotSyncManager: ObservableObject {
     }
 
     private func refreshLocalStatus(_ state: AppState) async {
-        fingerprintGeneration += 1
-        let generation = fingerprintGeneration
-        let root = remarcAppSupportURL
         receipt = PersistenceManager.shared.snapshotReceipt
         rollback = PersistenceManager.shared.snapshotUndo
-        do {
-            let counts = try await Task.detached(priority: .utility) {
-                let prepared = try SnapshotArchive.prepare(state, root: root)
-                return (hash: prepared.hash,
-                        comments: prepared.state.comments.filter { !$0.isDeleted }.count,
-                        images: prepared.files.keys.filter { $0.hasSuffix(".png") && !$0.hasSuffix(".base.png") }.count)
-            }.value
-            let hash = counts.hash
-            guard generation == fingerprintGeneration else { return }
-            let newApplication = receipt?.appliedAt != nil && receipt?.appliedAt != record.lastAppliedAt
-            let adopted = newApplication || record.contentStamp == nil ? PersistenceManager.shared.snapshotContentStamp : nil
-            let stamp = SnapshotContentStamp.tracking(hash: hash, saved: record.contentStamp, adopted: adopted,
-                observedLive: localContentHash != nil && !newApplication, now: Date())
-            let stampChanged = stamp != record.contentStamp
-            record.contentStamp = stamp
-            if newApplication { record.lastAppliedAt = receipt?.appliedAt }
-            localUpdatedAt = stamp.modifiedAt
-            localCommentCount = counts.comments
-            localImageCount = counts.images
-            localContentHash = hash
-            hasLocalChanges = hash != receipt?.contentHash
-            if stampChanged { persist() }
-        } catch {
-            guard generation == fingerprintGeneration else { return }
-            localCommentCount = nil
-            localImageCount = nil
-            localContentHash = nil
-            hasLocalChanges = true
+        // Older documents carry a saved content time. Adopt it once; checking never dates data as new.
+        let legacyTime = PersistenceManager.shared.snapshotContentStamp?.modifiedAt ?? record.contentStamp?.modifiedAt
+        let entityTime = state.comments.map(\.updatedAt).max()
+        localUpdatedAt = state.snapshotDataUpdatedAt
+            ?? [legacyTime, entityTime, receipt?.localUpdatedAt, receipt?.version.contentModifiedAt].compactMap { $0 }.max()
+            ?? state.sessions.map(\.createdAt).max() ?? .distantPast
+        localCommentCount = state.comments.filter { !$0.isDeleted }.count
+        var images = Set<String>()
+        for comment in state.comments {
+            if let path = comment.type.imagePath { images.insert(path) }
+            images.formUnion(comment.attachments)
         }
+        images.formUnion(state.orphanedImages.map(\.path))
+        localImageCount = images.count
+        localStatusReady = true
+        hasLocalChanges = localUpdatedAt != (receipt?.localUpdatedAt ?? receipt?.version.contentModifiedAt)
     }
 
     private func fail(_ error: Error, stage: SnapshotSyncIssue.Stage, versionID: UUID? = nil) {

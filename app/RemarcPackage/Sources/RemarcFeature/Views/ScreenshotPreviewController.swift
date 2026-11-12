@@ -317,6 +317,7 @@ public final class ScreenshotPreviewController {
 
         // Bumped only after a successful atomic replacement, so a thumbnail
         // never reloads bytes that were not written.
+        PersistenceManager.shared.recordImageContentChange()
         StoredImageRevisionCenter.shared.bump(imagePath)
 
         // Identity, not presence. The render suspends, and by now the panel may

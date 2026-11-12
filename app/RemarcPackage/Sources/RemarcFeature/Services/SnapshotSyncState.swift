@@ -98,42 +98,29 @@ struct SnapshotContentStamp: Codable, Equatable, Sendable {
     let contentHash: String
     let modifiedAt: Date?
 
-    static func tracking(hash: String, saved: Self?, adopted: Self?, observedLive: Bool, now: Date) -> Self {
-        // Initial discovery is not a data edit. Offline edits with no recorded
-        // content clock stay unknown instead of being dated at the next check.
-        if !observedLive {
-            if let adopted, adopted.contentHash == hash { return adopted }
-            if let saved, saved.contentHash == hash { return saved }
-            return Self(contentHash: hash, modifiedAt: nil)
-        }
-        if let saved, saved.contentHash == hash { return saved }
-        return Self(contentHash: hash, modifiedAt: now)
-    }
 }
 
 enum SnapshotComparison: Equatable {
     case same, publish, receive, choose
 
-    static func compare(localHash: String?, localTime: Date?, cloud: SnapshotVersion?,
-                        baselineID: UUID?, localEdits: Bool, multipleCloudHeads: Bool,
-                        baselineHash: String? = nil) -> Self {
-        if multipleCloudHeads { return .choose }
+    static func compare(localTime: Date?, cloud: SnapshotVersion?, baselineID: UUID?,
+                        baselineLocalTime: Date?, baselineCloudTime: Date?) -> Self {
         guard let cloud else { return .publish }
-        if localHash == cloud.contentHash { return .same }
-        // An applied cross-OS snapshot has a source fingerprint and a local
-        // fingerprint. Only the exact applied version can use this baseline.
-        if baselineID == cloud.id, let localHash, localHash == baselineHash { return .same }
-        let cloudChanged = baselineID != cloud.id
-        if localEdits && cloudChanged { return .choose }
-        if localEdits && !cloudChanged { return .publish }
-        if !localEdits && cloudChanged { return .receive }
-        if let localTime, let remoteTime = cloud.contentModifiedAt {
-            if localTime > remoteTime { return .publish }
-            if remoteTime > localTime { return .receive }
+        let cloudTime = cloud.contentModifiedAt ?? cloud.createdAt
+        guard let localTime else { return .choose }
+        guard let baselineID, let baselineLocalTime else {
+            return localTime == cloudTime ? .same : .choose
         }
-        // Equal/missing times cannot safely order different content.
-        return .choose
+        let localChanged = localTime != baselineLocalTime
+        let cloudChanged = cloud.id != baselineID || cloudTime != baselineCloudTime
+        switch (localChanged, cloudChanged) {
+        case (false, false): return .same
+        case (true, false): return .publish
+        case (false, true): return .receive
+        case (true, true): return .choose
+        }
     }
+
 }
 
 enum SnapshotSyncStore {
@@ -154,11 +141,51 @@ struct SnapshotActionAvailability {
     let canApply: Bool
 
     init(enabled: Bool, busy: Bool, connected: Bool, checked: Bool,
-         fingerprintReady: Bool, hasIssue: Bool, pending: Bool,
+         localReady: Bool, hasIssue: Bool, pending: Bool,
          transfer: SnapshotCloudTransfer, comparison: SnapshotComparison, hasCloud: Bool) {
-        let ready = enabled && !busy && connected && checked && fingerprintReady
+        let ready = enabled && !busy && connected && checked && localReady
             && !hasIssue && !pending && !transfer.blocksReplacement && transfer != .unknown
         canPublish = ready && (!hasCloud || comparison != .same)
         canApply = ready && hasCloud && comparison != .same
+    }
+}
+
+/// Presentation distinguishes missing history from edits on both devices.
+enum SnapshotGuidance: Equatable {
+    case current, backup, restore, setup, conflict
+
+    init(comparison: SnapshotComparison, hasBaseline: Bool) {
+        switch comparison {
+        case .same: self = .current
+        case .publish: self = .backup
+        case .receive: self = .restore
+        case .choose: self = hasBaseline ? .conflict : .setup
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .current: return L10n.tr("Everything is backed up")
+        case .backup: return L10n.tr("You have changes to back up")
+        case .restore: return L10n.tr("A newer cloud backup is available")
+        case .setup: return L10n.tr("Choose your starting data")
+        case .conflict: return L10n.tr("Both devices have made changes")
+        }
+    }
+    var explanation: String {
+        switch self {
+        case .current: return L10n.tr("This Mac’s data is backed up. No action needed.")
+        case .backup: return L10n.tr("Back up this Mac’s latest changes to iCloud.")
+        case .restore: return L10n.tr("Another Mac updated the backup. Restore it to use those changes here.")
+        case .setup: return L10n.tr("This Mac has not synced with this backup yet. Choose which data you want to keep using.")
+        case .conflict: return L10n.tr("Both this Mac and the cloud backup changed since the last sync. Changes have not been merged.")
+        }
+    }
+}
+
+/// Reopening the main interface is the only automatic refresh trigger.
+enum SnapshotRefreshPolicy {
+    static func shouldCheckOnShow(wasVisible: Bool, enabled: Bool, busy: Bool, reviewing: Bool) -> Bool {
+        !wasVisible && enabled && !busy && !reviewing
     }
 }

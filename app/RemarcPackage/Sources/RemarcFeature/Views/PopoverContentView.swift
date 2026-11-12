@@ -167,7 +167,6 @@ struct PopoverContentView: View {
         }
         .onRemarcChange(of: popoverController.isVisible) { visible in
             if visible {
-                Task { await SnapshotSyncManager.shared.checkIfNeeded() }
                 if let hiddenAt = searchHiddenAt, Date().timeIntervalSince(hiddenAt) > Self.searchRetention {
                     searchText = ""
                     isSearching = false

@@ -73,9 +73,9 @@ final class SnapshotSyncTests {
             #expect(restored.hash == prepared.hash)
             let installed = try SnapshotArchive.installFiles(restored, root: directory)
             #expect(try SnapshotArchive.prepare(installed.state, root: directory).hash == restored.hash)
-            #expect(SnapshotComparison.compare(localHash: restored.hash, localTime: nil, cloud: version,
-                baselineID: version.id, localEdits: false, multipleCloudHeads: false,
-                baselineHash: restored.hash) == .same)
+            #expect(SnapshotComparison.compare(localTime: version.createdAt, cloud: version,
+                baselineID: version.id, baselineLocalTime: version.createdAt,
+                baselineCloudTime: version.createdAt) == .same)
         }
     }
 
@@ -106,18 +106,21 @@ final class SnapshotSyncTests {
         #expect(try SnapshotArchive.prepare(installed.state, root: directory).hash == prepared.hash)
     }
 
-    @Test func testLocalFingerprintBaselineDoesNotHideEditsOrOtherCloudVersions() throws {
-        let version = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        func compare(_ local: String?, baseline: UUID?, multiple: Bool = false) -> SnapshotComparison {
-            SnapshotComparison.compare(localHash: local, localTime: nil, cloud: version,
-                baselineID: baseline, localEdits: local != "local encoding", multipleCloudHeads: multiple,
-                baselineHash: "local encoding")
+    @Test func testTimestampBaselineSurvivesChecksAndDetectsBothDirections() throws {
+        var cloud = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
+        let baseline = Date(timeIntervalSince1970: 100)
+        cloud.contentModifiedAt = baseline
+        func compare(_ local: Date?, id: UUID? = nil, saved: Date? = nil) -> SnapshotComparison {
+            SnapshotComparison.compare(localTime: local, cloud: cloud, baselineID: id,
+                baselineLocalTime: saved, baselineCloudTime: baseline)
         }
-        #expect(compare("local encoding", baseline: version.id) == .same)
-        #expect(compare("edited", baseline: version.id) == .publish)
-        #expect(compare("local encoding", baseline: UUID()) == .receive)
-        #expect(compare("local encoding", baseline: version.id, multiple: true) == .choose)
-        #expect(compare(nil, baseline: version.id) == .publish)
+        #expect(compare(baseline, id: cloud.id, saved: baseline) == .same)
+        #expect(compare(baseline.addingTimeInterval(1), id: cloud.id, saved: baseline) == .publish)
+        #expect(compare(baseline, id: UUID(), saved: baseline) == .receive)
+        #expect(compare(baseline.addingTimeInterval(-1), id: UUID(), saved: baseline) == .choose)
+        #expect(compare(baseline) == .same)
+        #expect(compare(baseline.addingTimeInterval(1)) == .choose)
+        #expect(compare(nil, id: cloud.id, saved: baseline) == .choose)
     }
 
     @Test func testCompleteSnapshotRoundTripIncludesDeletionAndEditableImages() throws {
@@ -171,34 +174,62 @@ final class SnapshotSyncTests {
         #expect(try JSONDecoder().decode(SnapshotVersion.self, from: JSONSerialization.data(withJSONObject: json)).contentModifiedAt == nil)
     }
 
-    @Test func testContentClockCheckRestartAndApplyAreNotEdits() {
-        let old = Date(timeIntervalSince1970: 10)
-        let now = Date(timeIntervalSince1970: 20)
-        let saved = SnapshotContentStamp(contentHash: "a", modifiedAt: old)
-        #expect(SnapshotContentStamp.tracking(hash: "a", saved: saved, adopted: nil, observedLive: true, now: now) == saved)
-        #expect(SnapshotContentStamp.tracking(hash: "a", saved: saved, adopted: nil, observedLive: false, now: now) == saved)
-        let incoming = SnapshotContentStamp(contentHash: "b", modifiedAt: old)
-        #expect(SnapshotContentStamp.tracking(hash: "b", saved: saved, adopted: incoming, observedLive: false, now: now) == incoming)
-        #expect(SnapshotContentStamp.tracking(hash: "b", saved: saved, adopted: nil, observedLive: true, now: now).modifiedAt == now)
-        #expect(SnapshotContentStamp.tracking(hash: "b", saved: saved, adopted: nil, observedLive: false, now: now).modifiedAt == nil)
-        #expect(SnapshotContentStamp.tracking(hash: "b", saved: nil, adopted: nil, observedLive: false, now: now).modifiedAt == nil)
+    @Test func testContentClockPersistsAndIgnoresSelectionAndSyncBookkeeping() throws {
+        var original = state()
+        let time = Date(timeIntervalSince1970: 100)
+        original.markSnapshotDataChanged(at: time)
+        let restored = try JSONDecoder().decode(AppState.self, from: JSONEncoder().encode(original))
+        #expect(restored.snapshotDataUpdatedAt == time)
+        var selected = restored
+        selected.activeSessionID = nil
+        selected.unknownFields["_snapshotReceipt"] = .string("bookkeeping")
+        let merged = AppStateMerge.merge(base: restored, ours: restored, theirs: selected)
+        #expect(merged.snapshotDataUpdatedAt == time)
+        var edited = restored
+        edited.markSnapshotDataChanged(at: time.addingTimeInterval(-20))
+        #expect(try #require(edited.snapshotDataUpdatedAt) > time)
     }
 
-    @Test func testContentComparisonKeepsWholeDataChoicesSafe() throws {
+    @Test func testLegacyExternalEditsAndConcurrentClocksAreRecorded() throws {
+        var original = state()
+        let time = Date(timeIntervalSince1970: 100)
+        original.snapshotDataUpdatedAt = time
+        var external = original
+        external.sessions[0].isPinned = true
+        let changed = AppStateMerge.merge(base: original, ours: original, theirs: external)
+        #expect(try #require(changed.snapshotDataUpdatedAt) > time)
+        var own = original
+        own.snapshotDataUpdatedAt = time.addingTimeInterval(10)
+        external.snapshotDataUpdatedAt = time.addingTimeInterval(20)
+        #expect(AppStateMerge.merge(base: original, ours: own, theirs: external).snapshotDataUpdatedAt == external.snapshotDataUpdatedAt)
+    }
+
+    @Test func testReceiptKeepsTheCapturedClockWhileLaterEditsRemainPending() throws {
+        let time = Date(timeIntervalSince1970: 100)
+        let version = try SnapshotArchive.create(SnapshotArchive.prepare(state(), root: directory),
+            in: directory, deviceID: UUID(), deviceName: "Mac", contentModifiedAt: time)
+        let receipt = SnapshotReceipt(version: version, contentHash: "integrity only", localUpdatedAt: time)
+        let reloaded = try JSONDecoder().decode(SnapshotReceipt.self, from: JSONEncoder().encode(receipt))
+        #expect(SnapshotComparison.compare(localTime: time, cloud: version, baselineID: reloaded.version.id,
+            baselineLocalTime: reloaded.localUpdatedAt, baselineCloudTime: version.contentModifiedAt) == .same)
+        #expect(SnapshotComparison.compare(localTime: time.addingTimeInterval(1), cloud: version, baselineID: reloaded.version.id,
+            baselineLocalTime: reloaded.localUpdatedAt, baselineCloudTime: version.contentModifiedAt) == .publish)
+    }
+
+    @Test func testTimestampComparisonDoesNotTreatLaterClocksAsSafeOverrides() throws {
         var cloud = try makeVersion(SnapshotArchive.prepare(state(), root: directory))
-        cloud.contentModifiedAt = Date(timeIntervalSince1970: 10)
-        func compare(_ hash: String?, _ time: Date?, baseline: UUID?, edits: Bool, multiple: Bool = false) -> SnapshotComparison {
-            SnapshotComparison.compare(localHash: hash, localTime: time, cloud: cloud, baselineID: baseline, localEdits: edits, multipleCloudHeads: multiple)
-        }
-        #expect(compare(cloud.contentHash, nil, baseline: nil, edits: true) == .same)
-        #expect(compare("changed", nil, baseline: cloud.id, edits: true) == .publish)
-        #expect(compare("changed", nil, baseline: nil, edits: false) == .receive)
-        #expect(compare("changed", Date(timeIntervalSince1970: 30), baseline: nil, edits: true) == .choose)
-        #expect(compare("changed", nil, baseline: cloud.id, edits: false) == .choose)
-        #expect(compare("changed", cloud.contentModifiedAt, baseline: cloud.id, edits: false) == .choose)
-        #expect(compare("changed", Date(timeIntervalSince1970: 30), baseline: cloud.id, edits: false) == .publish)
-        #expect(compare("changed", Date(timeIntervalSince1970: 5), baseline: cloud.id, edits: false) == .receive)
-        #expect(compare(cloud.contentHash, nil, baseline: cloud.id, edits: false, multiple: true) == .choose)
+        let synced = Date(timeIntervalSince1970: 10)
+        cloud.contentModifiedAt = Date(timeIntervalSince1970: 20)
+        #expect(SnapshotComparison.compare(localTime: Date(timeIntervalSince1970: 30), cloud: cloud,
+            baselineID: UUID(), baselineLocalTime: synced, baselineCloudTime: synced) == .choose)
+        #expect(SnapshotComparison.compare(localTime: synced, cloud: cloud,
+            baselineID: UUID(), baselineLocalTime: synced, baselineCloudTime: synced) == .receive)
+        #expect(SnapshotComparison.compare(localTime: synced, cloud: nil,
+            baselineID: nil, baselineLocalTime: nil, baselineCloudTime: nil) == .publish)
+        cloud.contentModifiedAt = nil
+        #expect(SnapshotComparison.compare(localTime: cloud.createdAt, cloud: cloud,
+            baselineID: cloud.id, baselineLocalTime: cloud.createdAt,
+            baselineCloudTime: cloud.createdAt) == .same)
     }
 
     @Test func testAbsoluteAndRelativeImageLocationsProduceTheSameContentIdentity() throws {
@@ -644,11 +675,11 @@ final class SnapshotSyncTests {
 struct SnapshotActionAvailabilityTests {
     private func actions(comparison: SnapshotComparison = .publish, hasCloud: Bool = true,
                          enabled: Bool = true, busy: Bool = false, connected: Bool = true,
-                         checked: Bool = true, fingerprintReady: Bool = true,
+                         checked: Bool = true, localReady: Bool = true,
                          hasIssue: Bool = false, pending: Bool = false,
                          transfer: SnapshotCloudTransfer = .ready) -> SnapshotActionAvailability {
         SnapshotActionAvailability(enabled: enabled, busy: busy, connected: connected, checked: checked,
-            fingerprintReady: fingerprintReady, hasIssue: hasIssue, pending: pending,
+            localReady: localReady, hasIssue: hasIssue, pending: pending,
             transfer: transfer, comparison: comparison, hasCloud: hasCloud)
     }
 
@@ -673,7 +704,7 @@ struct SnapshotActionAvailabilityTests {
 
     @Test func unverifiedOrUnavailableStateBlocksBothDirections() {
         let blocked = [actions(enabled: false), actions(busy: true), actions(connected: false),
-            actions(checked: false), actions(fingerprintReady: false), actions(hasIssue: true),
+            actions(checked: false), actions(localReady: false), actions(hasIssue: true),
             actions(pending: true)]
         for result in blocked {
             #expect(!result.canPublish)
@@ -686,5 +717,38 @@ struct SnapshotActionAvailabilityTests {
         let result = actions(transfer: transfer)
         #expect(!result.canPublish)
         #expect(!result.canApply)
+    }
+}
+
+@Suite("Snapshot guidance")
+struct SnapshotGuidanceTests {
+    @Test func missingHistoryIsNotReportedAsAConflict() {
+        #expect(SnapshotGuidance(comparison: .choose, hasBaseline: false) == .setup)
+        #expect(SnapshotGuidance(comparison: .choose, hasBaseline: true) == .conflict)
+    }
+
+    @Test func clearDirectionsAndMatchingCopiesDoNotAskTheUserToChoose() {
+        for hasBaseline in [false, true] {
+            #expect(SnapshotGuidance(comparison: .same, hasBaseline: hasBaseline) == .current)
+            #expect(SnapshotGuidance(comparison: .publish, hasBaseline: hasBaseline) == .backup)
+            #expect(SnapshotGuidance(comparison: .receive, hasBaseline: hasBaseline) == .restore)
+        }
+    }
+}
+
+@Suite("On-demand iCloud refresh")
+struct SnapshotRefreshPolicyTests {
+    @Test func eachReopeningChecksWithoutATimeThrottle() {
+        for _ in 0..<3 {
+            #expect(SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: false, enabled: true, busy: false, reviewing: false))
+        }
+    }
+    @Test func anAlreadyVisibleInterfaceDoesNotRefresh() {
+        #expect(!SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: true, enabled: true, busy: false, reviewing: false))
+    }
+    @Test func disabledBusyOrReviewingDoesNotStartAnotherCheck() {
+        #expect(!SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: false, enabled: false, busy: false, reviewing: false))
+        #expect(!SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: false, enabled: true, busy: true, reviewing: false))
+        #expect(!SnapshotRefreshPolicy.shouldCheckOnShow(wasVisible: false, enabled: true, busy: false, reviewing: true))
     }
 }

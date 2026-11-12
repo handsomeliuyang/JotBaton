@@ -100,3 +100,18 @@ public struct AppState: Codable, Sendable, Equatable {
         try dynamic.encodeUnknownFields(unknownFields, skipping: Self.modelledKeys)
     }
 }
+
+extension AppState {
+    /// Durable content clock; selection and sync bookkeeping never advance it.
+    var snapshotDataUpdatedAt: Date? {
+        get {
+            guard case .number(let value) = unknownFields["_snapshotDataUpdatedAt"], value.isFinite else { return nil }
+            return Date(timeIntervalSinceReferenceDate: value)
+        }
+        set { unknownFields["_snapshotDataUpdatedAt"] = newValue.map { .number($0.timeIntervalSinceReferenceDate) } }
+    }
+
+    mutating func markSnapshotDataChanged(at now: Date = Date()) {
+        snapshotDataUpdatedAt = max(now, (snapshotDataUpdatedAt ?? .distantPast).addingTimeInterval(0.001))
+    }
+}

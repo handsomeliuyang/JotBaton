@@ -60,6 +60,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
     }
 
     public func show() {
+        let wasVisible = isVisible || DetachedWindowController.shared.isVisible
         if panel == nil {
             createPanel()
         }
@@ -81,6 +82,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         }
 
         isVisible = true
+        Task { await SnapshotSyncManager.shared.mainInterfaceDidShow(wasVisible: wasVisible) }
         clickOutsideMonitor.install(for: panel, shouldDismiss: { [weak self] in !(self?.preventDismiss ?? false) }, dismiss: { [weak self] in self?.dismiss() })
         // SwiftUI .scrollIndicators(.hidden) is unreliable on macOS — the underlying
         // NSScrollView still shows its scroller. Walk the AppKit hierarchy to disable it.
