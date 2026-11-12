@@ -1072,8 +1072,14 @@
   "Working…": "处理中…",
   "Sync needs attention": "同步异常",
   "Awaiting upload": "上传待确认",
-  "Local update": "本机有更新",
-  "Cloud update": "云端有更新",
+  "Local update": "本机较新",
+  "Cloud update": "云端较新",
   "Choose data": "请选择数据",
-  "Undo Last Restore": "撤销上次恢复"
+  "Undo Last Restore": "撤销上次恢复",
+  "Restored from iCloud": "已从 iCloud 恢复",
+  "Restore undone": "已撤销恢复",
+  "iCloud Sync Settings": "iCloud 同步设置",
+  "Newer": "较新",
+  "Restore from iCloud…": "从 iCloud 恢复…",
+  "Enable iCloud Data…": "启用 iCloud 数据…"
 }

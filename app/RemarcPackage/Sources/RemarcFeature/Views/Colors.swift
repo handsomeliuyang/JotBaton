@@ -83,11 +83,11 @@ extension Color {
             : Color(red: 0.98, green: 0.98, blue: 0.98)
     }
 
-    /// Neutral, nearly opaque surfaces keep snapshot details legible over desktop material.
-    public static func remarcSnapshotSurface(for colorScheme: ColorScheme) -> Color {
+    /// Translucent card fill: lifts content off the panel material without reading as a solid white slab.
+    public static func remarcCardSurface(for colorScheme: ColorScheme, hovered: Bool = false) -> Color {
         colorScheme == .dark
-            ? Color(white: 0.16).opacity(0.96)
-            : Color(white: 0.98).opacity(0.96)
+            ? Color.white.opacity(hovered ? 0.11 : 0.08)
+            : Color.white.opacity(hovered ? 0.75 : 0.6)
     }
 
     public static func remarcSnapshotBorder(for colorScheme: ColorScheme) -> Color {

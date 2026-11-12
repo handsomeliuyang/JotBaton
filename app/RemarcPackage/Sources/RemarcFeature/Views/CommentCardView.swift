@@ -39,18 +39,6 @@ struct CommentCardView: View {
 
     private var isCollapsed: Bool { comment.status == .resolved && !isResolvedExpanded }
 
-    private var statusColor: Color {
-        CommentStatus.color(for: comment.status, colorScheme: colorScheme)
-    }
-
-    private var statusHeaderOpacity: Double {
-        switch comment.status {
-        case .open: return colorScheme == .dark ? 0.08 : 0.035
-        case .resolved: return colorScheme == .dark ? 0.04 : 0.02
-        default: return colorScheme == .dark ? 0.07 : 0.035
-        }
-    }
-
     private var collapsedSummary: String {
         let fallback = comment.type.displayText == nil ? comment.type.displayName : comment.truncatedTypeLabel
         let text = comment.meaningfulCommentText ?? fallback
@@ -64,7 +52,6 @@ struct CommentCardView: View {
             headerView
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(statusColor.opacity(statusHeaderOpacity))
 
             VStack(alignment: .leading, spacing: 8) {
                 if isCollapsed {
@@ -487,9 +474,7 @@ struct CardSurfaceModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: AppConstants.cardCornerRadius, style: .continuous)
-                    .fill(colorScheme == .dark
-                        ? Color.white.opacity(isHovered ? 0.11 : 0.08)
-                        : Color.white.opacity(isHovered ? 0.98 : 0.92))
+                    .fill(Color.remarcCardSurface(for: colorScheme, hovered: isHovered))
                     .shadow(
                         color: .black.opacity(colorScheme == .dark
                             ? (isHovered ? 0.4 : 0.25)

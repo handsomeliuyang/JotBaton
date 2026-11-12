@@ -317,8 +317,10 @@ final class SnapshotSyncManager: ObservableObject {
         persist()
     }
 
-    func apply(_ version: SnapshotVersion) async {
-        guard canApply, cloudData?.id == version.id, let source = folder else { return }
+    /// Returns true once the cloud data is installed and an undo copy exists.
+    @discardableResult
+    func apply(_ version: SnapshotVersion) async -> Bool {
+        guard canApply, cloudData?.id == version.id, let source = folder else { return false }
         isBusy = true
         progressKey = "Downloading and verifying current data…"
         noticeKey = nil
@@ -338,7 +340,7 @@ final class SnapshotSyncManager: ObservableObject {
             let before = try await PersistenceManager.shared.stateForSnapshot()
             await refreshLocalStatus(before)
             let local = try await Task.detached(priority: .utility) { try SnapshotArchive.prepare(before, root: root) }.value
-            guard comparison == .receive || comparison == .choose else { return }
+            guard comparison == .receive || comparison == .choose else { return false }
             progressKey = "Saving one undo copy…"
             let id = deviceID
             let name = deviceName
@@ -364,14 +366,17 @@ final class SnapshotSyncManager: ObservableObject {
             persist()
             noticeKey = "Cloud data applied. You can undo this application once."
             try await Task.detached(priority: .utility) { try SnapshotRollbackStore.cleanup(in: root, keeping: undo) }.value
+            return true
         } catch SnapshotError.waitingForDownload {
             cloudTransfer = .waiting
             noticeKey = "Waiting for iCloud to download the current data. Your local tasks are kept."
         } catch { fail(error, stage: .applying, versionID: version.id) }
+        return false
     }
 
-    func undoLastApply() async {
-        guard !isBusy, let version = PersistenceManager.shared.snapshotUndo else { return }
+    @discardableResult
+    func undoLastApply() async -> Bool {
+        guard !isBusy, let version = PersistenceManager.shared.snapshotUndo else { return false }
         isBusy = true
         progressKey = "Restoring data from before the last application…"
         noticeKey = nil
@@ -391,7 +396,9 @@ final class SnapshotSyncManager: ObservableObject {
             persist()
             noticeKey = "Last application undone on this Mac."
             try await Task.detached(priority: .utility) { try SnapshotRollbackStore.cleanup(in: root, keeping: nil) }.value
+            return true
         } catch { fail(error, stage: .applying, versionID: version.id) }
+        return false
     }
 
     private func updateCloudTransfer(in directory: URL) async {
