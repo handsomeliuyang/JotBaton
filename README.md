@@ -88,9 +88,9 @@ their behavior and release instructions may differ from this project's.
 
 ## Install
 
-The currently published releases predate the JotBaton rebrand. New production
-packages are published only by the manual Release workflow. Legacy versions that
-validate the old GitHub repository path need one manual upgrade after the rename.
+JotBaton production packages are published only by the manual Release workflow.
+Legacy Remarc versions that validate the old GitHub repository path need one
+manual upgrade to JotBaton. Existing data and signing identities are preserved.
 Download filenames retain the `Remarc-` prefix for compatibility.
 
 Download both packages from [this project's GitHub Releases](https://github.com/handsomeliuyang/JotBaton/releases/latest):

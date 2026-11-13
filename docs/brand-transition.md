@@ -90,12 +90,14 @@ The repository is maintained independently from `metedata/Remarc`. Keep the
 original MIT copyright and permission notice, commit history, and source credit.
 Only `origin` points to `git@github.com:handsomeliuyang/JotBaton.git`. The local
 GitHub CLI's default repository is `handsomeliuyang/JotBaton`, so unqualified
-commands target this project. This setting does not remove GitHub's fork banner or Sync fork controls.
+commands target this project.
 
 The GitHub repository was renamed in place to
 [handsomeliuyang/JotBaton](https://github.com/handsomeliuyang/JotBaton), preserving
 its repository ID. Repository renaming and leaving the fork network are separate
-operations. The fork relationship remains in place.
+operations. On 2026-11-14 the maintainer authorized **Leave fork network**,
+and GitHub detached JotBaton in place. The repository is now standalone;
+`fork` is false and `parent` and `source` references are absent.
 
 The release command, workflow repository guard, GitHub API discovery, Sparkle
 feed URLs, package verification, and current documentation target JotBaton. The
@@ -121,10 +123,17 @@ three Actions Secret names required by the publishing workflow, no child forks,
 and no stars or watchers. No secret values were read or exported. Existing
 release assets and publishing configuration must be preserved.
 
-GitHub offers **Settings → General → Danger Zone → Leave fork network** for
-eligible public forks. Its documentation warns that detachment is permanent and
-that repository metadata can be lost. Do not delete/recreate this repository or
-use self-service detachment without establishing how its releases and publishing
-configuration will be retained. GitHub Support is an alternative to investigate
-for preserving repository metadata; no support request has been sent. See
+Before detachment, all Git refs were saved in a verified standalone Git bundle,
+and all 86 release assets (398.3 MiB) were backed up outside the checkout.
+Sixty-six payload files matched the published SHA256SUMS across all 20 releases.
+The local backup is under `~/Library/Application Support/JotBaton Maintenance/`.
+It contains no exported secret values.
+
+After detachment, the repository ID, branches and tags, all 20 releases and
+86 assets, the three Actions Secret names and their creation/update timestamps,
+Actions permissions, and private vulnerability reporting matched the saved
+inventory. Download counters were excluded because making the backups increments
+them. GitHub's fork relationship and upstream synchronization controls are now
+removed. Commit history, original attribution, and release URLs remain in place.
+Detachment is permanent. See
 [GitHub's fork detachment guidance](https://docs.github.com/en/pull-requests/how-tos/work-with-forks/detaching-a-fork).

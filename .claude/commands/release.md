@@ -1,11 +1,11 @@
 ---
-description: Publish Remarc through GitHub with commit-derived Chinese notes and a pinned source
+description: Publish JotBaton through GitHub with commit-derived Chinese notes and a pinned source
 argument-hint: "[patch|minor|major|X.Y.Z] [--dry-run]"
 ---
 
-# Release Remarc
+# Release JotBaton
 
-Repository: `handsomeliuyang/Remarc`. Read `AGENTS.md` and `RELEASING.md`.
+Repository: `handsomeliuyang/JotBaton`. Read `AGENTS.md` and `RELEASING.md`.
 Arguments: `$ARGUMENTS`. Default increment: `patch`.
 
 1. Read the current version/build and show it in the conversation. Preview with
@@ -39,9 +39,9 @@ Arguments: `$ARGUMENTS`. Default increment: `patch`.
    An authentication/API error is a stop, never evidence that a release is absent.
 6. Identify the newly dispatched run using repository, `release.yml`, event
    `workflow_dispatch`, full source SHA and dispatch time; inspect candidates with
-   `gh run list -R handsomeliuyang/Remarc --workflow release.yml --commit <full-SHA>
+   `gh run list -R handsomeliuyang/JotBaton --workflow release.yml --commit <full-SHA>
    --event workflow_dispatch --json databaseId,headSha,createdAt,status,url`.
-   Watch that exact run ID with `gh run watch <ID> -R handsomeliuyang/Remarc`.
+   Watch that exact run ID with `gh run watch <ID> -R handsomeliuyang/JotBaton`.
    Do not use an unscoped watcher or select an unrelated older run. Dispatch
    acceptance and Actions artifacts do not mean publication succeeded.
 7. Check the public Release for the exact version, both native packages,
