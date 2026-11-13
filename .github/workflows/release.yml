@@ -12,8 +12,12 @@ on:
         required: true
         type: string
       release_notes:
-        description: 'Release notes for both Intel and Apple Silicon packages'
-        required: true
+        description: 'Optional reviewed Markdown notes; otherwise generated from commits'
+        required: false
+        type: string
+      source_sha:
+        description: 'Approved full source SHA; defaults to the dispatch commit'
+        required: false
         type: string
 
 permissions:
@@ -31,11 +35,13 @@ jobs:
       contents: write
     outputs:
       source_sha: ${{ steps.version.outputs.source_sha }}
+      release_notes: ${{ steps.version.outputs.release_notes }}
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
       BUILD_NUMBER: ${{ inputs.build_number }}
       NOTES: ${{ inputs.release_notes }}
+      EXPECTED_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
     steps:
       - name: Require this fork and main
         run: |
@@ -48,6 +54,7 @@ jobs:
       - name: Test release and local build policies
         run: |
           python3 -B scripts/test-fork-release.py
+          python3 -B scripts/test-release-command.py
           python3 -B scripts/test-sparkle-release.py
           python3 -B scripts/test-build-policy.py
       - name: Test browser extension
@@ -76,9 +83,9 @@ jobs:
           fi
           git config user.name "liuyang"
           git config user.email 40610243@qq.com
-          git add app/Config/Shared.xcconfig
+          git add app/Config/Shared.xcconfig CHANGELOG.md
           if ! git diff --cached --quiet; then
-            git commit -m "Release $TAG"
+            git commit -F build/release-commit-message.txt
             git push origin HEAD:refs/heads/main
           fi
           git fetch origin main
@@ -119,7 +126,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
       BUILD_NUMBER: ${{ inputs.build_number }}
-      NOTES: ${{ inputs.release_notes }}
+      NOTES: ${{ needs.prepare.outputs.release_notes }}
       SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

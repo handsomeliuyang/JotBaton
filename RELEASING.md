@@ -33,23 +33,57 @@ Intel package from GitHub instead.
 
 ## Publish a production release
 
-Commit accepted changes to `main` and push `origin/main`. Manually dispatch
-`.github/workflows/release.yml` with a new `X.Y.Z`, an increased integer build
-number and release notes. For example:
+Commit accepted changes to `main` and push `origin/main`. Use `/release` in
+Claude Code, or the same release script from any terminal/agent. The script
+defaults to a preview and never compiles or signs production software locally:
 
 ```bash
-gh workflow run release.yml -R handsomeliuyang/Remarc --ref main \
-  -f version=1.2.29 -f build_number=48 \
-  -f release_notes='Check for updates through GitHub Releases.'
+python3 scripts/release.py --dry-run       # next patch; no commit/tag/dispatch
+python3 scripts/release.py minor --dry-run # next minor
+python3 scripts/release.py 1.3.0 --dry-run # explicit version
+# After reviewing, substitute the exact full SHA printed by the preview:
+python3 scripts/release.py --publish --source-sha <reviewed-full-SHA>
+# Optional reviewed Chinese notes (### headings and - bullets):
+python3 scripts/release.py --publish --source-sha <reviewed-full-SHA> \
+  --notes-file /absolute/path/release-notes.md
 ```
+
+The default is a patch increment, even when commits contain `feat`. Select `minor`,
+`major` or an explicit version deliberately; breaking changes are highlighted in
+the preview. The build is one greater than both the source build and advertised
+release builds. Publication requires authenticated `gh`, a clean `main`, the
+correct `origin`, an exact match to `origin/main`, an unused version/tag/build,
+and no active Release workflow. The command does not push development commits.
+Preview can use the public API when local `gh` authentication is unavailable and
+clearly reports uncommitted edits, which are excluded from its commit range.
+
+The changelog range starts at the highest published stable version, never an
+unpublished tag, draft or prerelease. Its tag must be an ancestor of the selected
+source; divergence stops the release. `feat`, `fix`, `perf`, breaking changes and
+other commits receive Chinese section headings. Original descriptions are kept
+unless a commit supplies a `Release-Note: 中文说明` line. `/release` turns these
+commit-derived entries into reviewed Chinese bullets using `--notes-file`, keeping
+commit links and breaking changes; the terminal script itself needs no AI service.
+Legacy commit subjects are included, release commits and duplicate merge records
+are excluded, and identical titles retain links to every contributing commit.
+Old changelog entries are preserved; missing historical releases are not invented.
+
+The workflow's `release_notes` input is optional; without it the same generator
+produces notes on GitHub. `source_sha` pins the reviewed source (default: dispatch
+commit). If `main` advances before preparation, the workflow stops before changing
+versions. Notes are frozen into `CHANGELOG.md` with source/build/baseline provenance
+and reused verbatim in the GitHub Release and both signed Sparkle feeds. Release
+pages additionally include the existing package/install information.
 
 The workflow:
 
 1. Checks release inputs, provenance validation, local build guards and browser
    extension tests before changing versions.
-2. Creates `Release vX.Y.Z` with author and committer
-   `liuyang <40610243@qq.com>`, pushes it to `main`, then gives every job that exact
-   commit. No bot/model coauthor attribution is added.
+2. Updates version/build and `CHANGELOG.md` together in
+   `chore(X.Y.Z): release vX.Y.Z`, with build, previous release and notes in the
+   commit body. Author and committer remain `liuyang <40610243@qq.com>`. It pushes
+   the commit to `main`, then gives every job that exact commit. No bot/model
+   coauthor attribution is added.
 3. Builds Intel (macOS 13+) and ARM (macOS 14+) Release packages on native GitHub
    runners with Xcode 26.2. Full Swift suites run for **both standard and Ventura
    profiles** sequentially on the existing ARM build runner with Metal, using
@@ -173,7 +207,12 @@ or merge between them.
 ## Recovery
 
 If a release fails before publication, rerun all jobs only while `main` remains the
-exact version commit. If source must change, choose a new version/build. Inspect
+exact version commit. New release commits must retain their original changelog,
+notes, build and baseline; the rerun accepts either the original source SHA or the
+exact version commit. Legacy `Release vX.Y.Z` commits can still be resumed with
+their original explicit bullet notes and are not rewritten. Use Actions **Re-run
+all jobs** for recovery; the normal release command always requests a new version.
+If source must change, choose a new version/build. Inspect
 and recover an existing verified draft instead of creating a duplicate. If a release
 was published but final verification failed, verify its existing assets rather
 than republishing or replacing them.

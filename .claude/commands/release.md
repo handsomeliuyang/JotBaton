@@ -1,109 +1,62 @@
+---
+description: Publish Remarc through GitHub with commit-derived Chinese notes and a pinned source
+argument-hint: "[patch|minor|major|X.Y.Z] [--dry-run]"
+---
+
 # Release Remarc
 
-Create a new Remarc release using the automated GitHub Actions workflow.
+Repository: `handsomeliuyang/Remarc`. Read `AGENTS.md` and `RELEASING.md`.
+Arguments: `$ARGUMENTS`. Default increment: `patch`.
 
-## Instructions
+1. Read the current version/build and show it in the conversation. Preview with
+   `python3 scripts/release.py <increment-or-version> --dry-run`. Only accepted
+   commits on clean `main`, already pushed to `origin/main`, can be published.
+   Do not automatically commit unrelated/unreviewed edits or silently push them.
+2. Use the preview's published baseline and exact source SHA. Review the commit
+   subjects/bodies/diffs as necessary. Turn entries into concise Chinese bullets
+   grouped by additions, fixes, performance, breaking changes and other changes.
+   Preserve commit links, removals, migration requirements and significant
+   maintenance changes; do not invent improvements or ignore legacy subjects.
+   Include the complete compare link. Use `###` headings and `- ` bullets.
+3. Write the exact Markdown notes to a temporary file outside the repository.
+   Preview again with `--notes-file /absolute/path/notes.md --source-sha <full-SHA>`
+   and show current/target version/build, commit range and notes. A source change
+   requires a fresh review. `feat` does not silently change the default patch
+   increment; flag breaking changes and recommend a deliberate version choice.
+4. If `--dry-run` was requested, stop after the preview. An explicit request to
+   publish (including invoking `/release` without `--dry-run`) authorizes dispatch;
+   do not repeatedly ask for confirmation once the exact action is authorized.
+   A request only to implement/fix the release command does not authorize delivery.
+5. Dispatch the same version, source and notes using:
 
-When the user invokes this command, help them create a new release by:
-
-1. **Check current version** - Read `app/Config/Shared.xcconfig` to get the current `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`
-
-2. **Check recent releases and appcast** - Run `git tag -l 'v*' | sort -V | tail -5` and inspect the live appcast. Neither the requested marketing version nor build number may already be advertised.
-
-3. **Prompt for release details** - Ask the user for:
-   - **Version number** (e.g., "0.6.0") - must be an `X.Y.Z` semantic version higher than current
-   - **Build number** - must be higher than current (suggest next number)
-   - **Release notes** - what changed in this release
-
-   **IMPORTANT: Release notes format**
-   Release notes MUST be formatted as bullet points starting with `-` for proper appcast generation:
-   ```
-   - Fixed app hang issues during clipboard monitoring
-   - Improved performance
-   ```
-   Plain paragraph text will result in EMPTY release notes in Sparkle's update dialog (the workflow fails the release if no `- ` bullet is present). Keep them to about 3 high-level summary bullets, not a per-commit changelog.
-
-   **Never rebuild an advertised version:** the recreated public repository starts with source fields `0.5.1` / `12`, but that shipped build is already in the appcast. The first source release must use a genuinely newer pair, such as `0.6.0` / `13`.
-
-4. **Confirm and execute** - Show the user what will happen:
-   ```
-   Release Summary:
-   - Version: X.Y.Z (build N)
-   - Notes: [their notes]
-
-   This will:
-   1. Update version in Shared.xcconfig
-   2. Archive and export with Developer ID signing
-   3. Notarize with Apple
-   4. Sign update with EdDSA for Sparkle
-   5. Commit the version bump and push a `v$VERSION` tag
-   6. Create and verify a draft GitHub Release with Remarc.zip and Remarc.zip.sha256
-   7. Generate and validate the candidate appcast while the release is still a draft
-   8. Publish the release, then update appcast.xml on GitHub Gist
-   ```
-
-   **Note:** The workflow automatically preserves release notes from all previous versions in the appcast, so users see a cumulative changelog when updating.
-
-5. **Run the workflow** - Execute:
    ```bash
-   gh workflow run release.yml \
-     -f version="VERSION" \
-     -f build_number="BUILD" \
-     -f release_notes="NOTES"
+   python3 scripts/release.py <increment-or-version> --publish \
+     --source-sha <full-SHA> --notes-file /absolute/path/notes.md
    ```
 
-6. **Monitor progress** - Watch the workflow:
-   ```bash
-   gh run watch
-   ```
+   Do not locally bump versions, build/sign production packages or create tags.
+   GitHub owns `chore(X.Y.Z): release vX.Y.Z`, version/build and changelog updates.
+   An authentication/API error is a stop, never evidence that a release is absent.
+6. Identify the newly dispatched run using repository, `release.yml`, event
+   `workflow_dispatch`, full source SHA and dispatch time; inspect candidates with
+   `gh run list -R handsomeliuyang/Remarc --workflow release.yml --commit <full-SHA>
+   --event workflow_dispatch --json databaseId,headSha,createdAt,status,url`.
+   Watch that exact run ID with `gh run watch <ID> -R handsomeliuyang/Remarc`.
+   Do not use an unscoped watcher or select an unrelated older run. Dispatch
+   acceptance and Actions artifacts do not mean publication succeeded.
+7. Check the public Release for the exact version, both native packages,
+   `INSTALL.txt`, both architecture appcasts and `SHA256SUMS`, plus the workflow's
+   downloaded draft/public verification. Report the public URL, version/build and
+   release source commit. For failure recovery follow `RELEASING.md`: rerun only
+   the exact version commit, inspect existing drafts, never move tags or overwrite
+   published assets. Resume keeps the committed notes unchanged.
+8. Install on this Mac only when requested. Use the published native package and
+   `scripts/install-app.py --channel production`, retaining checksum/signature/
+   architecture checks, backup and matching-channel relaunch. Do not add local
+   regression suites or post-install diagnostics/UI walkthroughs for delivery.
 
-7. **Verify release** - After completion:
-   - Check the release asset is accessible: `curl -sIL https://github.com/metedata/Remarc/releases/download/vVERSION/Remarc.zip | head -1`
-   - Download `Remarc.zip` and `Remarc.zip.sha256` from the release and verify them with `shasum -a 256 -c Remarc.zip.sha256`
-   - Check the stable latest URL points at it: `curl -sIL https://github.com/metedata/Remarc/releases/latest/download/Remarc.zip | head -1`
-   - Check appcast is valid XML:
-     ```bash
-     curl -fsSL "https://gist.githubusercontent.com/metedata/0bbb8342e141a8c41a9f1c0bfaab8f81/raw/appcast.xml" -o /tmp/remarc-appcast.xml
-     xmllint --noout /tmp/remarc-appcast.xml
-     ```
-   - Check appcast updated: `curl -s "https://gist.githubusercontent.com/metedata/0bbb8342e141a8c41a9f1c0bfaab8f81/raw/appcast.xml" | grep VERSION`
-   - **Verify release notes are not empty** - Check the appcast contains actual `<li>` items:
-     ```bash
-     curl -s "https://gist.githubusercontent.com/metedata/0bbb8342e141a8c41a9f1c0bfaab8f81/raw/appcast.xml" | grep -A 10 "What's New in Remarc VERSION"
-     ```
-     If you see empty `<ul></ul>` tags, manually fix the appcast using `gh gist edit`.
-   - **Verify previous versions are preserved** - The appcast should contain notes for all versions (current + all previous). If any are missing, manually add them to the appcast gist.
-   - **Verify minimum macOS matches the app** - The appcast `sparkle:minimumSystemVersion` should match `MACOSX_DEPLOYMENT_TARGET` in `app/Config/Shared.xcconfig`.
-
-## Key URLs
-
-- **Latest download (stable)**: `https://github.com/metedata/Remarc/releases/latest/download/Remarc.zip`
-- **Versioned download**: `https://github.com/metedata/Remarc/releases/download/vVERSION/Remarc.zip`
-- **Appcast Feed**: `https://gist.githubusercontent.com/metedata/0bbb8342e141a8c41a9f1c0bfaab8f81/raw/appcast.xml`
-
-## Troubleshooting
-
-**Build fails with signing error:**
-- Ensure `CERTIFICATE_P12` is properly base64 encoded
-- Check certificate hasn't expired
-- Verify `CERTIFICATE_PASSWORD` is correct
-
-**Notarization fails:**
-- Check `NOTARIZE_KEY`, `NOTARIZE_KEY_ID`, `NOTARIZE_ISSUER_ID` secrets
-- Ensure API key has App Manager role in App Store Connect
-
-**GitHub Release creation fails:**
-- The workflow intentionally refuses to overwrite a tag, release, or asset.
-- If a draft exists, inspect its assets and workflow logs. Delete the draft only when deliberately restarting the same failed release.
-- Never delete or replace a published release to make a rerun pass. Follow the failure-recovery section in `RELEASING.md`.
-
-**Appcast not updating:**
-- Check `GIST_PAT` has `gist` scope
-- Gist ID: `0bbb8342e141a8c41a9f1c0bfaab8f81`
-
-**Empty release notes in Sparkle update dialog:**
-- Release notes must be formatted as bullet points starting with `-`
-- Plain text paragraphs are NOT converted to list items
-- To fix: manually edit the appcast gist with `gh gist edit 0bbb8342e141a8c41a9f1c0bfaab8f81`
-
-For release-state recovery, see `RELEASING.md`.
+Both standard/Ventura full Swift suites, Intel compatibility checks, extension
+tests and packaged MCP checks remain mandatory in GitHub. Both packages use the
+same pinned production signing identity. Sparkle uses the repository's signed
+architecture feeds. Apple notarization, Gist appcasts, upstream repositories and
+iCloud software publishing are not part of this flow.

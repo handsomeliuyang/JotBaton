@@ -1,4 +1,5 @@
 import CoreLocalization
+import CorePlatform
 import CoreTheme
 import CoreUI
 import FeatureComments
@@ -37,45 +38,7 @@ struct SessionSidebarView: View {
     var body: some View {
         let counts = CommentListQuery.countsBySession(of: persistence.allComments, statuses: statusFilters)
         VStack(spacing: 0) {
-            HStack {
-                Text(L10n.tr("Sessions"))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 4)
-                newSessionButton
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            HStack(spacing: 5) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField(L10n.tr("Search sessions…"), text: $searchText)
-                    .textFieldStyle(.plain)
-                    .focused($isSearchFocused)
-                    .onExitCommand {
-                        searchText = ""
-                        isSearchFocused = false
-                    }
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(L10n.tr("Clear search"))
-                }
-            }
-            .font(.system(size: 11))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.remarcNeutralFill(for: colorScheme)))
-            .padding(.horizontal, 8)
-            .padding(.bottom, 6)
-            .accessibilityIdentifier("remarc.sessions.search")
+            searchHeader
 
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
@@ -118,6 +81,9 @@ struct SessionSidebarView: View {
                     }
                 }
             }
+            .frame(maxHeight: .infinity)
+
+            appVersionFooter
         }
         .frame(width: WorkspaceMetrics.sessionSidebarWidth)
         .frame(maxHeight: .infinity)
@@ -127,6 +93,66 @@ struct SessionSidebarView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("remarc.sessions.sidebar")
+    }
+
+    private var searchHeader: some View {
+        HStack(spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField(L10n.tr("Search sessions…"), text: $searchText)
+                    .textFieldStyle(.plain)
+                    .frame(minWidth: 0)
+                    .focused($isSearchFocused)
+                    .onExitCommand {
+                        searchText = ""
+                        isSearchFocused = false
+                    }
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n.tr("Clear search"))
+                }
+            }
+            .font(.system(size: 11))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.remarcNeutralFill(for: colorScheme)))
+            .accessibilityIdentifier("remarc.sessions.search")
+
+            newSessionButton
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+
+    /// Fixed below the scrolling session list in both panel and detached modes.
+    private var appVersionFooter: some View {
+        HStack(spacing: 6) {
+            RemarcBrandMark(size: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(AppIdentity.current.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+                    Text("v\(version)")
+                        .font(.system(size: 9, design: .monospaced))
+                        .help("\(AppIdentity.current.displayName) v\(version) (\(build ?? "—"))")
+                        .accessibilityIdentifier("remarc.app.version")
+                }
+            }
+            .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Selection

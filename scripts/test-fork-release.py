@@ -25,11 +25,13 @@ class ReleaseTests(unittest.TestCase):
     def test_new_release_and_exact_resume(self):
         prepare.validate_version('1.2.4', '23', '1.2.5', '24', 'Feature commit')
         prepare.validate_version('1.2.5', '24', '1.2.5', '24', 'Release v1.2.5')
+        prepare.validate_version('1.2.5', '24', '1.2.5', '24', 'chore(1.2.5): release v1.2.5')
 
     def test_refuses_reused_version_build_and_unrelated_resume(self):
         for version, build, subject in [
             ('1.2.4', '24', 'Feature'), ('1.2.5', '23', 'Feature'),
             ('1.2.3', '24', 'Feature'), ('1.2.4', '23', 'Feature'),
+            ('1.2.4', '23', 'chore(1.2.3): release v1.2.4'),
         ]:
             with self.subTest(version=version, build=build), self.assertRaises(ValueError):
                 prepare.validate_version('1.2.4', '23', version, build, subject)
