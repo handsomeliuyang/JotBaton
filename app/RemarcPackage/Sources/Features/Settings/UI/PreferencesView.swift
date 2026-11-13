@@ -12,17 +12,9 @@ import UniformTypeIdentifiers
 
 struct PreferencesView: View {
     @Environment(\.colorScheme) var colorScheme
-    @StateObject var integrations = AgentIntegrationSettingsViewModel(settings: .shared, harnessManager: .shared)
     @ObservedObject var localization = LocalizationManager.shared
     @ObservedObject var settings = SettingsManager.shared
-    @ObservedObject var mcpManager = MCPManager.shared
-    @ObservedObject var harnessManager = HarnessIntegrationManager.shared
 
-    // Claude Code plugin install state (read-only detection via `claude plugin
-    // list --json`; installs go through PluginInstaller's CLI calls).
-
-    // Codex plugin install state (read-only detection via `codex plugin list
-    // --json`; installs go through CodexPluginInstaller's CLI calls).
     @State var screenshotFolderError: String?
     @ObservedObject var webSocketService = WebSocketService.shared
     @ObservedObject var updateManager = UpdateManager.shared
@@ -36,14 +28,6 @@ struct PreferencesView: View {
     @State var hoveredHighlight: ExportHighlight?
     @State var excludedApps: [ExcludedAppInfo] = []
     @State var excludedSelection: Set<String> = []
-    @State var claudeDesktopCopied = false
-    @State var manualJSONCopied = false
-    @State var manualSkillCopied = false
-    @State var manualNodePath: String?
-    @State var manualMCPPath: String?
-    @State var isResolvingManualPaths = false
-    @State var manualNodeResolutionFailed = false
-    @State var manualMCPPathMissing = false
     @State var showResetDataConfirm = false
     @ObservedObject var webhookService = WebhookService.shared
     @State var webhookEditorState: WebhookEditorState?
@@ -56,7 +40,6 @@ struct PreferencesView: View {
         case shortcuts = "Shortcuts"
         case export = "Export"
         case chromeExtension = "Chrome Extension"
-        case mcpIntegrations = "MCP Integrations"
         case webhooks = "Webhooks"
         case excludedApps = "Excluded Apps"
         case about = "About"
@@ -71,7 +54,6 @@ struct PreferencesView: View {
             case .shortcuts: return "command"
             case .export: return "square.and.arrow.up"
             case .chromeExtension: return "globe"
-            case .mcpIntegrations: return "puzzlepiece.extension"
             case .webhooks: return "bolt"
             case .excludedApps: return "app.dashed"
             case .about: return "info.circle"
@@ -130,7 +112,6 @@ struct PreferencesView: View {
                 case .shortcuts: shortcutsSection
                 case .export: exportSection
                 case .chromeExtension: chromeExtensionSection
-                case .mcpIntegrations: mcpIntegrationsSection
                 case .webhooks: webhooksSection
                 case .excludedApps: excludedAppsSection
                 case .about: aboutSection

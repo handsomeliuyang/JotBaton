@@ -155,7 +155,7 @@ public final class ExportManager {
 
     public func markdownForSession(_ session: Session, comments: [Comment], includeMetadata: Bool) -> String {
         let settings = SettingsManager.shared
-        var result = markdownForComments(
+        let result = markdownForComments(
             comments,
             referenceStyle: settings.referenceStyle,
             numberingStyle: settings.numberingStyle,
@@ -172,9 +172,6 @@ public final class ExportManager {
             metadataDivider: settings.metadataDividerStyle,
             layout: settings.clipboardLayout
         )
-        if settings.includeAIHint && MCPManager.shared.isEnabled {
-            result += "\n\n<!-- These remarks are from the '\(session.name)' session in Remarc. Use MCP tool remarc_list_comments with session_id to read and resolve them. -->"
-        }
         return result
     }
 
@@ -549,10 +546,9 @@ public final class ExportManager {
         includeTime: Bool = false,
         use24Hour: Bool = false,
         metadataDivider: MetadataDividerStyle = .pipe,
-        includeAIHint: Bool = false,
         layout: ClipboardLayout? = nil
     ) -> [PreviewLine] {
-        var lines = formattedLines(
+        let lines = formattedLines(
             sampleComments,
             referenceStyle: referenceStyle,
             numberingStyle: numberingStyle,
@@ -569,10 +565,6 @@ public final class ExportManager {
             metadataDivider: metadataDivider,
             layout: layout
         )
-        if includeAIHint && MCPManager.shared.isEnabled {
-            lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "", highlights: [])]))
-            lines.append(PreviewLine(id: lines.count, segments: [PreviewSegment(text: "<!-- These remarks are from the 'Session' session in Remarc. Use MCP tool remarc_list_comments with session_id to read and resolve them. -->", highlights: [.aiHint])]))
-        }
         return lines
     }
 

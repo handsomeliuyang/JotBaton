@@ -266,7 +266,6 @@ Reusable views live in `Views/`. Use them instead of inlining styles. Each entry
 | Variant | Style at rest | Used for | Defined in |
 |---|---|---|---|
 | Primary | Filled (white at low opacity), `remarcPrimary` icon/text | Main footer action. Currently Copy All | `PopoverContentView.swift` `primaryFooterButton` + `FooterButtonStyle` |
-| Secondary | Outline only (`0.5pt` stroke, no fill), `remarcPrimary` icon/text | Status surface or less prominent action. Currently MCP | `PopoverContentView.swift` `SecondaryFooterButtonStyle` |
 | Icon | Icon-only, transparent at rest, white fill + `remarcPrimary` tint on hover | Compact actions: Resolve All, Delete All, Export, Settings | `PopoverContentView.swift` `iconFooterButton` + `HoverTintButton` |
 
 Shared specs:
@@ -317,16 +316,6 @@ Variants in use:
 
 | Use | Placement | Size | Defined in |
 |---|---|---|---|
-| MCP status badge | Overlay `.topTrailing` on the MCP footer button, `offset(x: 2, y: -2)` | `6pt` | `PopoverContentView.swift` `mcpButton` |
-| MCP popover header | Inline with status label inside the MCP popover | `6pt` | `PopoverContentView.swift` `mcpPopoverContent` |
 | Comment status pill | Inside a capsule that expands to a label on hover | `7pt` | `Views/StatusDotView.swift` |
-
-State to color mapping (MCP specifically):
-
-| State | Token | Visual |
-|---|---|---|
-| Connected (`isEnabled`) | `remarcSuccess` | Green dot with glow |
-| Needs attention (`hasDependencyError`) | `remarcWarning` | Orange dot |
-| Disconnected (neither) | `remarcError` | Red dot |
 
 Animation: `.easeInOut(duration: 0.2)` on color change. When the dot is inside a control that expands or moves, use the tight spring `.spring(response: 0.3, dampingFraction: 0.85)`.

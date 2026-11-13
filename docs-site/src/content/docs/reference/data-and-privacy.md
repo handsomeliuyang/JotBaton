@@ -14,15 +14,12 @@ Remarc stores sessions and comments in `~/Library/Application Support/Remarc/`:
 
 Keep custom folders available to Remarc and accessible to any agent that needs to open their files. If a folder is unavailable or a write fails, Remarc does not silently save the image in the default folder.
 
-Agents read and update comments through MCP (Model Context Protocol) tools rather than editing the file directly. See the [agents overview](/agents/overview/).
-
 ## What does touch the network
 
 Nothing you capture leaves your Mac unless you explicitly set that up. Remarc's network activity is limited to:
 
 - Update checks, described under Updates below.
-- [Webhooks](/agents/webhooks/) you configure: each one sends the comment events you subscribed to, to the URL you entered. Remarc sends nothing unless you add one.
-- Agent plugin installs: installing the Claude Code, Codex, or OMP integration runs that harness's own CLI, which downloads the plugin from the public [Remarc agent integrations repository](https://github.com/metedata/remarc-agent-plugins).
+- [Webhooks](/automation/webhooks/) you configure: each one sends the comment events you subscribed to, to the URL you entered. Remarc sends nothing unless you add one.
 
 The [Chrome extension](/chrome-extension/) talks to the app over a local WebSocket on `127.0.0.1:9274`. That connection never leaves your machine.
 
@@ -56,4 +53,4 @@ Remarc updates itself through Sparkle, with automatic checks enabled by default 
 
 ## Open source
 
-The [Remarc app](https://github.com/metedata/Remarc) and its [agent integrations](https://github.com/metedata/remarc-agent-plugins) are open source, so you can verify all of the above yourself.
+The [Remarc app](https://github.com/metedata/Remarc) is open source, so you can verify all of the above yourself.

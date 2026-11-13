@@ -39,8 +39,7 @@ public final class ScreenCaptureCoordinator {
     /// refuses while this is set, so a second hotkey press cannot overwrite the
     /// callbacks and pending state of an in-flight transaction. The guard lives
     /// here and not only in a controller wrapper because both real call sites
-    /// reach the service directly, and the planned wake-screenshot hotkey would
-    /// add a third on day one.
+    /// reach the service directly.
     private var captureIsLive = false
 
     private(set) var annotationSession: AnnotationSession?

@@ -1,5 +1,6 @@
 import Foundation
 
+/// Historical provenance retained for lossless document compatibility.
 public enum SessionOrigin: String, Codable, Sendable {
     case manual
     case claudeCode
@@ -20,6 +21,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
     /// Time this Mac first observed a continuously empty, active session.
     public var emptySince: Date?
     public var origin: SessionOrigin
+    /// Legacy pairing ID; no integration is started or tracked from it.
     public var claudeCodeSessionId: String?
     /// Session keys written by a newer build, carried through untouched.
     public var unknownFields: [String: JSONValue]

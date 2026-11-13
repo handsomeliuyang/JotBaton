@@ -27,25 +27,21 @@ The [companion Chrome extension](https://remarc.app/chrome-extension/) captures 
 
 Open a [Quick Note](https://docs.remarc.app/basics/quick-notes/) when there is nothing to select or capture. It creates a standalone comment for a thought, task, or piece of feedback.
 
-### 2. Your agent picks up the comments
+### 2. Organize and share your comments
 
-Comments land in a session. Once you connect an agent, it can read each one with the attached context and work through the list. You do not have to rebuild that context in a separate prompt.
+Comments land in a session. Review them together, update their statuses, and copy or export the context when you are ready to share.
 
 #### Sessions keep each review together
 
-Group comments into [sessions](https://docs.remarc.app/basics/sessions/) by review, project, or agent conversation. The permanent Inbox catches anything you do not file elsewhere, and connected agents can create sessions for their own conversations.
-
-#### MCP and plugins carry the context
-
-Claude Code, Codex, and OMP connect through plugins from the public [Remarc agent integrations repository](https://github.com/metedata/remarc-agent-plugins), Cursor is configured by the app, and Claude Desktop or another MCP client can connect manually. Every supported client gets the same context and MCP tools for reading comments, managing sessions, and resolving work. The [agent integrations guide](https://docs.remarc.app/agents/overview/) covers each setup path.
+Group comments into [sessions](https://docs.remarc.app/basics/sessions/) by review, project, or agent conversation. The permanent Inbox catches anything you do not file elsewhere, and you can create sessions for each review.
 
 #### Statuses close the loop
 
-Each comment can move through Open, Handed Off, In-Progress, and Resolved. Agents can update the status as they work and leave a resolution summary when they finish. Deleted comments go to searchable [History](https://docs.remarc.app/basics/statuses-and-history/) instead of disappearing.
+Each comment can move through Open, Handed Off, In-Progress, and Resolved. Update statuses as you work through your review. Deleted comments go to searchable [History](https://docs.remarc.app/basics/statuses-and-history/) instead of disappearing.
 
 #### Copy, export, or automate the handoff
 
-Copy a session into an agent prompt, paste it into the app you are using, or [export it as Markdown or JSON](https://docs.remarc.app/basics/export-comments/) with control over references and metadata. You can also send comment events to automation tools through [webhooks](https://docs.remarc.app/agents/webhooks/).
+Copy a session into an agent prompt, paste it into the app you are using, or [export it as Markdown or JSON](https://docs.remarc.app/basics/export-comments/) with control over references and metadata. You can also send comment events to automation tools through [webhooks](https://docs.remarc.app/automation/webhooks/).
 
 #### Local until you hand it off
 
@@ -61,11 +57,11 @@ There is no persistent publication outbox or cloud version-history list. A faile
 
 Applying verifies the complete cloud package, including comments, sessions, deleted records, screenshots, attachments and editable image annotations. Before replacing local data, Remarc saves one complete local undo package. The replacement and its undo reference are committed together. A failed application keeps the previous undo copy; a successful application replaces it. **Roll Back** restores the complete pre-application data on this Mac, replacing edits made since the application. Undo survives restarts, is consumed after a successful rollback, and does not publish changes to iCloud.
 
-Device permissions, shortcuts, credentials, and live agent connections stay local. Production and development never share data or rollback files. iCloud access is restricted to the matching channel's folder; an authorization action is offered when needed. The current-data format replaces the old version-history protocol. Old cloud snapshots and local outbox/backup folders are cleaned up only after the first new current copy has confirmed upload.
+Device permissions, shortcuts, credentials, and other device settings stay local. Production and development never share data or rollback files. iCloud access is restricted to the matching channel's folder; an authorization action is offered when needed. The current-data format replaces the old version-history protocol. Old cloud snapshots and local outbox/backup folders are cleaned up only after the first new current copy has confirmed upload.
 
 ## Documentation
 
-Read the [full Remarc documentation](https://docs.remarc.app/getting-started/what-is-remarc/) for setup and feature guides. Useful starting points include [installation](https://docs.remarc.app/getting-started/installation/), [permissions](https://docs.remarc.app/getting-started/permissions/), [agent integrations](https://docs.remarc.app/agents/overview/), [keyboard shortcuts](https://docs.remarc.app/reference/keyboard-shortcuts/), and [troubleshooting](https://docs.remarc.app/reference/troubleshooting/).
+Read the [full Remarc documentation](https://docs.remarc.app/getting-started/what-is-remarc/) for setup and feature guides. Useful starting points include [installation](https://docs.remarc.app/getting-started/installation/), [permissions](https://docs.remarc.app/getting-started/permissions/), [keyboard shortcuts](https://docs.remarc.app/reference/keyboard-shortcuts/), and [troubleshooting](https://docs.remarc.app/reference/troubleshooting/).
 
 ## Install
 
@@ -180,17 +176,14 @@ On an Apple Silicon Mac with Xcode 26.2, run
 | Path | Contents |
 |------|----------|
 | `app/` | The macOS app (SwiftUI + AppKit, Swift 6) |
-| `mcp/` | Vendored MCP server artifact + agent skill, bundled into the app |
 | `extension/` | Chrome extension for web page context |
 | `website/` | remarc.app site and launch router (Cloudflare Workers + static assets) |
 | `docs-site/` | docs.remarc.app end-user documentation (Astro Starlight) |
 | `docs/` | Design docs and historical planning notes |
 
-The MCP server's source of truth lives in the public, MIT-licensed [remarc-agent-plugins](https://github.com/metedata/remarc-agent-plugins) repository, which also hosts the Claude Code, Codex, and OMP integrations plus their compatibility and release documentation. This repo vendors the built artifact.
-
 ## Tech stack
 
-Swift 6, SwiftUI + AppKit, [Sparkle](https://github.com/sparkle-project/Sparkle) for updates, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), and the Model Context Protocol for agent integrations.
+Swift 6, SwiftUI + AppKit, [Sparkle](https://github.com/sparkle-project/Sparkle) for updates, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts).
 
 ## Contributing
 

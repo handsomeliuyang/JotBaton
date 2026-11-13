@@ -78,7 +78,6 @@ extension CommentStore {
             appState.activeSessionID = activeSessions.first?.id
         }
 
-        removeClaudeCodeMarkerFile(for: appState.sessions[index])
 
         scheduleSave()
         debugLog("CommentStore: Deleted session")

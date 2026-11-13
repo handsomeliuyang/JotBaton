@@ -71,13 +71,6 @@ package extension Color {
     /// Raw brand violet — use `remarcAccent` for standard UI elements.
     public static let remarcBrandViolet = Color(red: 0.545, green: 0.361, blue: 0.965)  // #8B5CF6
 
-    // MARK: - Harness Marks
-
-    /// Anthropic's orange, for the Claude Code session badge only. Someone
-    /// else's brand colour, so it is fixed rather than scheme-adaptive — and it
-    /// belongs to no Remarc token, which is why it is not named like one.
-    public static let claudeMarkOrange = Color(red: 0.886, green: 0.482, blue: 0.227)  // #E27B3A
-
     // MARK: - Surfaces
 
     public static func remarcDropdownBackground(for colorScheme: ColorScheme) -> Color {

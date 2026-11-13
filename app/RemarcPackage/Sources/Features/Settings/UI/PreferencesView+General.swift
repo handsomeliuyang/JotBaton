@@ -136,7 +136,6 @@ extension PreferencesView {
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { mcpManager.checkDependencies() }
     }
 
 

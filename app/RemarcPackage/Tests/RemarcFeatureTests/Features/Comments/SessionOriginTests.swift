@@ -2,9 +2,7 @@
 @testable import RemarcFeature
 import XCTest
 
-/// `origin` names the harness that created a session, and harnesses arrive on
-/// the plugin's release schedule rather than the app's - so the app is
-/// routinely the older reader of a newer writer's file.
+/// Historical session metadata remains readable after retiring integrations.
 final class SessionOriginTests: XCTestCase {
     private func decodeSession(origin: String?) throws -> Session {
         let originField = origin.map { "\"origin\": \"\($0)\"," } ?? ""

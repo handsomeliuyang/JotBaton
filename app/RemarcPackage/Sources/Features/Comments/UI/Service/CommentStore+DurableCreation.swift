@@ -9,18 +9,14 @@ extension CommentStore {
 
     /// Create a comment and return only once it is provably on disk.
     ///
-    /// `createComment` cannot do this on either of its branches. The debounced
-    /// branch has not written anything yet when it returns, the `wakeRequested`
-    /// branch reaches `saveToDisk`, which swallows every error including a lock
-    /// timeout, and its only `nil` return is guarded by a session it created
-    /// moments earlier. A non-nil return therefore proves nothing, which is fine
-    /// for a menu action and not fine for a capture that tears down an overlay, a
-    /// draft, and an annotation session on the strength of it.
+    /// `createComment` schedules a debounced save, so a non-nil return does not
+    /// prove persistence. Capture needs a durable result before it tears down
+    /// its overlay, draft, and annotation session.
     ///
     /// This goes through the same cross-process protocol as every other write:
     /// acquire the lock, re-read, three-way merge against `lastPersisted`, encode,
     /// atomic rename. Writing the staged candidate directly would erase whatever
-    /// the MCP server and hooks committed in between.
+    /// the other document writers committed in between.
     ///
     /// Not cancellable once the helper has entered the lock. A cancelled task
     /// still completes the write and the publish, because abandoning between the
@@ -35,7 +31,6 @@ extension CommentStore {
         webContext: WebContext? = nil,
         regionElements: [WebContext]? = nil,
         targetSessionID: UUID? = nil,
-        wakeRequested: Bool = false,
         customTitle: String? = nil
     ) async -> Result<Comment, PersistenceError> {
 
@@ -79,11 +74,9 @@ extension CommentStore {
             source: source,
             appBundleID: appBundleID,
             sessionID: sessionID,
-            status: wakeRequested ? .handedOff : .open,
             attachments: attachments,
             webContext: webContext,
             regionElements: regionElements,
-            wakeRequestedAt: wakeRequested ? Date() : nil,
             customTitle: customTitle
         )
         candidate.comments.append(comment)

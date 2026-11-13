@@ -1,16 +1,7 @@
 import Foundation
 
-/// A decoded JSON value of unknown shape, used to carry fields this build does
-/// not model through a decode/encode cycle unchanged.
-///
-/// `comments.json` is written by three programs on two release schedules: the
-/// app, the MCP server, and the hooks plugin. Whichever ships a new field
-/// first, everyone else is briefly an older reader of it - and a `Codable` type
-/// with a closed `CodingKeys` set silently drops what it does not name. That is
-/// not hypothetical: an earlier plugin build erased the app's `transcriptions`
-/// and `orphanedImages` arrays on every write, and the TypeScript side grew
-/// `unknownFields` bags to stop it. This is the Swift half of that contract,
-/// which until now existed only in the documentation.
+/// A lossless JSON value used to retain fields this build does not model.
+/// Older records and newer document versions must survive unrelated edits.
 public enum JSONValue: Codable, Equatable, Sendable {
     case null
     case bool(Bool)

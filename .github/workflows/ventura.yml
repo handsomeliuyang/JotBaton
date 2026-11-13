@@ -68,8 +68,6 @@ jobs:
         run: |
           cd app/RemarcPackage
           env -u THREADS_ACCESS_TOKEN swift test --cache-path "$(cd .. && pwd)/DerivedData/PackageCache" --filter VenturaCompatibilityTests
-      - name: Test packaged MCP image delivery
-        run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app/Contents/Resources/remarc-mcp.js" "$REMARC_CHANNEL"
       - name: Upload app
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

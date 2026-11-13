@@ -36,11 +36,6 @@ public final class CommentInputController: NSObject, ObservableObject {
     @Published public var targetSessionID: UUID?
     @Published public private(set) var saveFeedbackTrigger: Int = 0
     @Published public private(set) var validationFeedbackTrigger: Int = 0
-    /// Set by the wake screenshot shortcut: this capture's save wakes a
-    /// running session, so Save performs the wake and the separate bolt button
-    /// would be redundant. Cleared on dismiss.
-    @Published public var wakeOnSave: Bool = false
-
     private var panel: NSPanel?
     private var panelVEV: NSVisualEffectView?
     private var panelHostingView: NSView?
@@ -132,8 +127,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         screenshotSelectionRect: CGRect? = nil,
         screenshotSourceBundleID: String? = nil,
         elementWebContext: WebContext? = nil,
-        targetSessionID: UUID?,
-        wakeOnSave: Bool = false
+        targetSessionID: UUID?
     ) -> UInt64? {
         guard captureTransaction == .idle else {
             debugLog("CommentInputController: New draft refused while capture save is \(captureTransaction)")
@@ -157,7 +151,6 @@ public final class CommentInputController: NSObject, ObservableObject {
         pendingElementWebContext = elementWebContext
         pendingExternalPageContext = nil
         self.targetSessionID = targetSessionID
-        self.wakeOnSave = wakeOnSave
         currentText = ""
         currentAttachments = []
         saveFeedbackTrigger = 0
@@ -174,7 +167,6 @@ public final class CommentInputController: NSObject, ObservableObject {
     private func endDraftState() {
         screenshotCopyButton.teardown()
         draftGeneration &+= 1
-        wakeOnSave = false
         removeScreenshotKeyMonitor()
         panelLayoutReady = false
         endAnnotationAnchoring()
@@ -293,8 +285,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     public func showForScreenshot(
         imagePath: String? = nil,
         captureRect: CGRect,
-        sourceBundleID: String? = nil,
-        wakeOnSave: Bool = false
+        sourceBundleID: String? = nil
     ) {
         SelectionTooltipWindowController.shared.dismiss()
         guard beginDraft(
@@ -302,8 +293,7 @@ public final class CommentInputController: NSObject, ObservableObject {
             isScreenshotMode: true,
             screenshotSelectionRect: captureRect,
             screenshotSourceBundleID: sourceBundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-            targetSessionID: AppServices.shared.comments.appState.activeSessionID,
-            wakeOnSave: wakeOnSave
+            targetSessionID: AppServices.shared.comments.appState.activeSessionID
         ) != nil else { return }
         WebSocketService.shared.clearPendingContext()
         if shouldAttachWebContextToCurrentScreenshot {
@@ -437,7 +427,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         }
     }
 
-    public func saveComment(text: String, attachments: [String] = [], wakeRequested: Bool = false) {
+    public func saveComment(text: String, attachments: [String] = []) {
         // The panel remains onscreen for the 0.3s success animation. Refuse a
         // second key equivalent/button event after the draft has already ended;
         // otherwise its now-cleared context can be misclassified as a Quick Note.
@@ -466,7 +456,7 @@ public final class CommentInputController: NSObject, ObservableObject {
             type = .quickNote
         }
 
-        // Every explicit submission path (button, wake, and Command-Return)
+        // Every explicit submission path (button and Command-Return)
         // converges here, so save validation cannot drift between them.
 
         guard CommentSavePolicy.allowsSave(
@@ -481,15 +471,10 @@ public final class CommentInputController: NSObject, ObservableObject {
 
         let normalizedText = Comment.normalizedCommentText(text)
         let savedTargetSessionID = targetSessionID
-        let shouldWake = CommentWakePolicy.shouldWake(
-            explicitlyRequested: wakeRequested,
-            prearmed: wakeOnSave,
-            targetIsReachable: SettingsManager.shared.wakeAvailable(for: savedTargetSessionID)
-        )
 
         if isScreenshotMode {
-            // Re-entrant save, wake-save, or dismissal is refused outright. The
-            // comment UI can call all three while the 0.4s choreography runs.
+            // Re-entrant save or dismissal is refused outright. The
+            // comment UI can call both while the 0.4s choreography runs.
             guard captureTransaction == .idle else {
                 debugLog("CommentInputController: save refused - transaction is \(captureTransaction)")
                 return
@@ -500,7 +485,6 @@ public final class CommentInputController: NSObject, ObservableObject {
                 attachments: attachments,
                 sourceBundleID: screenshotSourceBundleID,
                 targetSessionID: savedTargetSessionID,
-                wakeRequested: shouldWake,
                 captureRect: screenshotSelectionRect,
                 anchorRect: panelAnchorRect,
                 panelFrame: panel?.frame,
@@ -556,8 +540,7 @@ public final class CommentInputController: NSObject, ObservableObject {
             attachments: attachments,
             webContext: webContext,
             regionElements: regionElements,
-            targetSessionID: savedTargetSessionID,
-            wakeRequested: shouldWake
+            targetSessionID: savedTargetSessionID
         )
 
         guard let comment else {
@@ -637,9 +620,6 @@ public final class CommentInputController: NSObject, ObservableObject {
         // One layer per invocation. An inline text edit, toolbar focus, or a dirty
         // annotation session each consume this and nothing further happens.
         //
-        // Ahead of the wakeOnSave reset on purpose: when annotation consumes the
-        // dismissal the panel is not actually closing, so clearing the user's
-        // wake choice there would discard a decision they never revoked.
         if routeDismissalThroughAnnotation(intent: .closeButton) { return }
 
         if isScreenshotMode {
@@ -732,7 +712,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         case idle, copying, preparing, animating, creating, concluding
     }
 
-    /// Save, wake-save, dismissal, annotate entry and exit, and zoom are all
+    /// Save, dismissal, annotate entry and exit, and zoom are all
     /// refused unless this is `.idle`.
     @Published private(set) var captureTransaction: CaptureTransaction = .idle {
         didSet { updateScreenshotCopyButton() }
@@ -745,9 +725,6 @@ public final class CommentInputController: NSObject, ObservableObject {
         let attachments: [String]
         let sourceBundleID: String?
         let targetSessionID: UUID?
-        /// Carried across the whole asynchronous fly sequence, because the wake
-        /// path is live on capture today, not hypothetically.
-        let wakeRequested: Bool
         /// The TRUE capture rect.
         let captureRect: CGRect?
         /// What the fly animation starts from: the magnified rect when magnified.
@@ -804,8 +781,7 @@ public final class CommentInputController: NSObject, ObservableObject {
             attachments: draft.attachments,
             webContext: webContext,
             regionElements: regionElements,
-            targetSessionID: draft.targetSessionID,
-            wakeRequested: draft.wakeRequested
+            targetSessionID: draft.targetSessionID
         )
 
         captureTransaction = .concluding
@@ -1076,9 +1052,6 @@ public final class CommentInputController: NSObject, ObservableObject {
     }
 
     private func show(near rect: CGRect?, useAdjacentPositioning: Bool = false) {
-        // Re-check before the composer appears: sessions start and end while
-        // the app is running, so a cached answer goes stale quickly.
-        SettingsManager.shared.refreshWakeReachability()
         if panel == nil {
             let panel = KeyablePanel(
                 contentRect: NSRect(x: 0, y: 0, width: 340, height: 180),

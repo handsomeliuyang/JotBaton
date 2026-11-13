@@ -383,7 +383,6 @@ private struct SessionSidebarRow<MenuContent: View>: View {
                 Image(systemName: "folder")
                     .font(.system(size: 11))
             } else {
-                SessionOriginBadge(origin: session.origin)
             }
         }
         .foregroundStyle(isActive ? brandColor : .secondary)

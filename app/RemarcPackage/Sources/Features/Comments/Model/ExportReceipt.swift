@@ -2,7 +2,7 @@ import Foundation
 
 public enum ExportHighlight: Hashable, Sendable {
     case reference, screenshotPrefix, attachmentPrefix, layout, numbering, commentPrefix, divider, dateFormat, metadataDivider
-    case source, date, status, remarkID, aiHint, type
+    case source, date, status, remarkID, type
 }
 
 public struct PreviewSegment: Sendable {

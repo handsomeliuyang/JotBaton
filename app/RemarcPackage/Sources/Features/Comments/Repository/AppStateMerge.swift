@@ -3,7 +3,7 @@ import Foundation
 /// Three-way merge for `AppState`.
 ///
 /// The app holds a long-lived in-memory `appState` and writes whole-document
-/// snapshots. Other processes (MCP tools, hooks) commit to the same file in
+/// snapshots. Other processes (including older app versions) commit to the same file in
 /// between. Writing our snapshot blindly erases their commits - an agent
 /// resolves a comment, the next UI edit reverts it.
 ///
@@ -21,7 +21,7 @@ package enum AppStateMerge {
 
         // Comments merge field by field, not whole-entity. Whole-entity would
         // mean a pending local text edit re-writes the whole comment from stale
-        // memory and rolls back an agent's status claim that landed meanwhile -
+        // memory and rolls back an external status update that landed meanwhile -
         // silently undoing a successful compare-and-set.
         result.comments = mergeEntities(
             base: base.comments, ours: ours.comments, theirs: theirs.comments,
@@ -51,7 +51,7 @@ package enum AppStateMerge {
         result.totalCommentsCreated = base.totalCommentsCreated + oursAdded + theirsAdded
         // Preserve the newest content clock across concurrent writers.
         result.snapshotDataUpdatedAt = [ours.snapshotDataUpdatedAt, theirs.snapshotDataUpdatedAt].compactMap { $0 }.max()
-        // Older MCP/hook writers preserve unknown fields but cannot advance this clock.
+        // Older document writers preserve unknown fields but cannot advance this clock.
         // Detect their edits here, where the document is already being merged, never in sync checks.
         if theirs.snapshotDataUpdatedAt == base.snapshotDataUpdatedAt {
             var external = theirs

@@ -8,7 +8,7 @@ import AppKit
 extension CommentStore {
     // MARK: - Persistence
 
-    /// Flush and adopt local MCP/CLI changes before capturing a snapshot. The
+    /// Flush and adopt local document changes before capturing a snapshot. The
     /// slot also drains a routine save's main-actor publication, not just IO.
     package func stateForSnapshot() async throws -> AppState {
         await acquireDocumentSlot()

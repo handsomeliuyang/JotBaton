@@ -14,9 +14,6 @@ package extension KeyboardShortcuts.Name {
         "screenshotComment",
         initial: .init(.s, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
-    /// Screenshot capture whose save wakes a running session. No default
-    /// binding: waking is opt-in, so this stays unassigned until asked for.
-    static let screenshotCommentWake = Self("screenshotCommentWake")
     static let pasteAllComments = Self(
         "pasteAllComments",
         initial: .init(.p, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])

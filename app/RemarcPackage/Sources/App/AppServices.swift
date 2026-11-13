@@ -1,6 +1,5 @@
 import FeatureComments
 import FeatureIntegrations
-import FeatureSettings
 import FeatureSnapshotSync
 import AppKit
 import Combine
@@ -25,11 +24,6 @@ final class AppServices {
             case .commentStatusChanged: event = .commentStatusChanged
             }
             WebhookService.shared.dispatch(event, comment: comment)
-        }, onExternalChanges: { old, new, oldSessions, newSessions in
-            guard SettingsManager.shared.webhooks.contains(where: { $0.isEnabled }) else { return }
-            for (event, comment) in WebhookEventDiff.events(old: old, new: new, oldSessions: oldSessions, newSessions: newSessions) {
-                WebhookService.shared.dispatch(event, comment: comment)
-            }
         })
     }
 }

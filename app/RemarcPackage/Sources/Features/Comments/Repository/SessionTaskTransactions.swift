@@ -78,7 +78,7 @@ package enum SessionTaskTransactions {
 
 /// Lock polling, document decoding and atomic writes run on this actor's
 /// executor, never on the UI's main actor. The on-disk lock still coordinates
-/// with the MCP server and hooks.
+/// with the other document writers.
 package actor SessionTaskWriter {
     package init() {}
     package func complete(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,

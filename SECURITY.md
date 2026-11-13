@@ -15,7 +15,6 @@ You can expect an acknowledgement within 7 days. Critical issues are prioritized
 In scope:
 
 - The shipped Remarc app (this repository)
-- The bundled MCP server (`mcp/vendor/`) and its source in [remarc-agent-plugins](https://github.com/metedata/remarc-agent-plugins)
 - The Chrome extension (`extension/`)
 - The Cloudflare Worker and waitlist API (`website/worker/`)
 

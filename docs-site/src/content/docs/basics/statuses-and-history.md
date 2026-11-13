@@ -18,8 +18,6 @@ A comment is always in one of four statuses:
 
 Each card shows a status dot in its top-right corner. Hover to expand it into a labeled pill, click it to change the status yourself.
 
-Agents change statuses through MCP (Model Context Protocol) tools, and must provide a short resolution summary when they resolve a comment. Resolved cards dim, and hovering the status shows the summary. See [agent integrations](/agents/overview/).
-
 ## Card actions
 
 Hover a card to reveal its actions:
@@ -28,7 +26,7 @@ Hover a card to reveal its actions:
 | --- | --- |
 | Copy | Copy the comment to the clipboard |
 | Edit | Open the comment in the editor |
-| Send to webhook | Post the comment to a [webhook](/agents/webhooks/); shown only when a webhook is enabled |
+| Send to webhook | Post the comment to a [webhook](/automation/webhooks/); shown only when a webhook is enabled |
 | Move to session | Move the comment to another session, or a new one |
 | Delete | Delete after confirmation, with an Undo toast |
 

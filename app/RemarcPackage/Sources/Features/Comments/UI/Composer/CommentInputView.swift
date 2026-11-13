@@ -4,7 +4,6 @@ import CoreTheme
 import CoreUI
 import FeatureCapture
 import FeatureComments
-import FeatureSettings
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,9 +11,6 @@ struct CommentInputView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     @EnvironmentObject var controller: CommentInputController
     @Environment(\.colorScheme) private var colorScheme
-    /// Observed so an already-open composer reacts when wake availability
-    /// changes (plugin installed or removed) instead of showing stale state.
-    @ObservedObject private var settings = SettingsManager.shared
     @State private var commentText: String = ""
     @State private var attachments: [String] = []
     @State private var isCloseHovered = false
@@ -87,24 +83,6 @@ struct CommentInputView: View {
                 .help(L10n.tr("Attach image"))
 
                 Spacer()
-
-                // Sits left of Save: it is the less-common action, and reading
-                // left-to-right the pair goes "send now" then "save".
-                // Pre-armed by the wake screenshot shortcut, Save already wakes,
-                // so a second control promising the same thing would confuse.
-                // Keyed to the session picker's current choice, not to "is any
-                // agent awake": wake reaches only the agent paired with this
-                // session, so anywhere else the button would promise an
-                // interruption that never happens.
-                if settings.wakeAvailable(for: controller.targetSessionID) && !controller.wakeOnSave {
-                    WakeButton(colorScheme: colorScheme) {
-                        controller.saveComment(
-                            text: commentText,
-                            attachments: attachments,
-                            wakeRequested: true
-                        )
-                    }
-                }
 
                 // Save button
                 saveButton

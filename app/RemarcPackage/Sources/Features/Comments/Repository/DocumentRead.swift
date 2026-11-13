@@ -6,8 +6,8 @@ import Foundation
 ///
 /// Both save paths used to collapse these: any failure to decode fell back to
 /// the in-memory snapshot, which was then merged and written over the file. So
-/// a document this build could not parse - one written by a newer app, MCP
-/// server, or hooks release - was replaced by whatever this build happened to
+/// a document this build could not parse - such as a newer app version -
+/// was replaced by whatever this build happened to
 /// be holding. That is the whole file, including every comment the user had.
 ///
 /// A missing file is genuinely empty and safe to write. An unreadable one is

@@ -2,11 +2,7 @@
 @testable import RemarcFeature
 import XCTest
 
-/// `comments.json` is written by the app, the MCP server, and the hooks plugin,
-/// on two release schedules. Whoever ships a field first, everyone else is
-/// briefly an older reader of it - and a closed `CodingKeys` set drops what it
-/// does not name. `contracts.md` claimed both serializers round-tripped
-/// unmodelled fields; the Swift half did not exist until these tests did.
+/// Retain historical and unknown document fields through unrelated edits.
 final class UnknownFieldPreservationTests: XCTestCase {
     private func roundTrip(_ json: String) throws -> [String: Any] {
         let state = try JSONDecoder().decode(AppState.self, from: Data(json.utf8))
@@ -121,6 +117,39 @@ final class UnknownFieldPreservationTests: XCTestCase {
             let session = try XCTUnwrap((raw["sessions"] as? [[String: Any]])?.first)
             XCTAssertEqual(session["origin"] as? String, origin)
         }
+    }
+
+    func testEditingLegacyCommentKeepsHistoricalDeliveryMetadata() throws {
+        let json = """
+        {
+          "sessions": [{
+            "id": "11111111-1111-1111-1111-111111111111",
+            "name": "Existing review", "createdAt": 807824960.0,
+            "isDeleted": false, "isAutoDismissed": false,
+            "origin": "claudeCode", "claudeCodeSessionId": "legacy-conversation"
+          }],
+          "comments": [{
+            "id": "33333333-3333-3333-3333-333333333333",
+            "type": { "quickNote": {} }, "commentText": "Original feedback",
+            "source": "Editor", "createdAt": 807824960.0, "updatedAt": 807824960.0,
+            "sessionID": "11111111-1111-1111-1111-111111111111",
+            "isDeleted": false, "status": "handedOff", "attachments": [],
+            "wakeRequestedAt": 807824961.0
+          }],
+          "totalCommentsCreated": 1
+        }
+        """
+        var state = try JSONDecoder().decode(AppState.self, from: Data(json.utf8))
+        state.comments[0].commentText = "Edited feedback"
+
+        let encoded = try JSONEncoder().encode(state)
+        let saved = try JSONDecoder().decode(AppState.self, from: encoded)
+        XCTAssertEqual(saved.sessions.first?.name, "Existing review")
+        XCTAssertEqual(saved.sessions.first?.claudeCodeSessionId, "legacy-conversation")
+        XCTAssertEqual(saved.comments.first?.sessionID, saved.sessions.first?.id)
+        XCTAssertEqual(saved.comments.first?.commentText, "Edited feedback")
+        XCTAssertEqual(saved.comments.first?.status, .handedOff)
+        XCTAssertEqual(saved.comments.first?.wakeRequestedAt, Date(timeIntervalSinceReferenceDate: 807824961))
     }
 
     /// A field this build models is the authority for its own key: a preserved

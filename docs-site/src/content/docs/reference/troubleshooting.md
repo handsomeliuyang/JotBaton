@@ -23,13 +23,6 @@ The extension connects only in tabs loaded after it was installed, and only when
 2. If the tabs are fresh and it still will not connect, open Settings > Chrome Extension, which shows the connection status and port 9274. If another app holds the port, quit that app and click the Retry button.
 3. Check the pause toggle in the extension's popup.
 
-## My agent cannot see comments
-
-A harness can list the plugin as installed even when the MCP server fails to start, so an installed plugin is not proof of a working one.
-
-1. Reinstall from Settings > MCP Integrations (the Codex row offers Repair).
-2. Ask the agent to call `remarc_list_sessions`. If that call succeeds, the integration is healthy.
-
 ## Screenshot capture fails
 
 Screenshot comments require the Screen Recording permission. Grant it in System Settings > Privacy & Security > Screen & System Audio Recording (called Screen Recording on older macOS), then try again. If macOS offers Quit & Reopen after you change the setting, accept it.
@@ -46,7 +39,7 @@ Existing images stay in their original folders and remain editable there; changi
 
 **Where is my data stored?** Sessions and comments live in `~/Library/Application Support/Remarc/comments.json`. Screenshots and pasted image attachments use its `images/` folder by default, or a custom folder selected in Settings. See [data, privacy & updates](/reference/data-and-privacy/).
 
-**Is anything sent to a server?** Remarc stores comments and screenshots on your Mac. Data can leave through agents and webhooks you explicitly use; other network activity is limited to update checks and agent plugin installs.
+**Is anything sent to a server?** Remarc stores comments and screenshots on your Mac. Data can leave through agents and webhooks you explicitly use; other network activity is limited to update checks and optional iCloud sync.
 
 **How many sessions can I have?** Up to 8 active sessions, plus the permanent Inbox that catches unfiled comments. See [Sessions & the Inbox](/basics/sessions/).
 
@@ -56,9 +49,7 @@ Existing images stay in their original folders and remain editable there; changi
 
 ## Uninstall Remarc
 
-1. If the Cursor integration is enabled, turn it off in Settings > MCP Integrations; this removes the files Remarc wrote to `~/.cursor`. If you skip this, remove the `remarc` entry from `~/.cursor/mcp.json` and delete `~/.cursor/skills/remarc/` by hand.
-2. If you installed the Claude Code or Codex plugins, uninstall them from those tools (for example `/plugin` in Claude Code).
-3. Quit Remarc, delete the app, and delete `~/Library/Application Support/Remarc/`. If you used custom screenshot folders, remove Remarc's images and annotation sidecars from those folders too when you want to remove all captured data.
+1. Quit Remarc, delete the app, and delete `~/Library/Application Support/Remarc/`. If you used custom screenshot folders, remove Remarc's images and annotation sidecars from those folders too when you want to remove all captured data.
 
 ## Still stuck
 

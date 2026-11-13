@@ -1,17 +1,9 @@
 import Foundation
 
-/// Cross-process lock around `comments.json`.
-///
-/// The app is not the only writer: the MCP server and the hooks plugin mutate
-/// the same file from Node. `mkdir` is atomic on POSIX and behaves identically
-/// from both languages, so it is the lock primitive both sides share - Node has
-/// no `flock` binding, which rules out the more obvious choice.
-///
-/// The lock must span read-through-rename. Locking only the write still loses
-/// updates, because the snapshot being written can predate another process's
-/// commit.
+/// Coordinates document writes across processes through the existing lock file.
+/// Retained for safe writes, snapshots, and compatibility with older app builds.
+/// The lock spans the complete read-merge-write transaction.
 package enum DocumentLock {
-    /// Matches the TypeScript side (`plugins/shared/data.ts`).
     private static let defaultTimeout: TimeInterval = 2.0
     private static let pollInterval: TimeInterval = 0.025
     private static let staleAfter: TimeInterval = 10.0

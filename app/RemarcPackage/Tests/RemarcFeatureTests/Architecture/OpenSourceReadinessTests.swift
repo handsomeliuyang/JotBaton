@@ -91,7 +91,6 @@ final class OpenSourceReadinessTests: XCTestCase {
             "R2_SECRET_ACCESS_KEY",
             "R2_ACCOUNT_ID",
             "wrangler r2",
-            "cd mcp",
             "npm ci",
             "--clobber",
             "Sparkle-2.6.4",

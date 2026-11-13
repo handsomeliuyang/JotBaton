@@ -49,7 +49,6 @@ public final class SettingsManager: ObservableObject {
         static let timeFormat = "timeFormat"
         static let metadataDividerStyle = "metadataDividerStyle"
         static let includeRemarkID = "includeRemarkID"
-        static let includeAIHint = "includeAIHint"
         static let showInDock = "showInDock"
         static let includeType = "includeType"
 
@@ -64,13 +63,6 @@ public final class SettingsManager: ObservableObject {
         static let extensionGrabElementShortcut = "extensionGrabElementShortcut"
         static let extensionRegionSelectShortcut = "extensionRegionSelectShortcut"
 
-        static let claudeCodeEnabled = "claudeCodeEnabled"
-        static let claudeCodeAutoCreateSession = "claudeCodeAutoCreateSession"
-        static let wakeOnCommentEnabled = "wakeOnCommentEnabled"
-        static let wakeHooksAvailable = "wakeHooksAvailable"
-        static let claudeCodeSessionEndBehavior = "claudeCodeSessionEndBehavior"
-        static let mcpUserDisabled = "mcpUserDisabled"
-        static let pluginMigrationCompleted = "pluginMigrationCompleted"
         static let tooltipPosition = "tooltipPosition"
         static let menuBarIndicatorStyle = "menuBarIndicatorStyle"
         static let hidesMenuBarCountAtZero = "hidesMenuBarCountAtZero"
@@ -226,10 +218,6 @@ public final class SettingsManager: ObservableObject {
         didSet { defaults.set(includeRemarkID, forKey: Keys.includeRemarkID) }
     }
 
-    @Published public var includeAIHint: Bool {
-        didSet { defaults.set(includeAIHint, forKey: Keys.includeAIHint) }
-    }
-
     @Published public var includeType: Bool {
         didSet { defaults.set(includeType, forKey: Keys.includeType) }
     }
@@ -284,73 +272,6 @@ public final class SettingsManager: ObservableObject {
                 defaults.set(data, forKey: Keys.extensionRegionSelectShortcut)
             }
         }
-    }
-
-    // MARK: - Agent Integrations
-
-    @Published public var claudeCodeEnabled: Bool {
-        didSet { defaults.set(claudeCodeEnabled, forKey: Keys.claudeCodeEnabled) }
-    }
-
-    /// Whether the comment composer offers "Send instantly & save", which hands
-    /// a comment to its live, paired agent instead of waiting for the agent's
-    /// next prompt. Off means the button is hidden and the flag is never written.
-    @Published public var wakeOnCommentEnabled: Bool {
-        didSet { defaults.set(wakeOnCommentEnabled, forKey: Keys.wakeOnCommentEnabled) }
-    }
-
-    /// Whether a session that can actually be woken is currently live.
-    ///
-    /// Deliberately not "is the plugin installed": that says nothing about
-    /// which harness the user is working in or whether a process owns a live
-    /// pairing. Sessions declare their own capability in their marker; see
-    /// `WakeReachability`.
-    @Published public var wakeHooksAvailable: Bool {
-        didSet { defaults.set(wakeHooksAvailable, forKey: Keys.wakeHooksAvailable) }
-    }
-
-    /// Recompute from live session markers. Cheap: a directory listing and a
-    /// few small reads, so the composer can call it as it opens.
-    public func refreshWakeReachability() {
-        let reachable = WakeReachability.anyWakeCapableSessionIsLive()
-        if reachable != wakeHooksAvailable { wakeHooksAvailable = reachable }
-    }
-
-    /// True when any paired agent is live, which is what Preferences reports.
-    /// The composer must ask about its own target session instead - see
-    /// `wakeAvailable(for:)`.
-    public var wakeAvailable: Bool { wakeOnCommentEnabled && wakeHooksAvailable }
-
-    /// True when pressing the wake button on a comment filed to this session
-    /// will actually reach an agent.
-    ///
-    /// Session-specific because wake is: only the agent paired with this
-    /// session is woken. A comment filed to the Inbox, or to a session whose
-    /// agent is not running, has nobody to interrupt, so the button must not
-    /// offer to interrupt them.
-    public func wakeAvailable(for remarcSessionID: UUID?) -> Bool {
-        guard wakeOnCommentEnabled, let remarcSessionID else { return false }
-        return WakeReachability.liveWakeCapableSessionExists(pairedTo: remarcSessionID)
-    }
-
-    @Published public var claudeCodeAutoCreateSession: Bool {
-        didSet { defaults.set(claudeCodeAutoCreateSession, forKey: Keys.claudeCodeAutoCreateSession) }
-    }
-
-    @Published public var claudeCodeSessionEndBehavior: ClaudeCodeSessionEndBehavior {
-        didSet { defaults.set(claudeCodeSessionEndBehavior.rawValue, forKey: Keys.claudeCodeSessionEndBehavior) }
-    }
-
-    @Published public var mcpUserDisabled: Bool {
-        didSet { defaults.set(mcpUserDisabled, forKey: Keys.mcpUserDisabled) }
-    }
-
-    /// One-shot flag set by `LegacyInstallCleanup` after both:
-    ///   1. Old skill file, settings.json hooks, and MCP registration are removed
-    ///   2. The new `remarc` Claude Code plugin is detected installed
-    /// Until both hold, cleanup retries on every launch.
-    @Published public var pluginMigrationCompleted: Bool {
-        didSet { defaults.set(pluginMigrationCompleted, forKey: Keys.pluginMigrationCompleted) }
     }
 
     @Published public var webhooks: [Webhook] {
@@ -550,11 +471,6 @@ public final class SettingsManager: ObservableObject {
             self.includeRemarkID = true
         }
 
-        if defaults.object(forKey: Keys.includeAIHint) != nil {
-            self.includeAIHint = defaults.bool(forKey: Keys.includeAIHint)
-        } else {
-            self.includeAIHint = true
-        }
 
         if defaults.object(forKey: Keys.includeType) != nil {
             self.includeType = defaults.bool(forKey: Keys.includeType)
@@ -598,18 +514,6 @@ public final class SettingsManager: ObservableObject {
             self.extensionRegionSelectShortcut = .defaultRegionSelect
         }
 
-        // Agent integrations
-        self.claudeCodeEnabled = defaults.bool(forKey: Keys.claudeCodeEnabled)
-        // Off by default while the feature settles: waking an idle agent is a
-        // deliberate choice, not something to opt users into silently.
-        self.wakeOnCommentEnabled = defaults.bool(forKey: Keys.wakeOnCommentEnabled)
-        self.wakeHooksAvailable = defaults.bool(forKey: Keys.wakeHooksAvailable)
-        self.claudeCodeAutoCreateSession = defaults.object(forKey: Keys.claudeCodeAutoCreateSession) == nil
-            ? true
-            : defaults.bool(forKey: Keys.claudeCodeAutoCreateSession)
-        self.mcpUserDisabled = defaults.bool(forKey: Keys.mcpUserDisabled)
-        self.pluginMigrationCompleted = defaults.bool(forKey: Keys.pluginMigrationCompleted)
-
         if let data = defaults.data(forKey: Keys.webhooksConfig),
            let decoded = try? JSONDecoder().decode([Webhook].self, from: data) {
             self.webhooks = decoded
@@ -617,15 +521,6 @@ public final class SettingsManager: ObservableObject {
             self.webhooks = []
         }
 
-        if let behaviorRaw = defaults.string(forKey: Keys.claudeCodeSessionEndBehavior),
-           let behavior = ClaudeCodeSessionEndBehavior(rawValue: behaviorRaw) {
-            self.claudeCodeSessionEndBehavior = behavior
-        } else {
-            // Keeping is the default because the alternative loses data:
-            // autoDelete soft-deletes the session and every comment on it,
-            // resolved history included.
-            self.claudeCodeSessionEndBehavior = .keep
-        }
     }
 
 }

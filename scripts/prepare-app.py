@@ -46,20 +46,6 @@ info['RemarcChannel'] = args.channel
 info['RemarcSourceCommit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 plist.write_bytes(plistlib.dumps(info))
 if dev:
-    script = args.app / 'Contents/Resources/remarc-mcp.js'
-    source = script.read_text()
-    replacements = {
-        '"Application Support", "Remarc"': '"Application Support", "Remarc Dev"',
-        'com.metepolat.Remarc.reload': 'com.metepolat.Remarc.dev.reload',
-        'remarc-claude-': 'remarc-dev-claude-',
-    }
-    for old, new in replacements.items():
-        if old not in source and new not in source:
-            raise ValueError('Bundled MCP storage contract changed: ' + old)
-        source = source.replace(old, new)
-    script.write_text(source)
-    print('Prepared isolated development MCP storage and notifications')
-
     popclip = args.app / 'Contents/Resources/Remarc.popclipext/Config.ts'
     if popclip.exists():
         content = popclip.read_text().replace('com.metepolat.remarc.popclip', 'com.metepolat.remarc.dev.popclip')
@@ -67,11 +53,6 @@ if dev:
         content = content.replace('// name: Remarc\n', '// name: Remarc Dev\n').replace('name: Remarc,', 'name: Remarc Dev,')
         content = content.replace('remarc://comment', 'remarc-dev://comment')
         popclip.write_text(content)
-
-    skill = args.app / 'Contents/Resources/remarc-skill.md'
-    if skill.exists():
-        skill.write_text(skill.read_text().replace('name: remarc\n', 'name: remarc-dev\n')
-                         .replace('# Remarc Comments', '# Remarc Dev Comments'))
 
 # Remove the retired installer from reused development preview bundles.
 helper = args.app / 'Contents/Helpers/RemarcUpdateInstaller'

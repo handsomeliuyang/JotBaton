@@ -35,9 +35,3 @@ Screenshot settings live in Settings > General:
 Existing images stay editable in their original locations when you choose another folder or Use Default; files are not migrated automatically. Keep the selected folder available and writable, and check that your agent can access it. If saving there fails, Remarc does not silently use the default folder.
 
 Images and attachments share their comment's history retention period, starting when the comment moves to History. Cleanup also removes annotation sidecars in current and previous custom folders, while preserving images still referenced by other retained comments. Exported local image references can stop working after cleanup. Save As in the preview panel exports a separate copy without changing the comment's stored image path.
-
-## Screenshot & Send Instantly
-
-A second shortcut, Screenshot & Send Instantly, captures the same way but hands the saved comment to the selected session's live, paired agent immediately instead of waiting for the agent's next read.
-
-The shortcut is unassigned by default, and its row appears in Settings > Shortcuts only when **Allow comments to wake paired agent sessions** is enabled. Instant delivery is available for supported pairings such as [Claude Code](/agents/claude-code/) and [OMP](/agents/omp/).

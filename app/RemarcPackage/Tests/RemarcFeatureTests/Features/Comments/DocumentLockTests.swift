@@ -2,12 +2,8 @@
 @testable import RemarcFeature
 import XCTest
 
-/// Proves the Swift and Node lock implementations actually exclude each other.
-///
-/// They are separate codebases agreeing only on a convention (an atomic `mkdir`
-/// of `<file>.lock` holding `owner.json`). Every claim about concurrent writers
-/// rests on that agreement, and nothing tested it until now.
-final class CrossLanguageLockTests: XCTestCase {
+/// Document-lock exclusion, crash recovery, and release regressions.
+final class DocumentLockTests: XCTestCase {
     private var dir: URL!
     private var file: URL!
 
@@ -22,8 +18,7 @@ final class CrossLanguageLockTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    /// A Node-style holder (the same lock directory + owner.json shape) must
-    /// block the Swift lock until it is released.
+    /// Another live process must block the document lock until it is released.
     func testSwiftWaitsForAForeignHolder() throws {
         let lock = DocumentLock.lockURL(for: file)
         try FileManager.default.createDirectory(at: lock, withIntermediateDirectories: false)

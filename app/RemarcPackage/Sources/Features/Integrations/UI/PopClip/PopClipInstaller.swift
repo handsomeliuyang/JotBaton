@@ -2,10 +2,7 @@ import CorePlatform
 import AppKit
 
 /// Detects PopClip and hands it the bundled extension package.
-///
-/// Detection is a synchronous LaunchServices lookup, not a CLI spawn, so none of
-/// the `ProcessRunner` rules that govern the Claude Code and Codex plugin
-/// detectors apply here.
+/// Detection uses a synchronous LaunchServices lookup.
 @MainActor
 public final class PopClipInstaller {
     public static let shared = PopClipInstaller()

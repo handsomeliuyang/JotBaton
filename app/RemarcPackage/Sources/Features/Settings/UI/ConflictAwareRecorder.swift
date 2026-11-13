@@ -13,7 +13,6 @@ extension KeyboardShortcuts.Name {
         if self == .commentOnSelection { return L10n.tr("Comment on Selection") }
         if self == .quickNote { return L10n.tr("Quick Note") }
         if self == .screenshotComment { return L10n.tr("Screenshot") }
-        if self == .screenshotCommentWake { return L10n.tr("Screenshot & Send Instantly") }
         if self == .pasteAllComments { return L10n.tr("Paste All") }
         if self == .openRemarc { return L10n.tr("Open Remarc") }
         return rawValue
@@ -24,7 +23,6 @@ extension KeyboardShortcuts.Name {
         .commentOnSelection,
         .quickNote,
         .screenshotComment,
-        .screenshotCommentWake,
         .pasteAllComments,
         .openRemarc,
     ]

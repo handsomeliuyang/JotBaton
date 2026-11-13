@@ -72,8 +72,6 @@ jobs:
               --scratch-path "$GITHUB_WORKSPACE/app/DerivedData/SwiftTests-$profile" \
               --cache-path "$CACHE"
           done
-      - name: Test packaged MCP image delivery
-        run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app/Contents/Resources/remarc-mcp.js" "$REMARC_CHANNEL"
       - name: Package drag-to-install disk image
         run: |
           set -euo pipefail

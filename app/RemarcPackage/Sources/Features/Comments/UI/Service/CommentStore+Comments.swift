@@ -35,7 +35,7 @@ extension CommentStore {
     }
 
     @discardableResult
-    public func createComment(type: CommentType, commentText: String, source: String, appBundleID: String?, attachments: [String] = [], webContext: WebContext? = nil, regionElements: [WebContext]? = nil, targetSessionID: UUID? = nil, wakeRequested: Bool = false, customTitle: String? = nil) -> Comment? {
+    public func createComment(type: CommentType, commentText: String, source: String, appBundleID: String?, attachments: [String] = [], webContext: WebContext? = nil, regionElements: [WebContext]? = nil, targetSessionID: UUID? = nil, customTitle: String? = nil) -> Comment? {
         guard CommentSavePolicy.allowsSave(
             type: type,
             commentText: commentText,
@@ -61,19 +61,15 @@ extension CommentStore {
             return nil
         }
 
-        // A wake comment is handed off the moment it is saved: the agent claims
-        // it from there with a compare-and-set.
         let comment = Comment(
             type: type,
             commentText: normalizedCommentText,
             source: source,
             appBundleID: appBundleID,
             sessionID: sessionID,
-            status: wakeRequested ? .handedOff : .open,
             attachments: attachments,
             webContext: webContext,
             regionElements: regionElements,
-            wakeRequestedAt: wakeRequested ? Date() : nil,
             customTitle: customTitle
         )
 
@@ -81,13 +77,7 @@ extension CommentStore {
         appState.totalCommentsCreated += 1
 
         appState.markSnapshotDataChanged()
-        if wakeRequested {
-            // Agent integrations watch this file; the comment has to be on disk
-            // before the change event fires, or the woken session finds nothing.
-            saveNow()
-        } else {
-            scheduleSave()
-        }
+        scheduleSave()
         debugLog("CommentStore: Created comment \(comment.shortID) (total: \(appState.totalCommentsCreated))")
         onCommentChange(.commentCreated,  comment)
         return comment
@@ -182,7 +172,7 @@ extension CommentStore {
     /// Soft-delete only the exact comment versions in a successful export.
     ///
     /// The comparison and mutation happen after a fresh read while holding the
-    /// cross-process document lock. Checking only `appState` is unsafe: MCP can
+    /// cross-process document lock. Checking only `appState` is unsafe: another writer can
     /// edit a comment on disk before its asynchronous reload notification reaches
     /// the app, and an in-memory check would then delete that newer version.
     @discardableResult

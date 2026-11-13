@@ -13,7 +13,7 @@ app/RemarcPackage/
     Features/
       Comments/                       Comment document, sessions, history and export
       Capture/                        Text selection, screenshots, annotation and storage
-      Integrations/                   Agent clients, browser bridge, webhooks and PopClip
+      Integrations/                   Browser bridge, webhooks and PopClip
       Settings/                       Preferences and settings panes
       SnapshotSync/                   iCloud snapshots, comparison, publication and recovery
       Updates/                        GitHub release discovery, Sparkle installation and recovery backups
@@ -55,7 +55,7 @@ list with its feature's target declaration.
 Dependencies flow from application composition to features to core. Feature
 dependencies are explicit: snapshots use comment and capture contracts;
 settings use the features whose preferences they edit; onboarding uses capture
-permissions and agent installation status. Core never imports a feature.
+permissions. Core never imports a feature.
 
 Use explicit imports and narrowly scoped `public` or `package` declarations.
 Keep implementation details `private` or module-internal. Do not introduce
@@ -82,8 +82,7 @@ re-export barrels, duplicate contract types or per-method forwarding wrappers.
   port. The snapshot manager receives it through its initializer; the
   application makes `CommentStore` conform to it.
 - Settings preference contracts live with their owning features. Settings panes
-  are separated by capability. `AgentIntegrationSettingsViewModel` owns install
-  progress and CLI actions; views bind to its state.
+  are separated by capability.
 - Dock-policy mechanics live in `Core/UI`. The application supplies the user's
   preference; the mechanism does not import settings.
 
@@ -94,9 +93,9 @@ back into those controllers or the `AppServices` container.
 ## Data and delivery invariants
 
 Directory changes must not change `comments.json`, defaults keys, image paths,
-MCP contracts, lock ownership, unknown-field preservation or transaction order.
-The app, MCP server and hooks still coordinate on one document and its existing
-cross-process lock. Session and comment repositories do not own separate files.
+lock ownership, unknown-field preservation or transaction order.
+Document writes still coordinate through the existing cross-process lock.
+Session and comment repositories do not own separate files.
 
 Production and development continue to use `AppIdentity.current` for isolated
 storage, snapshots, notifications and integrations. Standard and Ventura share

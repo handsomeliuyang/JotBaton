@@ -29,13 +29,10 @@ The footer holds session-wide actions:
 | Button | What it does |
 | --- | --- |
 | Copy All | Copy every comment in the session to the clipboard |
-| MCP | Show MCP (Model Context Protocol) status and a sample agent prompt |
 | Resolve All | Mark every comment in the session resolved, after confirmation |
 | Delete All | Delete every comment in the session, after confirmation |
 | Export to file | Save the session's comments to a file |
 | Settings | Open the Settings window |
-
-The MCP button carries a status dot: green means an agent can read your comments, orange means a dependency is missing (click for details), red means MCP is not connected. See [agent integrations](/agents/overview/).
 
 ## Right-click menu
 

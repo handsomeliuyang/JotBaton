@@ -20,9 +20,7 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
     public var attachments: [String]
     public var webContext: WebContext?
     public var regionElements: [WebContext]?
-    /// Set when the user sends a comment with "Send instantly & save".
-    /// A paired agent integration reads it to decide whether to wake its session.
-    /// Never cleared - delivery state lives in each session's marker.
+    /// Legacy delivery timestamp retained only for storage and snapshot compatibility.
     public var wakeRequestedAt: Date?
 
     public init(

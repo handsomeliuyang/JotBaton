@@ -3,7 +3,7 @@ title: Webhooks
 description: Send Remarc comment events as HTTP POST JSON to Zapier, Make, n8n, IFTTT, Slack, or any other endpoint that accepts JSON.
 ---
 
-Webhooks are the handoff path for tools that do not speak MCP: Remarc sends comment events to any URL as an HTTP POST with a JSON body. That covers Zapier, Make, n8n, IFTTT, Slack incoming webhooks, and anything else that accepts JSON. Configure them in the **Webhooks** tab in Settings.
+Remarc sends comment events to any URL as an HTTP POST with a JSON body. That covers Zapier, Make, n8n, IFTTT, Slack incoming webhooks, and anything else that accepts JSON. Configure them in the **Webhooks** tab in Settings.
 
 ## Add a webhook
 

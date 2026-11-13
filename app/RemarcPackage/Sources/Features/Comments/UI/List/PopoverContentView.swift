@@ -25,14 +25,11 @@ struct PopoverContentView: View {
     @State private var isSearching = false
     @AppStorage("commentListNewestFirst") private var sortNewestFirst = true
     @State private var focusedCommentID: UUID?
-    @ObservedObject private var mcpManager = MCPManager.shared
     @State private var showDeleteAllConfirmation = false
     @State private var showResolveAllConfirmation = false
     @State private var showClearPrompt = false
     @State private var clearPromptProgress: CGFloat = 0
     @State private var clearPromptCancelled = false
-    @State private var showMCPPopover = false
-    @State private var mcpSettingsIconHovered = false
     @State private var showAutoClearCountdown = false
     @State private var autoClearProgress: CGFloat = 0
     @State private var autoClearCancelled = false
@@ -614,8 +611,6 @@ struct PopoverContentView: View {
             .opacity(!persistence.taskCompletionInFlight && (sessionActionsDisabled || inProgressTaskCount == 0) ? 0.4 : 1)
             .accessibilityIdentifier("remarc.footer.completeInProgress")
 
-            mcpButton
-
             Spacer()
 
             moreMenu
@@ -924,170 +919,6 @@ struct PopoverContentView: View {
     private var unresolvedCommentCount: Int {
         guard let sessionID = persistence.appState.activeSessionID else { return 0 }
         return persistence.comments(for: sessionID).filter { $0.status != .resolved }.count
-    }
-
-    // MARK: - MCP Indicator
-
-    private var mcpStatusColor: Color {
-        if mcpManager.isEnabled { return Color.remarcSuccess(for: colorScheme) }
-        if mcpManager.hasDependencyError { return Color.remarcWarning(for: colorScheme) }
-        return Color.remarcError(for: colorScheme)
-    }
-
-    private var mcpStatusTooltip: String {
-        if mcpManager.isEnabled {
-            return L10n.tr("MCP connected\nAI agents can read your comments")
-        }
-        if mcpManager.hasDependencyError {
-            return L10n.tr("MCP needs attention\nMissing dependencies - click for details")
-        }
-        return L10n.tr("MCP not connected\nClick to enable")
-    }
-
-    private var mcpButton: some View {
-        Button {
-            // Re-check dependencies each time the popover opens so the
-            // error state clears after the user installs Node/Claude CLI.
-            if mcpManager.hasDependencyError {
-                mcpManager.checkDependencies()
-            }
-            showMCPPopover = true
-        } label: {
-            Label(L10n.tr("MCP"), systemImage: "powerplug")
-                .labelStyle(.iconOnly)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.remarcIconRest(for: colorScheme))
-                .frame(width: 30, height: 28)
-                .overlay(alignment: .topTrailing) {
-                    Circle()
-                        .fill(mcpStatusColor)
-                        .frame(width: 6, height: 6)
-                        .shadow(
-                            color: mcpManager.isEnabled ? mcpStatusColor.opacity(0.6) : .clear,
-                            radius: 3
-                        )
-                        .offset(x: -2, y: 2)
-                        .animation(.easeInOut(duration: 0.2), value: mcpStatusColor)
-                }
-        }
-        .buttonStyle(FooterButtonStyle(restOpacity: 0.08, hoverOpacity: 0.14))
-        .help(mcpStatusTooltip)
-        .accessibilityValue(mcpStatusTooltip)
-        .accessibilityIdentifier("remarc.footer.mcp")
-        .popover(isPresented: $showMCPPopover, arrowEdge: .top) {
-            mcpPopoverContent
-        }
-    }
-
-    @ViewBuilder
-    private var mcpPopoverContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(mcpStatusColor)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: mcpManager.isEnabled ? mcpStatusColor.opacity(0.6) : .clear, radius: 3)
-                Text(mcpManager.isEnabled ? L10n.tr("Enabled") : (mcpManager.hasDependencyError ? L10n.tr("Missing Dependencies") : L10n.tr("Not Connected")))
-                    .font(.system(size: 12, weight: .medium))
-            }
-
-            if mcpManager.hasDependencyError {
-                VStack(alignment: .leading, spacing: 4) {
-                    if mcpManager.nodeStatus == .notFound {
-                        Label(L10n.tr("Node.js not found"), systemImage: "xmark.circle.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.remarcWarning(for: colorScheme))
-                    }
-                    if mcpManager.claudeStatus == .notFound {
-                        Label(L10n.tr("Claude Code CLI not found"), systemImage: "xmark.circle.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.remarcWarning(for: colorScheme))
-                    }
-                }
-
-                Text(L10n.tr("Install the missing dependencies and relaunch Remarc to enable MCP."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary.opacity(0.6))
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(mcpManager.isEnabled
-                     ? L10n.tr("Ask your AI agent to review and resolve your comments - no copy-paste needed.")
-                     : L10n.tr("Connect an AI agent so it can read and act on your comments directly."))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary.opacity(0.6))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if mcpManager.isEnabled {
-                HStack(spacing: 8) {
-                    Button {
-                        let sessionName = persistence.activeSession?.name ?? "Inbox"
-                        let prompt = "I left review comments in the '\(sessionName)' session using Remarc. Use remarc_list_sessions to find the session ID, then remarc_list_comments with that session_id to see them, and resolve each one."
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(prompt, forType: .string)
-                        showMCPPopover = false
-                        ToastManager.shared.show(L10n.tr("Prompt copied"))
-                    } label: {
-                        Text(L10n.tr("Copy Sample Prompt"))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .fill(Color.remarcPrimary(for: colorScheme).opacity(colorScheme == .dark ? 0.10 : 0.08))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .strokeBorder(Color.remarcPrimary(for: colorScheme).opacity(colorScheme == .dark ? 0.25 : 0.35), lineWidth: 0.5)
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer(minLength: 0)
-
-                    Button {
-                        showMCPPopover = false
-                        PreferencesWindowController.shared.show(tab: "MCP Integrations")
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(mcpSettingsIconHovered ? Color.remarcPrimary(for: colorScheme) : .primary.opacity(0.5))
-                            .padding(.vertical, 5)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            mcpSettingsIconHovered = hovering
-                        }
-                    }
-                    .help(L10n.tr("MCP Settings"))
-                }
-            } else {
-                Button {
-                    showMCPPopover = false
-                    PreferencesWindowController.shared.show()
-                } label: {
-                    Text(L10n.tr("Open Preferences"))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.remarcPrimary(for: colorScheme).opacity(colorScheme == .dark ? 0.10 : 0.08))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .strokeBorder(Color.remarcPrimary(for: colorScheme).opacity(colorScheme == .dark ? 0.25 : 0.35), lineWidth: 0.5)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(12)
-        .frame(width: 240)
     }
 
     // MARK: - Actions
@@ -1438,47 +1269,6 @@ private struct TertiaryLinkView<Label: View>: View {
             .opacity(isPressed ? 0.7 : 1.0)
             .onHover { isHovered = $0 }
             .animation(.easeInOut(duration: 0.15), value: isHovered)
-    }
-}
-
-// MARK: - Secondary Footer Button Style (outline only)
-
-private struct SecondaryFooterHoverView<Label: View>: View {
-    @ObservedObject private var localization = LocalizationManager.shared
-    let isPressed: Bool
-    let label: Label
-    @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        let hoverFill: Color = colorScheme == .dark
-            ? .white.opacity(isHovered ? 0.08 : 0)
-            : .white.opacity(isHovered ? 0.55 : 0)
-        let borderColor: Color = colorScheme == .dark
-            ? .white.opacity(0.12)
-            : .black.opacity(0.08)
-        label
-            .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(hoverFill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: 0.5)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-            .opacity(isPressed ? 0.7 : 1.0)
-            .onHover { isHovered = $0 }
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
-    }
-}
-
-private struct SecondaryFooterButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        SecondaryFooterHoverView(
-            isPressed: configuration.isPressed,
-            label: configuration.label
-        )
     }
 }
 

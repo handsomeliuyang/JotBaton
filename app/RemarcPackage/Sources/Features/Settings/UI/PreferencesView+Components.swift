@@ -32,7 +32,7 @@ extension PreferencesView {
 
     var appShortcutsResetButton: some View {
         textButton(L10n.tr("Reset"), restOpacity: 0.6) {
-            KeyboardShortcuts.reset(.commentOnSelection, .quickNote, .screenshotComment, .screenshotCommentWake, .pasteAllComments, .openRemarc)
+            KeyboardShortcuts.reset(.commentOnSelection, .quickNote, .screenshotComment, .pasteAllComments, .openRemarc)
         }
     }
 

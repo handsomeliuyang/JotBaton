@@ -98,7 +98,6 @@ extension CommentStore {
             lastPersisted = commit.state
             for id in commit.value {
                 if let session = appState.sessions.first(where: { $0.id == id }) {
-                    removeClaudeCodeMarkerFile(for: session)
                 }
             }
             if !commit.value.isEmpty {
@@ -122,38 +121,6 @@ extension CommentStore {
 
         // Run immediately so toggling on takes effect without waiting 60s
         autoDeleteInactiveSessions()
-    }
-
-    // MARK: - Claude Code Marker Cleanup
-
-    /// Marker files at /tmp/remarc-claude-<claudeSessionId>.marker are used by the SessionEnd
-    /// hook to locate which Remarc session to wind down. Abnormal Claude Code exits (kill,
-    /// terminal close) skip the hook and leave the marker pinned, which pins the Remarc
-    /// session. Couple marker cleanup to session deletion so they can't outlive it.
-    func removeClaudeCodeMarkerFile(for session: Session) {
-        guard let claudeSessionId = session.claudeCodeSessionId else { return }
-        let path = IntegrationConstants.claudeCodeMarkerPath(for: claudeSessionId)
-        try? FileManager.default.removeItem(atPath: path)
-    }
-
-    /// Launch-time sweep for markers whose Remarc session is missing or already deleted —
-    /// catches cruft from versions before marker cleanup was coupled to deleteSession.
-    func cleanupStaleClaudeCodeMarkers() {
-        let tmpDir = IntegrationConstants.claudeCodeMarkerDirectory
-        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: tmpDir) else { return }
-        let prefix = IntegrationConstants.claudeCodeMarkerPrefix
-        let suffix = IntegrationConstants.claudeCodeMarkerSuffix
-        var removed = 0
-        for entry in entries where entry.hasPrefix(prefix) && entry.hasSuffix(suffix) {
-            let claudeSessionId = String(entry.dropFirst(prefix.count).dropLast(suffix.count))
-            let session = appState.sessions.first { $0.claudeCodeSessionId == claudeSessionId }
-            guard session?.isDeleted ?? true else { continue }
-            try? FileManager.default.removeItem(atPath: "\(tmpDir)/\(entry)")
-            removed += 1
-        }
-        if removed > 0 {
-            debugLog("CommentStore: Cleaned up \(removed) stale Claude Code marker file(s)")
-        }
     }
 
     /// History records and their image families share one deadline. Keep a

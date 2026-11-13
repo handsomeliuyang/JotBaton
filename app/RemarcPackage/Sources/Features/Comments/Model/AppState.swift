@@ -7,7 +7,7 @@ public struct AppState: Codable, Sendable, Equatable {
     public var totalCommentsCreated: Int
     public var orphanedImages: [OrphanedImage]
     public var transcriptions: [Transcription]
-    /// Document-level keys written by a newer app, MCP server, or hooks build.
+    /// Document-level keys written by a newer app version.
     /// Carried through untouched so this build cannot delete them.
     public var unknownFields: [String: JSONValue]
 

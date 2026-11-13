@@ -19,7 +19,6 @@ On first launch, Remarc opens a welcome window with four rows:
 
 - **Accessibility** - lets Remarc read your selected text so comments can quote it.
 - **Screen Recording** - used to capture screenshots of selected regions alongside your comments.
-- **Claude Code plugin** - optional. Click **Install** to add the Remarc plugin to Claude Code in one step, or do it later from Settings > MCP Integrations.
 
 Each permission row has an **Allow** button and a live status that flips to **Enabled** with a checkmark as soon as macOS registers the grant, without a restart. The **Continue** button unlocks once you grant all three permissions.
 

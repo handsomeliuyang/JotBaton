@@ -8,7 +8,6 @@ import AppKit
 @MainActor
 public final class CommentStore: ObservableObject {
     let onCommentChange: (CommentChange, Comment) -> Void
-    let onExternalChanges: ([Comment], [Comment], [Session], [Session]) -> Void
 
     @Published public internal(set) var appState: AppState
 
@@ -39,7 +38,7 @@ public final class CommentStore: ObservableObject {
     // ordinary saves can interleave. A durable write cannot be synchronous - it
     // waits on a cross-process lock that polls with `Thread.sleep` - so it awaits
     // an off-main helper, and that await yields the main actor. Without a gate, a
-    // debounced save or a reload adoption could land inside that window and
+    // debounced save could land inside that window and
     // publish state computed from a snapshot older than the durable write's, both
     // clobbering the newer value and regressing `lastPersisted`.
     //
@@ -50,11 +49,10 @@ public final class CommentStore: ObservableObject {
     // does not have today. Leaving them synchronous keeps quit exactly as durable
     // as it already is.
 
-    /// True while a durable write owns the document. Ordinary saves and reloads
+    /// True while a durable write owns the document. Ordinary saves
     /// arriving in this window record themselves and run once it clears.
     var documentWriteInFlight = false
     var deferredSaveRequested = false
-    var deferredReloadRequested = false
     var documentSlotWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Sessions a durable write is currently staging a comment into. Deleting one
@@ -63,10 +61,8 @@ public final class CommentStore: ObservableObject {
     var pinnedSessionIDs: Set<UUID> = []
     var deferredSessionDeletions: [UUID] = []
 
-    init(onCommentChange: @escaping (CommentChange, Comment) -> Void,
-         onExternalChanges: @escaping ([Comment], [Comment], [Session], [Session]) -> Void) {
+    init(onCommentChange: @escaping (CommentChange, Comment) -> Void) {
         self.onCommentChange = onCommentChange
-        self.onExternalChanges = onExternalChanges
         let remarcDir = remarcAppSupportURL
 
         if !FileManager.default.fileExists(atPath: remarcDir.path) {
@@ -134,15 +130,6 @@ public final class CommentStore: ObservableObject {
         // Prune expired history on launch
         pruneExpiredHistory()
 
-        // Listen for external reload requests (from MCP server)
-        DistributedNotificationCenter.default().addObserver(
-            forName: NSNotification.Name(AppIdentity.current.reloadNotification),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.reloadFromDisk()
-        }
-
         // Auto-delete resolved comments on launch (catches expired while app was closed)
         autoDeleteResolvedComments()
 
@@ -159,12 +146,10 @@ public final class CommentStore: ObservableObject {
         .receive(on: RunLoop.main)
         .sink { [weak self] _, _ in self?.updateInactiveSessionTimer() }
 
-        cleanupStaleClaudeCodeMarkers()
 
         reconcilePreparedCaptureLeases()
 
-        // Ensure the data file exists on disk (bootstraps comments.json on fresh installs
-        // so the CLI/hooks can read it immediately)
+        // Ensure the data file exists on disk on fresh installs.
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             saveToDisk()
         }

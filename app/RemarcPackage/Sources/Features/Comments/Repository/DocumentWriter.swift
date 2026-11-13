@@ -1,14 +1,9 @@
 import CorePlatform
 import Foundation
 
-/// Serializes document writes off the main actor.
-///
-/// `PersistenceManager` is `@MainActor` and its debounced save ran the locked
-/// read-merge-write inline, so contention with an agent's MCP write blocked the
-/// main thread in `Thread.sleep` for up to the lock timeout - a visible UI
-/// freeze. Routine saves now hop here instead; only explicitly synchronous
-/// paths (the wake button, which must have the comment on disk before it
-/// returns, and termination) still block, and both are bounded and deliberate.
+/// Serializes locked read-merge-write transactions off the main actor.
+/// Explicit synchronous saves for updates and termination remain bounded by
+/// the document lock timeout.
 package actor DocumentWriter {
     package init() {}
     /// Performs the transaction and returns the merged document, or nil if the

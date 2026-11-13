@@ -24,7 +24,7 @@ ALLOWED = {
         "CorePlatform", "CoreLocalization", "CoreUI", "FeatureComments",
         "FeatureCapture", "FeatureIntegrations",
     },
-    "FeatureOnboarding": {"CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture", "FeatureIntegrations"},
+    "FeatureOnboarding": {"CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture"},
 }
 APP = "RemarcFeature"
 EXTERNAL = {"KeyboardShortcuts", "Sparkle", "AppMover"}
@@ -108,13 +108,8 @@ class SwiftBoundariesTests(unittest.TestCase):
                     owners[source] = target["name"]
             self.assertEqual(set(owners), set((PACKAGE / "Sources").rglob("*.swift")))
 
-    def test_resource_and_generated_code_owners_are_stable(self):
+    def test_resource_owners_are_stable(self):
         self.assertTrue((PACKAGE / "Sources/Core/Localization/Resources/Localizations.json").is_file())
-        self.assertTrue((PACKAGE / "Sources/Features/Integrations/Agents/BundledPluginVersion.swift").is_file())
-        generator = (ROOT / "scripts/sync-mcp-vendor.sh").read_text()
-        self.assertIn("Sources/Features/Integrations/Agents", generator)
-        self.assertIn("package enum BundledPluginVersion", generator)
-        self.assertIn("package static let remarc", generator)
         for legacy in ("Views", "Models", "Services", "Utilities", "Annotation", "Core"):
             self.assertFalse((PACKAGE / "Sources" / APP / legacy).exists())
 

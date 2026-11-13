@@ -14,11 +14,9 @@ extension CommentStore {
     /// Write our state, merged with whatever landed on disk since we last read
     /// it, under the cross-process lock.
     ///
-    /// The app is one of several writers (MCP tools and hooks mutate the same
-    /// file). Writing our long-lived in-memory snapshot directly used to erase
-    /// their commits - an agent resolving a comment, then any UI edit reverting
-    /// it. Locking alone does not fix that: the snapshot itself is stale, so we
-    /// re-read and merge inside the lock.
+    /// Writing a long-lived in-memory snapshot directly can erase changes made
+    /// since it was read. Locking alone does not fix that: the snapshot itself
+    /// is stale, so we re-read and merge inside the lock.
     /// Routine save: does the locked read-merge-write on a background actor so
     /// contention with another process never blocks the UI.
     func saveToDisk() {

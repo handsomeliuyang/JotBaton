@@ -17,9 +17,7 @@ public enum AppIdentity: String, Sendable, CaseIterable {
     public var displayName: String { isDevelopment ? "Remarc Dev" : "Remarc" }
     public var directoryName: String { displayName }
     public var urlScheme: String { isDevelopment ? "remarc-dev" : "remarc" }
-    public var reloadNotification: String { bundleIdentifier + ".reload" }
     public var webSocketPort: UInt16 { isDevelopment ? 9275 : 9274 }
-    public var integrationName: String { isDevelopment ? "remarc-dev" : "remarc" }
     public var appIconName: String { isDevelopment ? "AppIconDev" : "AppIcon" }
     public var menuBarIconName: String { isDevelopment ? "MenuBarIconDev" : "MenuBarIcon" }
     public var cloudDisplayPath: String { "iCloud Drive/" + directoryName }

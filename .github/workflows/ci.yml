@@ -69,7 +69,7 @@ jobs:
         fi
 
         if grep -n -E \
-          'R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2_ACCOUNT_ID|wrangler r2|cd mcp|npm ci|--clobber|Sparkle-2\.6\.4' \
+          'R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY|R2_ACCOUNT_ID|wrangler r2|npm ci|--clobber|Sparkle-2\.6\.4' \
           .github/workflows/release.yml; then
           echo "Release workflow contains retired or unsafe distribution logic" >&2
           exit 1
@@ -121,6 +121,3 @@ jobs:
       run: |
         set -euo pipefail
         REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh
-
-    - name: Test packaged MCP image delivery
-      run: node scripts/smoke-mcp-images.mjs "app/DerivedData/Build/Products/Debug/Remarc Dev.app/Contents/Resources/remarc-mcp.js" development

@@ -94,29 +94,6 @@ extension PreferencesView {
                         toggleRow(L10n.tr("Include time"), isOn: $settings.includeTime, highlight: .date, disabled: !settings.includeDate)
                         toggleRow(L10n.tr("Status"), isOn: $settings.includeStatus, highlight: .status)
                         toggleRow(L10n.tr("Comment ID"), isOn: $settings.includeRemarkID, highlight: .remarkID)
-                        toggleRow(L10n.tr("MCP hint"), isOn: $settings.includeAIHint, highlight: .aiHint)
-                        if settings.includeAIHint && settings.clearAfterExportBehavior == .delete {
-                            HStack(spacing: 8) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.orange)
-                                    .font(.system(size: 12))
-                                Text(L10n.tr("Always Delete is on, so comments are removed after copy and MCP tools won't find them to resolve."))
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.primary.opacity(0.7))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.orange.opacity(0.08))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .strokeBorder(Color.orange.opacity(0.25), lineWidth: 1)
-                            )
-                        }
                     }
 
                     Divider()
@@ -177,7 +154,7 @@ extension PreferencesView {
                                     )
                                     .animation(.easeInOut(duration: 0.15), value: hoveredHighlight)
                             } else {
-                                let metadataHighlights: Set<ExportHighlight> = [.source, .date, .dateFormat, .status, .metadataDivider, .remarkID, .aiHint, .type]
+                                let metadataHighlights: Set<ExportHighlight> = [.source, .date, .dateFormat, .status, .metadataDivider, .remarkID, .type]
                                 let isMetadataLine = line.segments.contains { !$0.highlights.isDisjoint(with: metadataHighlights) }
                                 line.segments.reduce(Text("")) { result, segment in
                                     let hit = hoveredHighlight != nil && segment.highlights.contains(hoveredHighlight!)
@@ -231,7 +208,6 @@ extension PreferencesView {
             includeTime: settings.includeTime,
             use24Hour: settings.timeFormat.use24Hour,
             metadataDivider: settings.metadataDividerStyle,
-            includeAIHint: settings.includeAIHint,
             layout: settings.clipboardLayout
         )
     }

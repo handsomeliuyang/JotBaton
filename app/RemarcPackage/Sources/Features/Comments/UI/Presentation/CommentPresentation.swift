@@ -19,7 +19,7 @@ func appDisplayName(for comment: Comment) -> String? {
 
 extension Date {
     /// Compact timestamp for `CommentCardView` display. Display only; copy / export /
-    /// MCP paths keep the full timestamp.
+    /// Storage and export paths keep the full timestamp.
     ///
     /// - Less than 24h before `now`: time of day (`15:45` or `3:45 PM`).
     /// - 24h or older: the date, formatted with `dateFormat`.

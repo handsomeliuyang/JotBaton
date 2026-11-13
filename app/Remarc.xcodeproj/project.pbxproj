@@ -102,7 +102,6 @@
 				8BC265582DEDD3F400F279A4 /* Sources */,
 				8BC265592DEDD3F400F279A4 /* Frameworks */,
 				8BC2655A2DEDD3F400F279A4 /* Resources */,
-				A1MCP0012DEDD000000000001 /* Copy MCP Server */,
 				A1PCL0012DEDD000000000001 /* Copy PopClip Extension */,
 			);
 			buildRules = (
@@ -172,25 +171,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		A1MCP0012DEDD000000000001 /* Copy MCP Server */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/../mcp/vendor/remarc-mcp.js",
-				"$(SRCROOT)/../mcp/vendor/PROVENANCE.json",
-				"$(SRCROOT)/../mcp/skill/SKILL.md",
-			);
-			name = "Copy MCP Server";
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/remarc-mcp.js",
-				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/remarc-skill.md",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Fail the build rather than shipping whatever happens to be on disk.\nset -euo pipefail\n\n# The server and skill are vendored from the plugin repo, which owns them.\n# Refresh both with scripts/sync-mcp-vendor.sh.\nVENDOR=\"${SRCROOT}/../mcp/vendor\"\nSKILL=\"${SRCROOT}/../mcp/skill/SKILL.md\"\ntest -s \"$VENDOR/remarc-mcp.js\"\ntest -s \"$VENDOR/PROVENANCE.json\"\ntest -s \"$SKILL\"\n\n# Both recorded hashes must match the bytes copied from the same plugin commit.\n/usr/bin/python3 - \"$VENDOR\" \"$SKILL\" <<'VERIFY'\nimport hashlib\nimport json\nfrom pathlib import Path\nimport sys\n\nvendor = Path(sys.argv[1])\nprovenance = json.loads((vendor / \"PROVENANCE.json\").read_text())\nfor artifact, key in [(vendor / \"remarc-mcp.js\", \"sha256\"), (Path(sys.argv[2]), \"skillSha256\")]:\n    actual = hashlib.sha256(artifact.read_bytes()).hexdigest()\n    if provenance.get(key) != actual:\n        print(f\"error: {artifact} does not match its recorded {key}; run scripts/sync-mcp-vendor.sh\", file=sys.stderr)\n        raise SystemExit(1)\nVERIFY\n\nRES=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\ncp \"$VENDOR/remarc-mcp.js\" \"$RES/remarc-mcp.js\"\ncp \"$SKILL\" \"$RES/remarc-skill.md\"\n";
-		};
 		A1PCL0012DEDD000000000001 /* Copy PopClip Extension */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;

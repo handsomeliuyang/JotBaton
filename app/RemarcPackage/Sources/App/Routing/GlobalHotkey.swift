@@ -29,11 +29,6 @@ public final class GlobalHotkey {
                 self?.handleScreenshotHotkey()
             }
         }
-        KeyboardShortcuts.onKeyDown(for: .screenshotCommentWake) { [weak self] in
-            Task { @MainActor in
-                self?.handleScreenshotHotkey(wakeOnSave: true)
-            }
-        }
         KeyboardShortcuts.onKeyDown(for: .pasteAllComments) { [weak self] in
             Task { @MainActor in
                 self?.handlePasteAllHotkey()
@@ -51,7 +46,6 @@ public final class GlobalHotkey {
         KeyboardShortcuts.disable(.commentOnSelection)
         KeyboardShortcuts.disable(.quickNote)
         KeyboardShortcuts.disable(.screenshotComment)
-        KeyboardShortcuts.disable(.screenshotCommentWake)
         KeyboardShortcuts.disable(.pasteAllComments)
         KeyboardShortcuts.disable(.openRemarc)
         debugLog("GlobalHotkey: Unregistered")
@@ -92,28 +86,18 @@ public final class GlobalHotkey {
         FloatingEditorController.shared.showForQuickNote()
     }
 
-    private func handleScreenshotHotkey(wakeOnSave: Bool = false) {
-        debugLog("GlobalHotkey: handleScreenshotHotkey fired (wakeOnSave=\(wakeOnSave))")
+    private func handleScreenshotHotkey() {
+        debugLog("GlobalHotkey: handleScreenshotHotkey fired")
         guard !SettingsManager.shared.isPaused else {
             debugLog("GlobalHotkey: paused, ignoring screenshot hotkey")
             return
         }
-        // Only pre-arm when a wake could actually be honoured; otherwise this
-        // behaves as an ordinary screenshot comment. The shortcut files to the
-        // active session, so that is the pairing that has to be live - the
-        // composer opens on the same session and its button agrees.
-        let armWake = wakeOnSave
-            && SettingsManager.shared.wakeAvailable(
-                for: AppServices.shared.comments.appState.activeSessionID
-            )
-
         AppServices.shared.capture.startCapture(
             onRegionSelected: { captureRect, sourceBundleID in
                 Task { @MainActor in
                     CommentInputController.shared.showForScreenshot(
                         captureRect: captureRect,
-                        sourceBundleID: sourceBundleID,
-                        wakeOnSave: armWake
+                        sourceBundleID: sourceBundleID
                     )
                 }
             },

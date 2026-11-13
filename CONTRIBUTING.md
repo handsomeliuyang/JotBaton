@@ -47,7 +47,6 @@ Mac. Reuse the same identity on subsequent builds; do not fall back to ad-hoc si
 | `app/RemarcPackage/Sources/Core/` | Platform, localization, theme and reusable UI |
 | `app/RemarcPackage/Tests/RemarcFeatureTests/` | Swift tests grouped by capability |
 | `app/Config/Shared.xcconfig` | Version numbers and deployment target |
-| `mcp/vendor/` | Vendored MCP server artifact (built in [remarc-agent-plugins](https://github.com/metedata/remarc-agent-plugins); do not edit by hand - the build verifies its sha256) |
 | `extension/` | Chrome extension |
 | `tests/` | Test suite |
 

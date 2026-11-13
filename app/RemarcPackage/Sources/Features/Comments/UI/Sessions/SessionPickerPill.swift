@@ -253,7 +253,6 @@ private struct SessionDropdownPanel: View {
                         ForEach(sessions) { session in
                             SessionOptionRow(
                                 name: session.name,
-                                origin: session.origin,
                                 isSelected: session.id == currentSessionID,
                                 colorScheme: colorScheme,
                                 onSelect: { onSelect(session.id) }
@@ -295,7 +294,6 @@ private struct SessionDropdownPanel: View {
 private struct SessionOptionRow: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let name: String
-    let origin: SessionOrigin
     let isSelected: Bool
     let colorScheme: ColorScheme
     let onSelect: () -> Void
@@ -309,7 +307,6 @@ private struct SessionOptionRow: View {
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                     .frame(width: 14)
                     .opacity(isSelected ? 1 : 0)
-                SessionOriginBadge(origin: origin)
                 Text(name)
                     .font(.system(size: 12))
                     .lineLimit(1)

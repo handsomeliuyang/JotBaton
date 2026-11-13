@@ -74,6 +74,9 @@ PYTHON
     REMARC_BIN="$(swift build --package-path "$REMARC_PACKAGE" --build-system native --sdk "$REMARC_SDK" --show-bin-path)"
     REMARC_SPARKLE="$REMARC_PACKAGE/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64"
     test -d "$REMARC_SPARKLE/Sparkle.framework"
+    # Recreate the preview bundle so resources removed from this checkout
+    # cannot survive in a previously built application.
+    rm -rf "$REMARC_OUTPUT"
     mkdir -p "$REMARC_OUTPUT/Contents/MacOS" "$REMARC_OUTPUT/Contents/Resources" "$REMARC_OUTPUT/Contents/Frameworks"
     REMARC_OBJECTS=()
     while IFS= read -r -d '' REMARC_OBJECT; do
@@ -116,8 +119,6 @@ PYTHON
             cp "/Applications/Remarc.app/Contents/Resources/$REMARC_ASSET" "$REMARC_OUTPUT/Contents/Resources/$REMARC_ASSET"
         fi
     done
-    cp "$REMARC_ROOT/mcp/vendor/remarc-mcp.js" "$REMARC_OUTPUT/Contents/Resources/remarc-mcp.js"
-    cp "$REMARC_ROOT/mcp/skill/SKILL.md" "$REMARC_OUTPUT/Contents/Resources/remarc-skill.md"
     if [ -d "$REMARC_ROOT/Remarc.popclipext" ]; then
         ditto "$REMARC_ROOT/Remarc.popclipext" "$REMARC_OUTPUT/Contents/Resources/Remarc.popclipext"
     fi

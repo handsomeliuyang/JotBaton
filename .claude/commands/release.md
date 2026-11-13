@@ -56,7 +56,7 @@ Arguments: `$ARGUMENTS`. Default increment: `patch`.
    regression suites or post-install diagnostics/UI walkthroughs for delivery.
 
 Both standard/Ventura full Swift suites, Intel compatibility checks, extension
-tests and packaged MCP checks remain mandatory in GitHub. Both packages use the
+tests remain mandatory in GitHub. Both packages use the
 same pinned production signing identity. Sparkle uses the repository's signed
 architecture feeds. Apple notarization, Gist appcasts, upstream repositories and
 iCloud software publishing are not part of this flow.

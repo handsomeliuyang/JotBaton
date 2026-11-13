@@ -23,7 +23,6 @@ struct AppIdentityTests {
         #expect(dev.cloudURL(in: drive) != release.cloudURL(in: drive))
         #expect(dev.cloudURL(in: drive).path == "/cloud/Remarc Dev")
         #expect(dev.bundleIdentifier != release.bundleIdentifier)
-        #expect(dev.reloadNotification != release.reloadNotification)
         #expect(dev.urlScheme != release.urlScheme)
         #expect(dev.webSocketPort != release.webSocketPort)
         #expect(dev.menuBarIconName != release.menuBarIconName)

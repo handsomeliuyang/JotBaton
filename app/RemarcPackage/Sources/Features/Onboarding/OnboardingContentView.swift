@@ -1,7 +1,6 @@
 import CoreLocalization
 import CoreTheme
 import CoreUI
-import FeatureIntegrations
 import SwiftUI
 import AppKit
 
@@ -10,16 +9,6 @@ package struct OnboardingContentView: View {
     @EnvironmentObject var controller: OnboardingWindowController
     @Environment(\.colorScheme) var colorScheme
     @State private var isContinueHovered = false
-    @State private var pluginRowState: PluginRowState = .checking
-
-    private enum PluginRowState: Equatable {
-        case checking
-        case notInstalled
-        case installing
-        case installed
-        case failed(String)
-    }
-
     package var body: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -97,127 +86,6 @@ package struct OnboardingContentView: View {
                 waitingAction: { controller.openScreenRecordingSettings() }
             )
 
-            pluginRow
-        }
-        .task {
-            let state = await PluginInstallDetector().read()
-            if pluginRowState == .checking {
-                pluginRowState = Self.rowState(for: state)
-            }
-        }
-    }
-
-    // MARK: - Claude Code Plugin Row
-
-    /// Same visual grammar as the permission rows, but drives the Claude Code
-    /// plugin install (via the claude CLI) instead of a TCC prompt. Not part
-    /// of the Continue gate - the plugin is optional and also installable
-    /// later from Preferences > MCP Integrations.
-    private var pluginRow: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: "puzzlepiece.extension.fill")
-                .font(.system(size: 18))
-                .foregroundColor(Color.remarcPrimary(for: colorScheme))
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L10n.tr("Claude Code plugin"))
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
-
-                Text(L10n.tr("Manage Remarc comments from Claude Code. Optional - also available later in Preferences."))
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            pluginStatusButton
-                .frame(width: 130)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(white: colorScheme == .dark ? 1.0 : 0.0).opacity(0.015))
-        )
-    }
-
-    @ViewBuilder
-    private var pluginStatusButton: some View {
-        switch pluginRowState {
-        case .checking:
-            ProgressView()
-                .scaleEffect(0.55)
-
-        case .notInstalled:
-            AllowButton(colorScheme: colorScheme, title: L10n.tr("Install"), action: installPlugin)
-                .help(L10n.tr("Runs claude plugin marketplace add + claude plugin install"))
-
-        case .installing:
-            HStack(spacing: 6) {
-                ProgressView()
-                    .scaleEffect(0.55)
-                Text(L10n.tr("Installing..."))
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-            }
-
-        case .installed:
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(L10n.tr("Installed"))
-                    .font(.system(size: 13, weight: .medium))
-            }
-            .foregroundColor(Color.remarcSuccess(for: colorScheme))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.remarcSuccess(for: colorScheme).opacity(0.15))
-            )
-
-        case .failed(let message):
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.remarcWarning(for: colorScheme))
-                    .help(message)
-                AllowButton(colorScheme: colorScheme, title: L10n.tr("Retry"), action: installPlugin)
-            }
-        }
-    }
-
-    private static func rowState(for state: PluginInstallState) -> PluginRowState {
-        if state.remarcInstalled && state.remarcEnabled { return .installed }
-        if state.remarcInstalled {
-            return .failed(L10n.tr("The remarc plugin is installed but disabled. Run /plugin in Claude Code to enable it."))
-        }
-        return .notInstalled
-    }
-
-    private func installPlugin() {
-        pluginRowState = .installing
-        Task { @MainActor in
-            let outcome = await PluginInstaller.install(plugin: "remarc")
-            let state = await PluginInstallDetector().read()
-            if state.remarcInstalled {
-                pluginRowState = Self.rowState(for: state)
-            } else {
-                switch outcome {
-                case .claudeNotFound:
-                    pluginRowState = .failed(L10n.tr("Claude Code CLI not found. You can install the plugin later from Preferences > MCP Integrations."))
-                case .failed(let message):
-                    pluginRowState = .failed(message)
-                case .success:
-                    // The CLI reported success but verification could not see
-                    // it yet (transient list failure). Trust the installer
-                    // rather than inviting a duplicate install attempt.
-                    pluginRowState = .installed
-                }
-            }
         }
     }
 

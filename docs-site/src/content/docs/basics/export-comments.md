@@ -41,9 +41,6 @@ The **Export** tab in Settings controls the clipboard and Markdown format. A liv
 | Include time | Off |
 | Status | Off |
 | Comment ID | On |
-| MCP hint | On |
-
-The MCP hint appends a short HTML comment telling an agent which session the remarks came from and to use the `remarc_list_comments` MCP (Model Context Protocol) tool to read and resolve them. Remarc only adds it when an [agent integration](/agents/overview/) is enabled.
 
 ## After copying
 
@@ -52,7 +49,3 @@ The **After copying** setting decides what happens to the comments once they are
 - **Always Ask** (default): a "Clear exported comments?" prompt appears in the popover with Keep and Clear buttons. It dismisses itself after a few seconds if you do nothing, keeping the comments.
 - **Always Keep**: comments stay put.
 - **Always Delete**: a short countdown clears the session's comments, with an **Undo** button to cancel.
-
-:::caution
-Always Delete removes comments right after copying, so MCP tools will no longer find them to resolve. Settings shows a warning when this is combined with the MCP hint.
-:::

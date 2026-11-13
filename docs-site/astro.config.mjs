@@ -11,14 +11,13 @@ export default defineConfig({
 	redirects: {
 		// Old slugs from the pre-release IA restructure, kept harmless.
 		'/exporting/copy-and-export/': '/basics/export-comments/',
-		'/automation/webhooks/': '/agents/webhooks/',
+		'/agents/webhooks/': '/automation/webhooks/',
 		'/chrome-extension/setup-and-capture/': '/chrome-extension/',
-		'/agents/codex-and-cursor/': '/agents/codex/',
 	},
 	integrations: [
 		starlight({
 			title: 'Remarc',
-			description: 'Documentation for Remarc, the free open-source macOS menu bar app for contextual commenting and AI agent handoff.',
+			description: 'Documentation for Remarc, the free open-source macOS menu bar app for contextual commenting, screenshots and export.',
 			favicon: '/favicon.png',
 			components: {
 				// Header logo links to remarc.app; logos live in the override.
@@ -34,7 +33,7 @@ export default defineConfig({
 				starlightLlmsTxt({
 					projectName: 'Remarc',
 					description:
-						'Free open-source macOS menu bar app for contextual commenting and AI agent handoff via MCP',
+						'Free open-source macOS menu bar app for contextual commenting, screenshots and export',
 				}),
 			],
 			customCss: ['./src/styles/custom.css'],
@@ -67,19 +66,7 @@ export default defineConfig({
 					],
 				},
 				{ label: 'Chrome extension', slug: 'chrome-extension' },
-				{
-					label: 'Agents & Automation',
-					items: [
-						{ label: 'Agent overview', slug: 'agents/overview' },
-						{ label: 'Claude Code', slug: 'agents/claude-code' },
-						{ label: 'Codex', slug: 'agents/codex' },
-						{ label: 'OMP', slug: 'agents/omp' },
-						{ label: 'Cursor', slug: 'agents/cursor' },
-						{ label: 'Claude Desktop & MCP clients', slug: 'agents/claude-desktop-and-mcp-clients' },
-						{ label: 'MCP tools reference', slug: 'agents/mcp-tools-reference' },
-						{ label: 'Webhooks', slug: 'agents/webhooks' },
-					],
-				},
+				{ label: 'Webhooks', slug: 'automation/webhooks' },
 				{
 					label: 'Reference',
 					items: [

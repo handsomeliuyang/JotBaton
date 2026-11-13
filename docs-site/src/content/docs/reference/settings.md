@@ -83,8 +83,7 @@ Export settings control how Copy All and file exports format your comments, with
 | Include: Date | On | |
 | Include: Include time | Off | Enabled only when Date is on. |
 | Include: Status | Off | |
-| Include: Comment ID | On | Agents use these short IDs to resolve comments. |
-| Include: MCP hint | On | Adds a line telling agents how to work with the comments. |
+| Include: Comment ID | On | Short IDs identify comments when sharing feedback. |
 | After copying | Always Ask | Options: Always Ask, Always Keep, Always Delete. |
 | File export format | Markdown | Or JSON. |
 
@@ -96,21 +95,9 @@ This tab manages the [Chrome extension](/chrome-extension/)'s connection and cap
 - **Chrome Shortcuts**: Grab Element (`Option+Shift+G`) and Select Region (`Option+Shift+R`), with a Reset to Defaults button.
 - **Captured Metadata**: five toggles, all on by default, disabled until the extension has connected once: React components, Computed styles, Accessibility, Layout & structure, Element identity.
 
-## MCP Integrations
-
-MCP (Model Context Protocol) is how [agents](/agents/overview/) read and resolve your comments; this tab has shared delivery controls followed by setup sections for integrations Remarc manages directly.
-
-- **Instant delivery**: "Allow comments to wake paired agent sessions" is off by default. When enabled, Send Instantly appears only for the selected Remarc session when its paired agent owns a live wake connection. The section links to [OMP setup](/agents/omp/).
-- **[Claude Code](/agents/claude-code/)**: install the required `remarc` plugin and the optional, experimental `remarc-hooks` plugin. Each row shows the exact CLI commands it runs, with a copy button. Once `remarc-hooks` is installed, its Claude-specific settings cover automatic session creation and what happens when a conversation is cleared.
-- **[Codex](/agents/codex/)**: an Install button (or Repair, if the plugin is present but unhealthy) plus copyable manual commands.
-- **[OMP](/agents/omp/)**: the Instant delivery section links to setup. Installation and updates stay in OMP's own public marketplace; Remarc does not edit OMP profiles, scan installation directories, or show a file-derived status row.
-- **[Cursor](/agents/cursor/)**: an "Enable integration" toggle with Skill and MCP server status rows. Turning it off uninstalls.
-- **[Claude Desktop](/agents/claude-desktop-and-mcp-clients/)**: a ready-made JSON snippet to paste into Claude Desktop's config.
-- **Other MCP clients**: a generic MCP server JSON snippet and the full skill content, for any JSON-config MCP client.
-
 ## Webhooks
 
-This tab holds the [webhooks](/agents/webhooks/) that send comment events as HTTP POST requests to any endpoint. Each webhook has a name, URL, event checkboxes, an optional signing secret, an optional custom payload template, a test button, and an enable toggle.
+This tab holds the [webhooks](/automation/webhooks/) that send comment events as HTTP POST requests to any endpoint. Each webhook has a name, URL, event checkboxes, an optional signing secret, an optional custom payload template, a test button, and an enable toggle.
 
 ## Excluded Apps
 

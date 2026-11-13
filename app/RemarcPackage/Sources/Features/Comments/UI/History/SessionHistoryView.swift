@@ -63,7 +63,6 @@ private struct SessionHistoryCard: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
-                    SessionOriginBadge(origin: session.origin)
                     Text(session.name).font(.system(size: 13, weight: .medium))
                         .fixedSize(horizontal: false, vertical: true)
                 }

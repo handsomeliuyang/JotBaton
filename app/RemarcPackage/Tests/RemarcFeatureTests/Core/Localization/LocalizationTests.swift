@@ -43,7 +43,7 @@ struct LocalizationTests {
     @Test("The bundled catalog contains core surfaces and only references arguments supplied by its source key")
     func catalog() throws {
         #expect(!L10n.chinese.isEmpty)
-        for key in ["Follow System", "Language", "General", "Settings…", "Copy All", "Copy and Start", "Comment History", "Screen Recording Permission", "iCloud Sync", "MCP Integrations", "Open", "Handed Off", "In Progress", "Resolved"] {
+        for key in ["Follow System", "Language", "General", "Settings…", "Copy All", "Copy and Start", "Comment History", "Screen Recording Permission", "iCloud Sync", "Open", "Handed Off", "In Progress", "Resolved"] {
             #expect(L10n.chinese[key]?.isEmpty == false, "Missing translation: \(key)")
         }
         let expression = try NSRegularExpression(pattern: #"\{([0-9]+)\}"#)

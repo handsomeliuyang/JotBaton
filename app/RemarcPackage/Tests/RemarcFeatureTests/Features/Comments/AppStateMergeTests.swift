@@ -2,9 +2,7 @@
 @testable import RemarcFeature
 import XCTest
 
-/// The app writes whole-document snapshots from long-lived memory while the MCP
-/// server and hooks write the same file from Node. These cover the merge that
-/// keeps one side's commits from erasing the other's.
+/// Merge regressions for writes made after the in-memory baseline was read.
 final class AppStateMergeTests: XCTestCase {
     private func comment(
         _ id: UUID,

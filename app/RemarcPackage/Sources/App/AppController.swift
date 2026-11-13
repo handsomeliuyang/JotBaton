@@ -42,22 +42,6 @@ public final class AppController: NSObject, ObservableObject {
         setupMenuBar()
         debugLog("Menu bar setup complete")
 
-        // Claude Code integration is now distributed as a marketplace plugin
-        // (metedata/remarc-agent-plugins). The app no longer writes into
-        // ~/.claude/. LegacyInstallCleanup runs on every launch until both:
-        //   1. Old artifacts are removed, AND
-        //   2. The new `remarc` plugin is detected installed.
-        Task { @MainActor in
-            if !AppIdentity.current.isDevelopment {
-                await LegacyInstallCleanup.shared.runIfNeeded()
-            }
-            // After cleanup, so the popover status dot reflects the
-            // post-cleanup registrations rather than one cleanup is about
-            // to delete. Without this the dot stays on its default until
-            // Preferences first opens.
-            MCPManager.shared.checkDependencies()
-        }
-
         UpdateManager.shared.configure(prepareForRestart: AppUpdatePreparation.prepareForRestart)
         _ = AppServices.shared.snapshots // Observe content changes from launch, before the panel opens.
         debugLog("UpdateManager initialized")
@@ -111,15 +95,6 @@ public final class AppController: NSObject, ObservableObject {
             OnboardingWindowController.shared.requestAccessibility()
         }
         isOnboardingComplete = true
-        // Keep the wake button honest: ask the live sessions, not the plugin
-        // registry, whether anything can be woken.
-        SettingsManager.shared.refreshWakeReachability()
-
-        // Retire the App Support script copies. Nothing resolves to them any
-        // more, but they are executable JS predating every data-integrity fix,
-        // and a config left pointing at one keeps running it.
-        ScriptInstaller.removeStaleInstalledScripts()
-
         debugLog("AppController setup complete")
     }
 

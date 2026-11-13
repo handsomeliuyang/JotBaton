@@ -24,11 +24,6 @@ extension PreferencesView {
                 settingsRow(L10n.tr("Screenshot")) {
                     ConflictAwareRecorder(name: .screenshotComment)
                 }
-                if settings.wakeOnCommentEnabled {
-                    settingsRow(L10n.tr("Screenshot & Send Instantly")) {
-                        ConflictAwareRecorder(name: .screenshotCommentWake)
-                    }
-                }
                 settingsRow(L10n.tr("Paste All")) {
                     ConflictAwareRecorder(name: .pasteAllComments)
                 }

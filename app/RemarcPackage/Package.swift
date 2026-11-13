@@ -35,7 +35,7 @@ let package = Package(
             "FeatureComments", "FeatureCapture", "FeatureIntegrations",
             .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")],
             path: "Sources/Features/Settings", exclude: ["UI"]),
-        .target(name: "FeatureOnboarding", dependencies: ["CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture", "FeatureIntegrations"], path: "Sources/Features/Onboarding"),
+        .target(name: "FeatureOnboarding", dependencies: ["CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture"], path: "Sources/Features/Onboarding"),
         // Application composition and UI workflows. The Xcode app retains its
         // existing product, signing identity and stable RemarcFeature entry point.
         .target(
@@ -58,7 +58,6 @@ let package = Package(
                 "Features/Comments/Model",
                 "Features/Comments/Policy",
                 "Features/Comments/Repository",
-                "Features/Integrations/Agents",
                 "Features/Integrations/Browser",
                 "Features/Integrations/Model",
                 "Features/Integrations/Webhooks",

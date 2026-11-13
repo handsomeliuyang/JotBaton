@@ -15,10 +15,8 @@ Global shortcuts work in any app while Remarc is running.
 | Comment on selection | `Ctrl+Option+C` |
 | Quick Note | `Ctrl+Option+N` |
 | Screenshot | `Ctrl+Option+S` |
-| Screenshot & Send Instantly | Unassigned |
 | Paste All (copy all comments) | `Ctrl+Option+P` |
 
-**Screenshot & Send Instantly** ships unassigned. Its row appears in Settings > Shortcuts only after you enable **Allow comments to wake paired agent sessions** in Settings > MCP Integrations.
 
 **Quick Note** opens a standalone note even when text is selected. Repeating it brings the open editor forward and preserves its draft. The development app uses `Ctrl+Option+Shift+N` by default.
 

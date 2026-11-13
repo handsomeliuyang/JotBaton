@@ -93,7 +93,7 @@ The workflow:
    `REMARC_SIGNING_P12_BASE64` and `REMARC_SIGNING_P12_PASSWORD`. Both packages use
    the same identity. Signing uses temporary isolated keychains; never rotate the
    identity, fall back to ad-hoc signing, expose private material or change trust.
-5. Verifies packaged MCP behavior, all bundled Mach-O architectures and deployment
+5. Verifies all bundled Mach-O architectures and deployment
    floors, code signatures, version/build/source and GitHub update metadata.
    Sparkle update packages and architecture-specific feeds are signed and verified
    against the public key pinned in `signing/updates.json`.

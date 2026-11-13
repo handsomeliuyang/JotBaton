@@ -27,7 +27,7 @@ package enum UpdateBackup {
         do {
             try fm.copyItem(at: app, to: pending.appendingPathComponent("Remarc.app"))
             if fm.fileExists(atPath: data.path) {
-                // Share the comment document's cross-process lock with MCP and hooks.
+                // Share the comment document's cross-process lock with other document writers.
                 try DocumentLock.withLock(data.appendingPathComponent("comments.json")) {
                     let target = pending.appendingPathComponent("user-data", isDirectory: true)
                     try fm.createDirectory(at: target, withIntermediateDirectories: false)

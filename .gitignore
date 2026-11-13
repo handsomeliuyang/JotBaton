@@ -35,7 +35,6 @@ app/RemarcPackage/Packages/
 
 # Node
 node_modules/
-mcp/dist/
 
 # Claude Code / marketing-skills personal tooling
 .claude/settings.local.json
