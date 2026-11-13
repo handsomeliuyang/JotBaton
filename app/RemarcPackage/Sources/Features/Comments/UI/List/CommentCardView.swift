@@ -311,14 +311,6 @@ struct CommentCardView: View {
         return date
     }
 
-    /// Show move button when there are other sessions to move to, or room to create a new one.
-    private var canMoveComment: Bool {
-        let sessions = persistence.activeSessions
-        let otherSessions = sessions.filter { $0.id != comment.sessionID }
-        let canCreateNew = sessions.count < CommentConstants.maxActiveSessions
-        return !otherSessions.isEmpty || canCreateNew
-    }
-
     private var cardActions: some View {
         HStack(spacing: 4) {
             cardActionButton(icon: "doc.on.doc", tooltip: L10n.tr("Copy"), tint: Color.remarcPrimary(for: colorScheme)) {
@@ -350,16 +342,14 @@ struct CommentCardView: View {
                 }
                 .overlay(DropdownAnchor(ref: webhookAnchorRef).allowsHitTesting(false))
             }
-            if canMoveComment {
-                cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: L10n.tr("Move to session"), tint: Color.remarcPrimary(for: colorScheme)) {
-                    if isMoveDropdownOpen {
-                        DropdownPanelController.shared.dismiss()
-                    } else {
-                        showMoveDropdown()
-                    }
+            cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: L10n.tr("Move to session"), tint: Color.remarcPrimary(for: colorScheme)) {
+                if isMoveDropdownOpen {
+                    DropdownPanelController.shared.dismiss()
+                } else {
+                    showMoveDropdown()
                 }
-                .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             }
+            .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             cardActionButton(icon: "trash", tooltip: L10n.tr("Delete"), tint: Color.remarcError(for: colorScheme)) {
                 showDeleteConfirmation = true
             }
@@ -378,7 +368,6 @@ struct CommentCardView: View {
 
         let sessions = persistence.activeSessions
         let otherSessions = sessions.filter { $0.id != oldSessionID }
-        let canCreateNew = sessions.count < CommentConstants.maxActiveSessions
 
         DropdownPanelController.shared.show(
             below: screenFrame,
@@ -389,7 +378,6 @@ struct CommentCardView: View {
         ) {
             MoveDropdownPanel(
                 sessions: otherSessions,
-                canCreateNew: canCreateNew,
                 colorScheme: cs
             ) { targetSessionID, targetSessionName in
                 AppServices.shared.comments.moveComment(commentID, to: targetSessionID)
@@ -981,28 +969,31 @@ private struct WebhookDropdownPanel: View {
 private struct MoveDropdownPanel: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let sessions: [Session]
-    let canCreateNew: Bool
     let colorScheme: ColorScheme
     let onSelect: (_ sessionID: UUID, _ sessionName: String) -> Void
     let onNewSession: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(sessions) { session in
-                MoveSessionRow(
-                    name: session.name,
-                    colorScheme: colorScheme,
-                    onSelect: { onSelect(session.id, session.name) }
-                )
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(sessions) { session in
+                        MoveSessionRow(
+                            name: session.name,
+                            colorScheme: colorScheme,
+                            onSelect: { onSelect(session.id, session.name) }
+                        )
+                        .frame(height: 28)
+                    }
+                }
             }
-            if canCreateNew {
-                MoveSessionRow(
-                    name: L10n.tr("New Session\u{2026}"),
-                    icon: "plus",
-                    colorScheme: colorScheme,
-                    onSelect: onNewSession
-                )
-            }
+            .frame(height: min(CGFloat(sessions.count) * 28, 240))
+            MoveSessionRow(
+                name: L10n.tr("New Session\u{2026}"),
+                icon: "plus",
+                colorScheme: colorScheme,
+                onSelect: onNewSession
+            )
         }
         .padding(5)
         .frame(width: 180)

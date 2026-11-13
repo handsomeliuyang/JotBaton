@@ -127,7 +127,7 @@ struct SessionPinningTests {
         item.isDeleted = true
         item.deletedAt = now.addingTimeInterval(-60)
         var state = AppState(sessions: [Session(name: "Inbox"), item])
-        #expect(HistoryRestorationPolicy.restoreSession(item.id, in: &state, maxActiveSessions: 8, now: now))
+        #expect(HistoryRestorationPolicy.restoreSession(item.id, in: &state, now: now))
         #expect(state.sessions[1].isPinned && !state.sessions[1].isDeleted)
         #expect(state.sessions[1].emptySince == nil && state.activeSessionID == item.id)
     }

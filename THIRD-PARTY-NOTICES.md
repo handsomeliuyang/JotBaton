@@ -252,6 +252,8 @@ SOFTWARE.
 `mcp/vendor/remarc-mcp.js` is a single-file bundle built from
 https://github.com/metedata/remarc-agent-plugins at commit
 `f83bad48573a0d5abbdf64d72b390efa6c2c72a2` (plugin version `0.13.3`).
+Fork patches in `mcp/patches/` are applied after the upstream build;
+`mcp/vendor/PROVENANCE.json` records upstream, patch and final bundle hashes.
 The following packages are present in that bundle. Build-only and test-only
 packages from the source repository are not redistributed in this file.
 

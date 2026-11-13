@@ -45,9 +45,13 @@ try {
 
   child = spawn(process.execPath, ["--input-type=module", "-e", `
     import os from "node:os";
+    import childProcess from "node:child_process";
     import { syncBuiltinESMExports } from "node:module";
     import { pathToFileURL } from "node:url";
     os.homedir = () => process.env.REMARC_SMOKE_ROOT;
+    // Fixture writes must not send reload notifications to a running app.
+    const execFile = childProcess.execFile;
+    childProcess.execFile = (file, ...args) => file === "swift" ? { unref() {} } : execFile(file, ...args);
     syncBuiltinESMExports();
     await import(pathToFileURL(process.env.REMARC_SMOKE_BUNDLE).href);
   `], { env: { ...process.env, REMARC_SMOKE_ROOT: fixtureRoot, REMARC_SMOKE_BUNDLE: bundle },
@@ -108,7 +112,24 @@ try {
     assert.deepEqual(after.type, comment.type);
     assert.deepEqual(after.attachments ?? [], comment.attachments);
   }
-  console.log(`PASS: bundled MCP ${initialized.serverInfo.version}; default/custom screenshots, pasted attachments, missing-file fallback, text-only listing, and status-write path preservation.`);
+  // Cross the former limit repeatedly through both agent creation paths.
+  // Reusing the name also checks that sessions remain distinct in a long list.
+  for (let index = 0; index < 64; index++) {
+    const result = await call("remarc_create_session", {
+      name: `Session fixture ${Math.floor(index / 4)}`,
+      claude_session_id: `fixture-${index}`,
+      harness: index % 2 ? "codex" : "claudeCode",
+    });
+    assert.ok(!result.isError, textOf(result));
+  }
+  const longList = JSON.parse(await readFile(dataFile, "utf8"));
+  assert.equal(longList.sessions.length, 65);
+  assert.ok(longList.sessions.every(session => !session.isDeleted && !session.isAutoDismissed));
+  assert.equal(new Set(longList.sessions.map(session => session.id)).size, 65);
+  assert.equal(longList.activeSessionID, longList.sessions.at(-1).id);
+  assert.deepEqual(longList.comments, saved.comments);
+  assert.deepEqual(longList.sessions[0], saved.sessions[0]);
+  console.log(`PASS: bundled MCP ${initialized.serverInfo.version}; image/storage checks and 64 agent session creations without hiding or deleting existing sessions.`);
 } finally {
   lines?.close();
   child?.kill();

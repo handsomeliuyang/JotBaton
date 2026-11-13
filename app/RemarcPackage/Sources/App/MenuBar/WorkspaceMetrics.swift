@@ -9,7 +9,7 @@ public enum WorkspaceMetrics {
     public static let paneDividerWidth: CGFloat = 1
     public static let popoverWidth = sessionSidebarWidth + paneDividerWidth + commentPaneWidth
     public static let popoverMinHeight: CGFloat = 440
-    public static let popoverMaxHeightRatio: CGFloat = 0.65
+    public static let popoverHeight: CGFloat = 560
     public static let cardCornerRadius: CGFloat = 10
     public static let editorWidth: CGFloat = 440
     public static let popoverArrowWidth: CGFloat = 20

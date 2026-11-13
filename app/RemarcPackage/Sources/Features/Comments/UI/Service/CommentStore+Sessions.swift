@@ -23,11 +23,6 @@ extension CommentStore {
 
     @discardableResult
     public func createSession(name: String) -> Session? {
-        guard activeSessions.count < CommentConstants.maxActiveSessions else {
-            debugLog("CommentStore: Cannot create session — max \(CommentConstants.maxActiveSessions) reached")
-            return nil
-        }
-
         var session = Session(name: name)
         session.emptySince = session.createdAt
         appState.sessions.append(session)
@@ -155,7 +150,7 @@ extension CommentStore {
         do {
             let commit = try SessionTaskTransactions.restoreHistorySession(
                 fileURL: fileURL, candidate: appState, baseline: lastPersisted,
-                sessionID: id, maxActiveSessions: CommentConstants.maxActiveSessions, now: Date()
+                sessionID: id, now: Date()
             )
             appState = commit.state
             lastPersisted = commit.state

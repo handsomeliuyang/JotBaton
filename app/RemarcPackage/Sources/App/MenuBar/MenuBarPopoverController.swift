@@ -33,16 +33,10 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
     public var statusItemButton: NSStatusBarButton?
 
     private var panel: NSPanel?
-    private var popoverHostingView: NSHostingView<PopoverContentView>?
     private let clickOutsideMonitor = ClickOutsideMonitor()
-    private var commentCountCancellable: AnyCancellable?
-    private var lastArrowCenterX: CGFloat = 0
-    /// High-water mark: the panel never shrinks below this height while visible.
-    private var sessionHighWaterMark: CGFloat = 0
 
     private override init() {
         super.init()
-        observeCommentChanges()
     }
 
     // MARK: - Public API
@@ -85,13 +79,8 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         isVisible = true
         Task { await AppServices.shared.snapshots.mainInterfaceDidShow(wasVisible: wasVisible) }
         clickOutsideMonitor.install(for: panel, shouldDismiss: { [weak self] in !(self?.preventDismiss ?? false) }, dismiss: { [weak self] in self?.dismiss() })
-        // SwiftUI .scrollIndicators(.hidden) is unreliable on macOS — the underlying
-        // NSScrollView still shows its scroller. Walk the AppKit hierarchy to disable it.
-        DispatchQueue.main.async { [weak self] in
-            if let contentView = self?.panel?.contentView {
-                contentView.disableScrollers()
-            }
-        }
+        // Comment/history lists suppress their own scrollers. Keep navigation
+        // scrollers available so long session lists follow system preferences.
         debugLog("MenuBarPopoverController: shown")
     }
 
@@ -108,7 +97,6 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
             panel.alphaValue = 1  // Reset for next show
             self?.clickOutsideMonitor.remove()
             self?.isVisible = false
-            self?.sessionHighWaterMark = 0  // Reset for next session
             debugLog("MenuBarPopoverController: dismissed")
         }
     }
@@ -117,7 +105,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
 
     private func createPanel() {
         let panel = KeyablePopoverPanel(
-            contentRect: NSRect(x: 0, y: 0, width: WorkspaceMetrics.popoverWidth, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: WorkspaceMetrics.popoverWidth, height: WorkspaceMetrics.popoverHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -142,19 +130,15 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
 
         // NSHostingView as subview of VEV — NOT as panel.contentView.
         // The SwiftUI content must have NO .background(.regularMaterial) since VEV provides it.
-        // Store a direct reference for sizing (VEV has internal subviews, so subview lookup is unreliable).
         // topInset pushes the content below the arrow strip while the SwiftUI background
         // gradient fills the full panel — otherwise the arrow renders bare VEV material
         // and visibly differs in color from the gradient-tinted body.
         let arrowH = WorkspaceMetrics.popoverArrowHeight
         let contentView = PopoverContentView(topInset: arrowH)
         let hostingView = NSHostingView(rootView: contentView)
-        hostingView.sizingOptions = [.intrinsicContentSize]
-
-        // Measure ideal size first, then size the panel to fit
-        // (fittingSize already includes the arrow strip via topInset)
-        let idealSize = hostingView.fittingSize
-        panel.setContentSize(NSSize(width: WorkspaceMetrics.popoverWidth, height: idealSize.height))
+        // The panel owns its size. Content changes update the scroll views,
+        // without adding intrinsic size constraints that could resize the window.
+        hostingView.sizingOptions = []
 
         // Pin hosting view to VEV edges with Auto Layout — full panel, including the arrow strip.
         hostingView.translatesAutoresizingMaskIntoConstraints = false
@@ -167,7 +151,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         ])
 
         // Apply a placeholder mask with centered arrow — real mask set in positionBelowStatusItem()
-        let placeholderSize = NSSize(width: WorkspaceMetrics.popoverWidth, height: idealSize.height)
+        let placeholderSize = panel.frame.size
         visualEffectView.maskImage = Self.maskImage(
             size: placeholderSize,
             cornerRadius: ThemeMetrics.panelCornerRadius,
@@ -176,7 +160,6 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
             arrowCenterX: placeholderSize.width / 2
         )
 
-        self.popoverHostingView = hostingView
         self.panel = panel
     }
 
@@ -271,56 +254,26 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
     private func positionBelowStatusItem() {
         guard let panel = panel else { return }
 
-        // Get status item button position in screen coordinates
-        guard let button = statusItemButton,
-              let buttonWindow = button.window else {
-            // Fallback: center horizontally on screen near menu bar
-            if let screen = NSScreen.main {
-                let screenFrame = screen.frame
-                let visibleFrame = screen.visibleFrame
-                let x = max(visibleFrame.minX + 8,
-                            min(screenFrame.midX - panel.frame.width / 2,
-                                visibleFrame.maxX - panel.frame.width - 8))
-                let y = visibleFrame.maxY - panel.frame.height - WorkspaceMetrics.popoverGap
-                panel.setFrameOrigin(NSPoint(x: x, y: y))
-                applyMask(arrowCenterX: panel.frame.width / 2)
-            }
-            return
+        let button = statusItemButton
+        let buttonWindow = button?.window
+        let screen = NSScreen.bestScreen(for: buttonWindow ?? panel)
+        let visibleFrame = screen.visibleFrame
+        let buttonFrame = button.flatMap { button -> NSRect? in
+            guard let window = button.window else { return nil }
+            return window.convertToScreen(button.convert(button.bounds, to: nil))
         }
+        let anchorX = buttonFrame?.midX ?? visibleFrame.midX
+        let anchorY = min(buttonFrame?.minY ?? visibleFrame.maxY, visibleFrame.maxY)
+        let bottomMargin: CGFloat = 8
+        let availableHeight = max(1, anchorY - WorkspaceMetrics.popoverGap - visibleFrame.minY - bottomMargin)
+        let height = min(WorkspaceMetrics.popoverHeight, availableHeight)
+        panel.setContentSize(NSSize(width: WorkspaceMetrics.popoverWidth, height: height))
 
-        let buttonFrameInWindow = button.convert(button.bounds, to: nil)
-        let buttonFrameOnScreen = buttonWindow.convertToScreen(buttonFrameInWindow)
-
-        // Compute max height
-        let screen = button.window?.screen ?? NSScreen.main ?? NSScreen.screens.first!
-        let maxHeight = screen.visibleFrame.height * WorkspaceMetrics.popoverMaxHeightRatio
-
-        // Update panel content size to respect max height (fittingSize includes the arrow strip).
-        // Uses stored popoverHostingView reference — NOT subview lookup,
-        // because NSVisualEffectView has internal subviews that make .first unreliable.
-        if let hostingView = popoverHostingView {
-            hostingView.invalidateIntrinsicContentSize()
-            let fittingSize = hostingView.fittingSize
-            let minPanelHeight = WorkspaceMetrics.popoverMinHeight
-            let constrainedHeight = max(minPanelHeight, min(fittingSize.height, maxHeight))
-            panel.setContentSize(NSSize(width: WorkspaceMetrics.popoverWidth, height: constrainedHeight))
-            sessionHighWaterMark = constrainedHeight
-            panel.invalidateShadow()
-        }
-
-        // Center the complete two-pane panel below the status item.
-        var x = buttonFrameOnScreen.midX - panel.frame.width / 2
-        let y = buttonFrameOnScreen.minY - panel.frame.height - WorkspaceMetrics.popoverGap
-
-        // Clamp to screen edges
-        let screenFrame = screen.visibleFrame
-        x = max(screenFrame.minX + 8, min(x, screenFrame.maxX - panel.frame.width - 8))
-
-        panel.setFrameOrigin(NSPoint(x: x, y: max(y, screenFrame.minY + 8)))
-
-        // Compute arrow X relative to panel, pointing at the status item center
-        let arrowCenterX = buttonFrameOnScreen.midX - panel.frame.origin.x
-        applyMask(arrowCenterX: arrowCenterX)
+        let x = max(visibleFrame.minX + 8,
+                    min(anchorX - panel.frame.width / 2, visibleFrame.maxX - panel.frame.width - 8))
+        let y = max(anchorY - height - WorkspaceMetrics.popoverGap, visibleFrame.minY + bottomMargin)
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        applyMask(arrowCenterX: anchorX - panel.frame.minX)
     }
 
     /// Applies the arrow mask to the VEV at the given arrow X position, clamped to stay within the body.
@@ -338,8 +291,6 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         let maxX = panelSize.width - cr - arrowW / 2 - 2
         let clampedX = max(minX, min(arrowCenterX, maxX))
 
-        lastArrowCenterX = clampedX
-
         vev.maskImage = Self.maskImage(
             size: panelSize,
             cornerRadius: cr,
@@ -350,62 +301,4 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         panel.invalidateShadow()
     }
 
-    // MARK: - Dynamic Resize on Comment Changes
-
-    private func observeCommentChanges() {
-        commentCountCancellable = AppServices.shared.comments.$appState
-            .map { state -> Int in
-                guard let sessionID = state.activeSessionID else { return 0 }
-                return state.comments.filter { $0.sessionID == sessionID && !$0.isDeleted }.count
-            }
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.resizeIfVisible()
-            }
-    }
-
-    /// Triggers a resize after SwiftUI layout settles (next runloop tick).
-    /// The panel only grows — the high-water mark prevents shrinking while visible.
-    public func resizeAfterLayoutSettles() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.resizeIfVisible()
-        }
-    }
-
-    private func resizeIfVisible() {
-        guard isVisible, let panel = panel, let hostingView = popoverHostingView else { return }
-
-        hostingView.invalidateIntrinsicContentSize()
-        let fittingSize = hostingView.fittingSize
-
-        let screen = panel.screen ?? NSScreen.main ?? NSScreen.screens.first!
-        let maxHeight = screen.visibleFrame.height * WorkspaceMetrics.popoverMaxHeightRatio
-        let minPanelHeight = WorkspaceMetrics.popoverMinHeight
-        let floorHeight = max(minPanelHeight, sessionHighWaterMark)
-        let newHeight = min(max(floorHeight, min(fittingSize.height, maxHeight)), maxHeight)
-
-        // Update high-water mark if we grew
-        if newHeight > sessionHighWaterMark {
-            sessionHighWaterMark = newHeight
-        }
-
-        let oldFrame = panel.frame
-        guard abs(newHeight - oldFrame.height) > 1 else { return }
-
-        // Compute target frame preserving maxY (top edge).
-        let targetFrame = NSRect(
-            x: oldFrame.origin.x,
-            y: oldFrame.maxY - newHeight,
-            width: WorkspaceMetrics.popoverWidth,
-            height: newHeight
-        )
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().setFrame(targetFrame, display: true)
-        } completionHandler: { [weak self] in
-            self?.applyMask(arrowCenterX: self?.lastArrowCenterX ?? targetFrame.width / 2)
-        }
-    }
 }

@@ -35,11 +35,9 @@ struct SessionHistoryView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(sessions) { session in
-                        SessionHistoryCard(session: session,
-                            canRestore: persistence.activeSessions.count < CommentConstants.maxActiveSessions) {
+                        SessionHistoryCard(session: session) {
                             if persistence.restoreSession(session.id) {
                                 withAnimation(.easeInOut(duration: 0.15)) { showingHistory = false }
-                                MenuBarPopoverController.shared.resizeAfterLayoutSettles()
                                 ToastManager.shared.show(L10n.tr("Session restored"))
                             } else {
                                 ToastManager.shared.show(L10n.tr("Could not restore the session. Try again."))
@@ -57,7 +55,6 @@ struct SessionHistoryView: View {
 
 private struct SessionHistoryCard: View {
     let session: Session
-    let canRestore: Bool
     let onRestore: () -> Void
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
@@ -82,8 +79,7 @@ private struct SessionHistoryCard: View {
                     .background(Color.remarcPrimary(for: colorScheme).opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
             }
             .buttonStyle(.plain)
-            .disabled(!canRestore)
-            .help(canRestore ? L10n.tr("Restore session") : L10n.tr("Session limit reached"))
+            .help(L10n.tr("Restore session"))
             .accessibilityIdentifier("history.restoreSession.\(session.id)")
         }
         .padding(12)

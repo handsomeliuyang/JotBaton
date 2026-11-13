@@ -88,7 +88,7 @@ struct HistoryBehaviorTests {
         let session = Session(name: "Finished work", isDeleted: true, deletedAt: now.addingTimeInterval(-100))
         let earlier = archivedComment(session.id, at: now.addingTimeInterval(-2000))
         var state = AppState(sessions: [inbox, session], comments: [earlier], activeSessionID: inbox.id)
-        #expect(HistoryRestorationPolicy.restoreSession(session.id, in: &state, maxActiveSessions: 8, now: now))
+        #expect(HistoryRestorationPolicy.restoreSession(session.id, in: &state, now: now))
         #expect(state.activeSessionID == session.id)
         #expect(state.comments == [earlier])
         #expect(!state.sessions[1].isDeleted && state.sessions[1].emptySince == now)
@@ -102,17 +102,17 @@ struct HistoryBehaviorTests {
         let together = archivedComment(session.id, at: session.deletedAt!)
         let earlier = archivedComment(session.id, at: now.addingTimeInterval(-200))
         var state = AppState(sessions: [session], comments: [together, earlier])
-        #expect(HistoryRestorationPolicy.restoreSession(session.id, in: &state, maxActiveSessions: 8, now: now))
+        #expect(HistoryRestorationPolicy.restoreSession(session.id, in: &state, now: now))
         #expect(!state.comments[0].isDeleted && state.comments[0].status == .open)
         #expect(state.comments[1] == earlier)
         #expect(state.sessions[0].emptySince == nil)
         #expect(EmptySessionCleanupPolicy.expiredIDs(in: state, interval: 1800, now: now.addingTimeInterval(1800)).isEmpty)
         let restored = state
-        #expect(!HistoryRestorationPolicy.restoreSession(session.id, in: &state, maxActiveSessions: 8, now: now))
+        #expect(!HistoryRestorationPolicy.restoreSession(session.id, in: &state, now: now))
         #expect(state == restored)
     }
 
-    @Test("Restoration checks fresh capacity and preserves comments written by another process")
+    @Test("Restoration works beyond the former limit and preserves concurrent sessions and comments")
     func freshSessionRestoration() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("remarc-history-\(UUID())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -122,18 +122,18 @@ struct HistoryBehaviorTests {
         let baseline = AppState(sessions: [archived])
         let external = Session(name: "New work")
         var disk = baseline
+        disk.sessions += (0..<64).map { Session(name: "Project \($0)", createdAt: now, emptySince: now) }
         disk.sessions.append(external)
         disk.comments = [FeatureComments.Comment(type: .quickNote, commentText: "External edit", source: "Tests",
             appBundleID: nil, sessionID: external.id)]
         try JSONEncoder().encode(disk).write(to: file)
-        let blocked = try SessionTaskTransactions.restoreHistorySession(fileURL: file, candidate: baseline,
-            baseline: baseline, sessionID: archived.id, maxActiveSessions: 1, now: now)
-        #expect(!blocked.value && blocked.state.sessions[0].isDeleted)
-        #expect(blocked.state.comments == disk.comments)
         let restored = try SessionTaskTransactions.restoreHistorySession(fileURL: file, candidate: baseline,
-            baseline: baseline, sessionID: archived.id, maxActiveSessions: 8, now: now)
+            baseline: baseline, sessionID: archived.id, now: now)
         #expect(restored.value && !restored.state.sessions[0].isDeleted)
         #expect(restored.state.comments == disk.comments)
+        #expect(restored.state.sessions.dropFirst() == disk.sessions.dropFirst())
+        #expect(SessionPinningPolicy.activeSessions(in: restored.state.sessions).count == 66)
+        #expect(restored.state.activeSessionID == archived.id)
         #expect(try JSONDecoder().decode(AppState.self, from: Data(contentsOf: file)) == restored.state)
     }
 }

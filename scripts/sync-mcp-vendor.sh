@@ -40,15 +40,24 @@ VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["ver
 
 mkdir -p "$DEST" "$(dirname "$SKILL_DEST")"
 cp "$SRC/dist/index.js" "$DEST/remarc-mcp.js"
+UPSTREAM_SHA="$(shasum -a 256 "$DEST/remarc-mcp.js" | awk '{print $1}')"
+# Preserve this fork's session behavior when refreshing the upstream bundle.
+for patch_file in "$APP_ROOT"/mcp/patches/*.patch; do
+  [ -f "$patch_file" ] || continue
+  ( cd "$DEST" && patch --batch --forward -p1 < "$patch_file" )
+done
 cp "$SKILL_SRC" "$SKILL_DEST"
 SHA="$(shasum -a 256 "$DEST/remarc-mcp.js" | awk '{print $1}')"
 SKILL_SHA="$(shasum -a 256 "$SKILL_DEST" | awk '{print $1}')"
 
-python3 - "$DEST/PROVENANCE.json" "$COMMIT" "$VERSION" "$SHA" "$SKILL_SHA" <<'PY'
+python3 - "$DEST/PROVENANCE.json" "$COMMIT" "$VERSION" "$SHA" "$SKILL_SHA" "$UPSTREAM_SHA" "$APP_ROOT" <<'PY'
+import hashlib
 import json
+from pathlib import Path
 import sys
 
-destination, commit, version, server_sha, skill_sha = sys.argv[1:]
+destination, commit, version, server_sha, skill_sha, upstream_sha, app_root = sys.argv[1:]
+app_root = Path(app_root)
 with open(destination, "w") as output:
     json.dump({
         "source": "https://github.com/metedata/remarc-agent-plugins",
@@ -56,6 +65,11 @@ with open(destination, "w") as output:
         "commit": commit,
         "pluginVersion": version,
         "sha256": server_sha,
+        "upstreamSha256": upstream_sha,
+        "patches": [
+            {"path": str(p.relative_to(app_root)), "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+            for p in sorted((app_root / "mcp/patches").glob("*.patch"))
+        ],
         "skillPath": "plugins/remarc/skills/remarc/SKILL.md",
         "skillSha256": skill_sha,
     }, output, indent=2)
@@ -83,6 +97,8 @@ updated = existing.split(marker)[0] + marker + "\n" + (
     "`mcp/vendor/remarc-mcp.js` is a single-file bundle built from\n"
     "https://github.com/metedata/remarc-agent-plugins at commit\n"
     f"`{commit}` (plugin version `{version}`).\n"
+    "Fork patches in `mcp/patches/` are applied after the upstream build;\n"
+    "`mcp/vendor/PROVENANCE.json` records upstream, patch and final bundle hashes.\n"
     "The following packages are present in that bundle. Build-only and test-only\n"
     "packages from the source repository are not redistributed in this file.\n\n"
 ) + dependencies

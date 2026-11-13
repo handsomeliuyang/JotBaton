@@ -41,7 +41,7 @@ struct SessionSidebarView: View {
             searchHeader
 
             ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
+                ScrollView(.vertical) {
                     LazyVStack(spacing: 2) {
                         ForEach(visibleSessions) { session in
                             if renamingSessionID == session.id {
@@ -78,6 +78,11 @@ struct SessionSidebarView: View {
                     guard let newID else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
                         proxy.scrollTo(newID)
+                    }
+                }
+                .onRemarcChange(of: renamingSessionID) { sessionID in
+                    if let sessionID {
+                        proxy.scrollTo(sessionID)
                     }
                 }
             }
@@ -281,7 +286,6 @@ struct SessionSidebarView: View {
     private var newSessionButton: some View {
         NewSessionButton(
             colorScheme: colorScheme,
-            canCreate: persistence.activeSessions.count < CommentConstants.maxActiveSessions,
             suppressHover: renamingSessionID != nil,
             onCreate: {
                 createNewSession()
@@ -515,33 +519,23 @@ private struct SessionRenameField: View {
 // MARK: - New Session Button
 
 /// Compact "+" in the fixed sidebar header.
-/// At the session limit it stays muted and shows a toast on click.
 private struct NewSessionButton: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let colorScheme: ColorScheme
-    let canCreate: Bool
     var suppressHover: Bool = false
     let onCreate: () -> Void
 
     @State private var isHovered = false
 
-    private var effectiveHover: Bool { isHovered && !suppressHover && canCreate }
+    private var effectiveHover: Bool { isHovered && !suppressHover }
 
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
 
-        Button {
-            if canCreate {
-                onCreate()
-            } else {
-                ToastManager.shared.show(L10n.tr("Session limit reached"))
-            }
-        } label: {
+        Button(action: onCreate) {
             Image(systemName: "plus")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(canCreate
-                    ? (effectiveHover ? brandColor : .primary.opacity(0.55))
-                    : .primary.opacity(0.2))
+                .foregroundStyle(effectiveHover ? brandColor : .primary.opacity(0.55))
                 .frame(width: 22, height: 22)
                 .background(
                     Circle()
@@ -554,7 +548,7 @@ private struct NewSessionButton: View {
         .accessibilityIdentifier("remarc.sessions.new")
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: effectiveHover)
-        .help(canCreate ? L10n.tr("New session") : L10n.tr("Session limit reached"))
+        .help(L10n.tr("New session"))
     }
 }
 

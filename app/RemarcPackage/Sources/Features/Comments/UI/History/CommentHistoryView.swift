@@ -88,7 +88,6 @@ struct CommentHistoryView: View {
             persistence.restoreComment(commentID, to: sessionID)
             restoredCommentID = commentID
             withAnimation(.easeInOut(duration: 0.15)) { showingHistory = false }
-            MenuBarPopoverController.shared.resizeAfterLayoutSettles()
             // Clear highlight after 1.2 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 withAnimation(.easeOut(duration: 0.5)) { restoredCommentID = nil }

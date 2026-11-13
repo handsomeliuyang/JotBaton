@@ -12,9 +12,8 @@ package enum HistoryRestorationPolicy {
         comment.updatedAt = now
     }
 
-    package static func restoreSession(_ id: UUID, in state: inout AppState, maxActiveSessions: Int, now: Date) -> Bool {
-        guard let index = state.sessions.firstIndex(where: { $0.id == id && ($0.isDeleted || $0.isAutoDismissed) }),
-              state.sessions.filter({ !$0.isDeleted && !$0.isAutoDismissed }).count < maxActiveSessions else { return false }
+    package static func restoreSession(_ id: UUID, in state: inout AppState, now: Date) -> Bool {
+        guard let index = state.sessions.firstIndex(where: { $0.id == id && ($0.isDeleted || $0.isAutoDismissed) }) else { return false }
         let deletedAt = state.sessions[index].deletedAt
         state.sessions[index].isDeleted = false
         state.sessions[index].deletedAt = nil

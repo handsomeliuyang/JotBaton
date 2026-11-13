@@ -247,14 +247,26 @@ private struct SessionDropdownPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(sessions) { session in
-                SessionOptionRow(
-                    name: session.name,
-                    origin: session.origin,
-                    isSelected: session.id == currentSessionID,
-                    colorScheme: colorScheme,
-                    onSelect: { onSelect(session.id) }
-                )
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(sessions) { session in
+                            SessionOptionRow(
+                                name: session.name,
+                                origin: session.origin,
+                                isSelected: session.id == currentSessionID,
+                                colorScheme: colorScheme,
+                                onSelect: { onSelect(session.id) }
+                            )
+                            .frame(height: 28)
+                            .id(session.id)
+                        }
+                    }
+                }
+                .frame(height: min(CGFloat(sessions.count) * 28, 240))
+                .onAppear {
+                    if let currentSessionID { proxy.scrollTo(currentSessionID) }
+                }
             }
 
             Divider()

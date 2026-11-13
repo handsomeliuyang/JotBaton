@@ -113,17 +113,21 @@ struct PopoverContentView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Gradient fills the full panel area (sized by hosting view / VEV).
-            // Separated from the content VStack so fittingSize returns the
-            // content's ideal height, not infinity.
+            // Gradient fills the full panel area supplied by the hosting view.
             // ignoresSafeArea lets it extend behind the titlebar in detached mode.
             Color.remarcBackgroundGradient(for: colorScheme)
                 .ignoresSafeArea()
 
             HStack(spacing: 0) {
-                SessionSidebarView(statusFilters: statusFilters) {
-                    if showingHistory { dismissHistory() }
-                }
+                // Navigation fills the height chosen by the comment pane;
+                // its session count must not increase the panel's ideal size.
+                Color.clear
+                    .frame(width: WorkspaceMetrics.sessionSidebarWidth)
+                    .overlay {
+                        SessionSidebarView(statusFilters: statusFilters) {
+                            if showingHistory { dismissHistory() }
+                        }
+                    }
 
                 Rectangle()
                     .fill(Color.remarcHairline(for: colorScheme))
@@ -135,7 +139,7 @@ struct PopoverContentView: View {
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("remarc.comments.pane")
             }
-            .frame(minHeight: WorkspaceMetrics.popoverMinHeight)
+            .frame(minHeight: fillWidth ? WorkspaceMetrics.popoverMinHeight : nil)
             .padding(.top, topInset)
         }
         .frame(width: fillWidth ? nil : WorkspaceMetrics.popoverWidth)
@@ -184,10 +188,6 @@ struct PopoverContentView: View {
         .onRemarcChange(of: persistence.appState.activeSessionID) { _ in
             focusedCommentID = nil
             keyboardScrollTarget = nil
-            popoverController.resizeAfterLayoutSettles()
-        }
-        .onRemarcChange(of: statusFilterStorage) { _ in
-            popoverController.resizeAfterLayoutSettles()
         }
     }
 
@@ -313,7 +313,6 @@ struct PopoverContentView: View {
 
     private func showHistory() {
         withAnimation(.easeInOut(duration: 0.15)) { showingHistory = true }
-        popoverController.resizeAfterLayoutSettles()
     }
 
     // MARK: - History Header
@@ -323,7 +322,6 @@ struct PopoverContentView: View {
         isHistorySearching = false
         historyTab = .comments
         withAnimation(.easeInOut(duration: 0.15)) { showingHistory = false }
-        popoverController.resizeAfterLayoutSettles()
     }
 
     private var historyTabPicker: some View {
@@ -342,7 +340,6 @@ struct PopoverContentView: View {
         return Button {
             withAnimation(.easeInOut(duration: 0.15)) { historyTab = tab }
             historySearchText = ""
-            popoverController.resizeAfterLayoutSettles()
         } label: {
             Text(title)
                 .font(.system(size: 11, weight: isSelected ? .semibold : .regular))

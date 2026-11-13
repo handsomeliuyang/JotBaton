@@ -38,9 +38,9 @@ package enum SessionTaskTransactions {
     }
 
     package static func restoreHistorySession(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
-                                      maxActiveSessions: Int, now: Date) throws -> SessionTaskCommit<Bool> {
+                                      now: Date) throws -> SessionTaskCommit<Bool> {
         try update(fileURL: fileURL, candidate: candidate, baseline: baseline, now: now) { state in
-            HistoryRestorationPolicy.restoreSession(sessionID, in: &state, maxActiveSessions: maxActiveSessions, now: now)
+            HistoryRestorationPolicy.restoreSession(sessionID, in: &state, now: now)
         }
     }
 
