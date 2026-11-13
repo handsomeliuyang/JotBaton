@@ -2,6 +2,29 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.38 - 2026-11-13
+
+### 重大变更
+
+- 正式采用 JotBaton 名称与独立图标，应用、菜单栏、Dev 标识及浏览器配套界面统一品牌；保留原有 Bundle ID、签名及本地/iCloud 数据目录。旧 Remarc 版本需手动升级一次，之后使用新版更新流程。安装包文件名暂保留 `Remarc-` 前缀以兼容已有下载入口。([1233b54](https://github.com/handsomeliuyang/JotBaton/commit/1233b54f421c045e899b053568f330a7614e7276))
+- 移除内置语音功能及现有 MCP/agent 集成，当前工作流为快速记录、复制给外部 AI 执行、手动标记完成。([badd431](https://github.com/handsomeliuyang/JotBaton/commit/badd43106f2c7bed7845838f487e12622682af69), [36aca55](https://github.com/handsomeliuyang/JotBaton/commit/36aca55837f1abae5aae7f87d7a2bfa5d34a7252))
+
+### 新增与修复
+
+- 正式版支持经 Sparkle 验证的应用内升级：下载并校验原生安装包，备份应用与数据后安装、重启。Dev 保持渠道隔离。([e209a77](https://github.com/handsomeliuyang/JotBaton/commit/e209a77cfe116e27f30b92b7b7fbbad874c30f50))
+- 增加速记快捷键，方便随时记录临时想法。([badd431](https://github.com/handsomeliuyang/JotBaton/commit/badd43106f2c7bed7845838f487e12622682af69))
+- 取消会话数量限制，并修正浮窗高度。([53e1ef1](https://github.com/handsomeliuyang/JotBaton/commit/53e1ef1ce49e9a0bb096688d09fbe2cee4a6dce3))
+
+### 其他变更
+
+- 发布流程从提交生成更新日志，并在侧栏显示版本信息。([e28548a](https://github.com/handsomeliuyang/JotBaton/commit/e28548ab16e782ba0e36c98a5cece5fba65661f2))
+- GitHub 仓库改名为 JotBaton 并解除 fork 关系，保留历史发布资产和发布配置，更新独立维护与发布说明。([ea2134f](https://github.com/handsomeliuyang/JotBaton/commit/ea2134f6ae54d9e29556bc4c8ed304dafe62141f))
+- 同步 JotBaton 品牌后的发布保护与 Webhook 测试断言，保持原有仓库保护和签名发布检查。([2b65402](https://github.com/handsomeliuyang/JotBaton/commit/2b6540224e113728ee3c6acca084be3163b81d2a))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.36...v1.2.38)
+
+<!-- remarc-release: {"base_tag": "v1.2.36", "build": "57", "source_sha": "2b6540224e113728ee3c6acca084be3163b81d2a"} -->
+
 ## 1.2.37 - 2026-11-13
 
 ### 重大变更
