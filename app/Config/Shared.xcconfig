@@ -4,8 +4,8 @@
 // ==========================================
 // Project Identity
 // ==========================================
-PRODUCT_NAME = Remarc
-PRODUCT_DISPLAY_NAME = Remarc
+PRODUCT_NAME = JotBaton
+PRODUCT_DISPLAY_NAME = JotBaton
 INFOPLIST_KEY_CFBundleDisplayName = $(PRODUCT_DISPLAY_NAME)
 EXECUTABLE_NAME = Remarc
 REMARC_URL_SCHEME = remarc

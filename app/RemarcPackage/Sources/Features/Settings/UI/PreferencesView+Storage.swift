@@ -11,7 +11,7 @@ extension PreferencesView {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeader(
                 L10n.tr("Excluded Apps"),
-                description: L10n.tr("Remarc won't show the comment tooltip in these apps.")
+                description: L10n.tr("JotBaton won't show the comment tooltip in these apps.")
             )
 
             List(excludedApps, selection: $excludedSelection) { app in

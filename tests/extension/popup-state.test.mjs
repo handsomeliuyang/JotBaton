@@ -28,7 +28,7 @@ test("global disconnect offers a worker retry and disables tab controls", () => 
   assert.equal(state.status, "disconnected");
   assert.equal(state.controlsEnabled, false);
   assert.equal(state.hintVisible, true);
-  assert.equal(state.hintText, "Launch Remarc or retry");
+  assert.equal(state.hintText, "Launch JotBaton or retry");
   assert.equal(state.hintAction, PopupHintAction.RETRY_WORKER);
 });
 

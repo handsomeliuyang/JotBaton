@@ -33,7 +33,7 @@ class FeedTests(unittest.TestCase):
                 self.assertEqual(item.findtext(updates.tag('shortVersionString')), '1.2.37')
                 self.assertEqual(item.findtext(updates.tag('minimumSystemVersion')), minimum)
                 self.assertEqual(item.findtext('description'), 'Fix <unsafe> & notes')
-                self.assertEqual(item.find('enclosure').get('url'), 'https://github.com/handsomeliuyang/Remarc/releases/download/v1.2.37/' + filename)
+                self.assertEqual(item.find('enclosure').get('url'), 'https://github.com/handsomeliuyang/JotBaton/releases/download/v1.2.37/' + filename)
                 with self.assertRaises(ValueError):
                     updates.write_feed(output, arch, '1.2.37', '56', '', 'signature')
 
@@ -81,7 +81,7 @@ FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: obje
                 updates.verify(output, '1.2.37', '56')
             config['public_ed_key'] = key['public']
             feed = output / 'appcast-arm64.xml'
-            feed.write_bytes(feed.read_bytes().replace(b'<title>Remarc ', b'<title>remarc ', 1))
+            feed.write_bytes(feed.read_bytes().replace(b'<title>JotBaton ', b'<title>jotbaton ', 1))
             with self.assertRaises(subprocess.CalledProcessError):
                 updates.verify(output, '1.2.37', '56')
 

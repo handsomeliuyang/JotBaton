@@ -29,7 +29,7 @@ public enum PersistenceError: Error, Equatable, Sendable {
     public var userMessage: String {
         switch self {
         case .lockTimeout:
-            return L10n.tr("Another Remarc process is busy writing. Try again.")
+            return L10n.tr("Another JotBaton process is busy writing. Try again.")
         case .documentUnreadable:
             return L10n.tr("Could not read the comments file. Nothing was changed.")
         case .encodeFailed, .writeFailed:

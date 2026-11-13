@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build Remarc Dev for this Mac only, install it and launch it.
+# Build JotBaton Dev for this Mac only, install it and launch it.
 #
 # Supported toolchains build locally through run-local.sh. Unsupported hosts
 # receive an error; this command never dispatches Actions.
@@ -36,7 +36,7 @@ if can_build_locally; then
         bash "$REMARC_ROOT/scripts/resolve-packages.sh" "$REMARC_ROOT/app/RemarcPackage"
         xcrun swift test --package-path "$REMARC_ROOT/app/RemarcPackage" --cache-path "$REMARC_ROOT/app/DerivedData/PackageCache"
     fi
-    echo "Building Remarc Dev locally."
+    echo "Building JotBaton Dev locally."
     exec bash "$REMARC_ROOT/scripts/run-local.sh"
 fi
 

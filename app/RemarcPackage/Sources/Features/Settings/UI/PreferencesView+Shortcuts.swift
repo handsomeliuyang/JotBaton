@@ -11,7 +11,7 @@ extension PreferencesView {
     var shortcutsSection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Self.itemSpacing) {
-                sectionHeader(L10n.tr("App Shortcuts"), description: L10n.tr("Global keyboard shortcuts for Remarc actions.")) {
+                sectionHeader(L10n.tr("App Shortcuts"), description: L10n.tr("Global keyboard shortcuts for JotBaton actions.")) {
                     appShortcutsResetButton
                 }
 
@@ -27,7 +27,7 @@ extension PreferencesView {
                 settingsRow(L10n.tr("Paste All")) {
                     ConflictAwareRecorder(name: .pasteAllComments)
                 }
-                settingsRow(L10n.tr("Open Remarc")) {
+                settingsRow(L10n.tr("Open JotBaton")) {
                     ConflictAwareRecorder(name: .openRemarc)
                 }
 

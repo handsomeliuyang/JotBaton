@@ -21,7 +21,7 @@ extension PreferencesView {
             Text(AppIdentity.current.displayName)
                 .font(.system(size: 24, weight: .semibold))
 
-            Text(L10n.tr("Contextual comments on any text selection"))
+            Text(L10n.tr("Capture an idea. Hand it to AI."))
                 .font(.system(size: 13))
                 .foregroundStyle(.primary.opacity(0.6))
 
@@ -60,9 +60,9 @@ extension PreferencesView {
             }
 
             HStack(spacing: 16) {
-                Link(L10n.tr("Website"), destination: URL(string: "https://remarc.app")!)
-                Link(L10n.tr("Documentation"), destination: URL(string: "https://docs.remarc.app")!)
-                Link(L10n.tr("GitHub"), destination: URL(string: "https://github.com/handsomeliuyang/Remarc")!)
+                Link(L10n.tr("Website"), destination: URL(string: "https://github.com/handsomeliuyang/JotBaton")!)
+                Link(L10n.tr("Documentation"), destination: URL(string: "https://github.com/handsomeliuyang/JotBaton#readme")!)
+                Link(L10n.tr("GitHub"), destination: URL(string: "https://github.com/handsomeliuyang/JotBaton")!)
             }
             .font(.system(size: 12))
 

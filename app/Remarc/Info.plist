@@ -5,7 +5,7 @@
     <key>SUEnableAutomaticChecks</key>
     <false/>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>Remarc uses screen recording access to capture regions you select for screenshot comments.</string>
+    <string>JotBaton uses screen recording access to capture regions you select for screenshot comments.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

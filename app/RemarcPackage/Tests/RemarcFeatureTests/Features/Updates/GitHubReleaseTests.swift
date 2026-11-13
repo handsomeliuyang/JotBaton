@@ -8,15 +8,32 @@ struct GitHubReleaseTests {
     private let os = OperatingSystemVersion(majorVersion: 14, minorVersion: 0, patchVersion: 0)
 
     private func fixture(tag: String = "v1.2.28", draft: Bool = false, prerelease: Bool = false,
-                         assetPrefix: String = "https://github.com/handsomeliuyang/Remarc/releases/download/",
+                         repository: String = "Remarc",
+                         assetPrefix: String? = nil,
                          assets: [String] = ["Remarc-Apple-Silicon-arm64.dmg", "Remarc-Ventura-x86_64.zip"]) throws -> GitHubRelease {
         let object: [String: Any] = [
-            "tag_name": tag, "html_url": "https://github.com/handsomeliuyang/Remarc/releases/tag/" + tag,
+            "tag_name": tag, "html_url": "https://github.com/handsomeliuyang/\(repository)/releases/tag/" + tag,
             "draft": draft, "prerelease": prerelease,
             "assets": assets.map { ["name": $0, "state": "uploaded", "size": 100,
-                                    "browser_download_url": assetPrefix + tag + "/" + $0] as [String: Any] }
+                                    "browser_download_url": (assetPrefix ?? "https://github.com/handsomeliuyang/\(repository)/releases/download/") + tag + "/" + $0] as [String: Any] }
         ]
         return try JSONDecoder().decode(GitHubRelease.self, from: JSONSerialization.data(withJSONObject: object))
+    }
+
+    @Test("Repository rename accepts both identities while retaining exact download validation")
+    func renamedRepository() throws {
+        for repository in ["JotBaton", "Remarc"] {
+            let release = try fixture(repository: repository)
+            let candidate = try #require(try release.update(installedVersion: "1.2.27", architecture: "arm64", os: os))
+            #expect(candidate.releaseURL.path == "/handsomeliuyang/\(repository)/releases/tag/v1.2.28")
+            #expect(candidate.downloadURL.path.hasPrefix("/handsomeliuyang/\(repository)/releases/download/"))
+        }
+        for release in [
+            try fixture(repository: "JotBaton-lookalike"),
+            try fixture(repository: "JotBaton", assetPrefix: "https://github.com/handsomeliuyang/Remarc/releases/download/")
+        ] {
+            #expect(throws: (any Error).self) { try release.update(installedVersion: "1.2.27", architecture: "arm64", os: os) }
+        }
     }
 
     @Test("Selects native installers and supports Intel Ventura")

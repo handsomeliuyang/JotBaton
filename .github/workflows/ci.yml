@@ -80,6 +80,7 @@ jobs:
         python3 -B scripts/test-fork-release.py
         python3 -B scripts/test-release-command.py
         python3 -B scripts/test-build-policy.py
+        python3 -B scripts/test-install-app.py
 
     - name: Scan current snapshot for secrets
       run: |

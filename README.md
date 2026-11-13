@@ -1,18 +1,32 @@
-# Remarc
+# JotBaton
 
-Remarc is the feedback layer between you and your coding agent. Point at anything on your Mac: text, a screenshot, or a web element. Talk through a review or jot down a quick note. Remarc keeps the relevant context with each comment so your agent can take it from there.
+An independently maintained macOS inbox for AI collaboration. Quickly capture a passing idea or product feedback, keep the relevant text, screenshot, or web context, and copy it to the AI tool you use. Mark the task complete when the work is done.
 
-https://github.com/user-attachments/assets/4393066b-1a22-484c-8703-c55ebef7edbb
+**随手记录想法与反馈，带着上下文交给 AI，做完就清掉。**
+
+The everyday workflow is **capture → collect → copy to AI → mark complete**.
+You can record a rough thought immediately and add detail before handing it off.
+Codex, Claude Code, or another external AI tool does the work; you update the
+status yourself. Completion and deletion remain separate actions.
+
+Future MCP support may let an agent retrieve selected records and update their
+statuses. That is a possible extension of the handoff, not a requirement for the
+current copy-based workflow.
+
+JotBaton develops independently from [metedata/Remarc](https://github.com/metedata/Remarc),
+with its own product direction, releases, and update feed. Its name and independently
+created baton icon distinguish it from the original project. See the
+[positioning and compatibility notes](docs/brand-transition.md).
 
 ## How it works
 
-### 1. Comment on anything
+### 1. Capture ideas and feedback
 
-Remarc runs from the menu bar, ready whenever you spot something worth changing. Comment on selected text, screenshots, web elements, or speak your feedback. Remarc keeps the original selection, screenshot, web context, or recording with your note, so your agent works from what you saw instead of a paraphrase.
+JotBaton runs from the menu bar, ready whenever an idea occurs or you spot something worth changing. Write a quick note or attach feedback to selected text, a screenshot, or a web element. The original context stays with your note so you can hand it to AI later without reconstructing what you saw.
 
 #### Text comments
 
-Select text in any app and attach a comment to that exact selection. Remarc saves the quote and source app with your note. The [text comments guide](https://docs.remarc.app/basics/commenting-on-selections/) covers the tooltip, keyboard shortcut, and app exclusions.
+Select text in any app and attach a comment to that exact selection. JotBaton saves the quote and source app with your note. The [text comments guide](https://docs.remarc.app/basics/commenting-on-selections/) covers the tooltip, keyboard shortcut, and app exclusions.
 
 #### Screenshot comments
 
@@ -27,7 +41,7 @@ The [companion Chrome extension](https://remarc.app/chrome-extension/) captures 
 
 Open a [Quick Note](https://docs.remarc.app/basics/quick-notes/) when there is nothing to select or capture. It creates a standalone comment for a thought, task, or piece of feedback.
 
-### 2. Organize and share your comments
+### 2. Collect and hand off tasks
 
 Comments land in a session. Review them together, update their statuses, and copy or export the context when you are ready to share.
 
@@ -39,39 +53,53 @@ Group comments into [sessions](https://docs.remarc.app/basics/sessions/) by revi
 
 Each comment can move through Open, Handed Off, In-Progress, and Resolved. Update statuses as you work through your review. Deleted comments go to searchable [History](https://docs.remarc.app/basics/statuses-and-history/) instead of disappearing.
 
-#### Copy, export, or automate the handoff
+#### Copy or export the handoff
 
 Copy a session into an agent prompt, paste it into the app you are using, or [export it as Markdown or JSON](https://docs.remarc.app/basics/export-comments/) with control over references and metadata. You can also send comment events to automation tools through [webhooks](https://docs.remarc.app/automation/webhooks/).
 
+### 3. Complete the work and clear the active list
+
+After your AI tool finishes the work, mark the corresponding records **Resolved**
+and use status filters to focus on pending work. Delete a record when you want to
+remove it; deleted records remain available in searchable **History**.
+
 #### Local until you hand it off
 
-Comments and screenshots stay on your Mac unless you publish an iCloud snapshot, hand them to an agent, or send them through a webhook you configured. There are no Remarc accounts or telemetry. The [data and privacy guide](https://docs.remarc.app/reference/data-and-privacy/) explains what is stored and which features use the network.
+Comments and screenshots stay on your Mac unless you publish an iCloud snapshot, hand them to an agent, or send them through a webhook you configured. There are no JotBaton accounts or telemetry. The [data and privacy guide](https://docs.remarc.app/reference/data-and-privacy/) explains what is stored and which features use the network.
 
 #### Switch Macs with one current iCloud copy
 
-In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and enable **iCloud Data**. Remarc uses `iCloud Drive/Remarc`; development uses the separate `iCloud Drive/Remarc Dev` folder. Publishing and applying remain manual.
+In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and enable **iCloud Data**. JotBaton uses `iCloud Drive/Remarc`; development uses the separate `iCloud Drive/Remarc Dev` folder. Publishing and applying remain manual.
 
 The cloud toolbar opens the current cloud source, publication time, **Publish**, **Apply**, and **Roll Back**. Publish reads the current local data and generates a temporary package. The payload has a readable filename such as `2026-11-11_18-45-32+0800_Office-Mac_1FD1CBD4.zip`; `current.json` identifies the selected payload. A new payload must finish uploading before the current marker is switched. Both files must confirm upload before the previous payload and obsolete UUID-named history are cleaned up. A concurrent publication is rechecked before switching the marker.
 
 There is no persistent publication outbox or cloud version-history list. A failed publish keeps the existing cloud payload; clicking Publish again reads the latest local data and prepares a fresh package. Upload confirmation metadata survives restarts without retaining a local publication package. Checks never apply cloud data automatically.
 
-Applying verifies the complete cloud package, including comments, sessions, deleted records, screenshots, attachments and editable image annotations. Before replacing local data, Remarc saves one complete local undo package. The replacement and its undo reference are committed together. A failed application keeps the previous undo copy; a successful application replaces it. **Roll Back** restores the complete pre-application data on this Mac, replacing edits made since the application. Undo survives restarts, is consumed after a successful rollback, and does not publish changes to iCloud.
+Applying verifies the complete cloud package, including comments, sessions, deleted records, screenshots, attachments and editable image annotations. Before replacing local data, JotBaton saves one complete local undo package. The replacement and its undo reference are committed together. A failed application keeps the previous undo copy; a successful application replaces it. **Roll Back** restores the complete pre-application data on this Mac, replacing edits made since the application. Undo survives restarts, is consumed after a successful rollback, and does not publish changes to iCloud.
 
 Device permissions, shortcuts, credentials, and other device settings stay local. Production and development never share data or rollback files. iCloud access is restricted to the matching channel's folder; an authorization action is offered when needed. The current-data format replaces the old version-history protocol. Old cloud snapshots and local outbox/backup folders are cleaned up only after the first new current copy has confirmed upload.
 
 ## Documentation
 
-Read the [full Remarc documentation](https://docs.remarc.app/getting-started/what-is-remarc/) for setup and feature guides. Useful starting points include [installation](https://docs.remarc.app/getting-started/installation/), [permissions](https://docs.remarc.app/getting-started/permissions/), [keyboard shortcuts](https://docs.remarc.app/reference/keyboard-shortcuts/), and [troubleshooting](https://docs.remarc.app/reference/troubleshooting/).
+Use this README and [RELEASING.md](RELEASING.md) for this project's installation,
+updates, and build instructions. Links to `remarc.app` and `docs.remarc.app` in
+feature descriptions refer to the original project's documentation and downloads;
+their behavior and release instructions may differ from this project's.
 
 ## Install
 
-Download both packages from [this fork's GitHub Releases](https://github.com/handsomeliuyang/Remarc/releases/latest):
+The currently published releases predate the JotBaton rebrand. New production
+packages are published only by the manual Release workflow. Legacy versions that
+validate the old GitHub repository path need one manual upgrade after the rename.
+Download filenames retain the `Remarc-` prefix for compatibility.
+
+Download both packages from [this project's GitHub Releases](https://github.com/handsomeliuyang/JotBaton/releases/latest):
 
 - `Remarc-Ventura-x86_64.zip`: Hackintosh / Intel, macOS 13+.
 - `Remarc-Apple-Silicon-arm64.dmg`: Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-These fork builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases. Click **Upgrade and Restart** to download, verify, install and relaunch automatically. Versions with browser-only downloads or the retired iCloud updater need one final manual upgrade to enable this flow. iCloud data snapshot synchronization remains supported.
+These builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases. Click **Upgrade and Restart** to download, verify, install and relaunch automatically. Versions with browser-only downloads or the retired iCloud updater need one final manual upgrade to enable this flow. iCloud data snapshot synchronization remains supported.
 See [installation and release instructions](RELEASING.md) for verified installation without local re-signing,
 first launch, checksums and permissions. The upstream signed distribution is
 available separately at [remarc.app/download](https://remarc.app/download).
@@ -86,7 +114,7 @@ To build the current checkout and immediately launch its Debug app, without a co
 ./scripts/run-local.sh
 ```
 
-With supported Xcode selected, the script clean-builds and signs `Remarc Dev.app` with the shared test identity, installs it at `/Applications/Remarc Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the Intel production package from GitHub Releases; previews never fall back to GitHub automatically.
+With supported Xcode selected, the script clean-builds and signs `JotBaton Dev.app` with the shared test identity, installs it at `/Applications/JotBaton Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the Intel production package from GitHub Releases; previews never fall back to GitHub automatically.
 
 On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 
@@ -95,8 +123,8 @@ Run `./scripts/test-snapshots.sh` for the snapshot suite. With CLT, run the loca
 For a direct Xcode build:
 
 ```bash
-git clone https://github.com/handsomeliuyang/Remarc.git
-cd Remarc
+git clone https://github.com/handsomeliuyang/JotBaton.git
+cd JotBaton
 # On an Apple Silicon build host:
 REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh
 # On a compatible Intel build host:
@@ -107,9 +135,10 @@ Local `dev-preview.sh` skips full tests by default; add `--with-tests` when need
 
 ## Ventura / Intel compatibility build
 
-This fork's `main` branch is the maintained version, including macOS 13 support
-and local UI customizations. Use `main` for development and builds. The
-`compat/macos13` branch is retained for the upstream compatibility PR.
+This project's `main` branch is the maintained version, including macOS 13 support
+and local UI customizations. Use `main` for development and builds. Any retained
+compatibility branches are historical; development and releases do not depend on
+merging changes into the original project.
 
 An opt-in build supports **macOS 13.0+ / x86_64**,
 including Ventura 13.7.8. The standard build keeps the upstream macOS 14 minimum.
@@ -119,14 +148,14 @@ The app checks GitHub Releases for updates. **Upgrade and Restart** selects the 
 
 For versioned delivery, use the **Release** workflow to build both Intel and
 Apple Silicon packages from the same commit with Xcode 26.2. Download
-`Remarc-Ventura-x86_64.zip` from [this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases)
+`Remarc-Ventura-x86_64.zip` from [this project's Releases](https://github.com/handsomeliuyang/JotBaton/releases)
 and extract it with Archive Utility or `ditto` to preserve the app bundle. No Developer ID
 certificate or notarization is needed for personal use. Both production packages
 are already signed with the same fixed private certificate from Actions Secrets.
 Install directly without local re-signing. From a source checkout:
 
 ```bash
-python3 scripts/install-app.py /absolute/path/Remarc.app --channel production
+python3 scripts/install-app.py /absolute/path/JotBaton.app --channel production
 ```
 
 The installer verifies signature and architecture, preserves a rollback backup and
@@ -144,14 +173,14 @@ clean Debug build by default (set `REMARC_BUILD_CONFIGURATION=Release` for Relea
 relaunches the app, and verifies all bundled Mach-O images
 have an Intel slice and support macOS 13.0 or earlier. It retains the upstream
 pinned dependency revisions and fails if resolution changes them. Output:
-`app/DerivedData/Build/Products/Debug/Remarc Dev.app`.
+`app/DerivedData/Build/Products/Debug/JotBaton Dev.app`.
 
 Ventura itself cannot run Xcode 26.2; it is the runtime test machine, while the
 cloud runner is the compiler host. On Ventura, verify first launch and permissions,
 selection-to-comment, session rename/cancel, search-field arrow keys, toast/undo,
 screenshot annotation (including blur/pixelation), export and restart persistence.
 
-## Apple Silicon fork build
+## Apple Silicon build
 
 The **Release** workflow builds and publishes a native arm64 Release app together
 with the Intel app. The standalone **Apple Silicon** workflow is for development
@@ -159,8 +188,8 @@ and produces an Actions artifact only. The standard macOS 14 minimum is preserve
 Automatic upstream updates are disabled for this independently packaged build.
 
 Download `Remarc-Apple-Silicon-arm64.dmg` from
-[this fork's Releases](https://github.com/handsomeliuyang/Remarc/releases).
-Drag `Remarc.app` into Applications. This works on Apple Silicon Macs, including
+[this project's Releases](https://github.com/handsomeliuyang/JotBaton/releases).
+Drag `JotBaton.app` into Applications. This works on Apple Silicon Macs, including
 Apple Silicon, without Rosetta. The app uses the fixed private release certificate and is not Apple-notarized; if the
 first launch is blocked, use **System Settings → Privacy & Security → Open Anyway**
 as described in [Apple's instructions](https://support.apple.com/en-us/102445).
@@ -169,7 +198,7 @@ See [RELEASING.md](RELEASING.md) for the dual-architecture release and installat
 
 On an Apple Silicon Mac with Xcode 26.2, run
 `REMARC_BUILD_CONFIGURATION=Debug bash scripts/build-apple-silicon.sh` to clean-build, sign, relaunch and verify
-`app/DerivedData/Build/Products/Debug/Remarc Dev.app`. Production signing runs only in Actions.
+`app/DerivedData/Build/Products/Debug/JotBaton Dev.app`. Production signing runs only in Actions.
 
 ## Repository layout
 
@@ -191,7 +220,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and pull requests are welcom
 
 ## Support
 
-If Remarc is useful to you, you can [Buy Me a Coffee](https://buymeacoffee.com/metedata) to support its continued development. Remarc remains free and open source.
+For this independently maintained project, use
+[this repository](https://github.com/handsomeliuyang/JotBaton).
+The source remains available under the MIT License.
 
 ## Security
 
@@ -199,6 +230,6 @@ To report a vulnerability, please see [SECURITY.md](SECURITY.md). Do not open a 
 
 ## License
 
-Remarc is released under the [MIT License](LICENSE).
+JotBaton is released under the [MIT License](LICENSE).
 
-The Remarc name, logo, and app icon belong to Metedata LLC and are not covered by the MIT license. Third-party software notices are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). If you distribute a fork, ship it under a different name and icon.
+The original Remarc name, logo, and app icon belong to Metedata LLC. JotBaton uses its own name and independently drawn artwork. Original code copyright and license notices are preserved; third-party software notices are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

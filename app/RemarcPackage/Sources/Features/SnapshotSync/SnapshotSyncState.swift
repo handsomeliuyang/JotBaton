@@ -58,7 +58,7 @@ package struct SnapshotSyncIssue: Codable, Equatable, Sendable {
             message = "Sync progress could not be saved on this Mac. Your tasks and snapshot files are kept."
         } else if contains(NSCocoaErrorDomain, [NSFileReadNoPermissionError, NSFileWriteNoPermissionError]) || contains(NSPOSIXErrorDomain, [Int(EACCES), Int(EPERM)]) {
             kind = .permission
-            message = "Remarc cannot access the snapshot files."
+            message = "JotBaton cannot access the snapshot files."
         } else if contains(NSCocoaErrorDomain, [NSUbiquitousFileNotUploadedDueToQuotaError]) || contains("NSFileProviderErrorDomain", [-1003]) {
             kind = .quota
             message = "iCloud storage is full. Upload is not confirmed."

@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8BC2655B2DEDD3F400F279A4"
-               BuildableName = "Remarc.app"
+               BuildableName = "JotBaton.app"
                BlueprintName = "Remarc"
                ReferencedContainer = "container:Remarc.xcodeproj">
             </BuildableReference>
@@ -26,7 +26,7 @@
          <ExecutionAction ActionType="Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent title="Sign and relaunch isolated development app" scriptText="set -euo pipefail&#10;# Cloud/local builders finalize after xcodebuild; direct Xcode Run uses this hook.&#10;if [ &quot;${REMARC_SIGNING_IN_BUILDER:-0}&quot; = 1 ]; then exit 0; fi&#10;if [ &quot;$CONFIGURATION&quot; != Debug ]; then&#10;  echo &quot;Production packages must be built with the GitHub Release workflow.&quot; &gt;&amp;2&#10;  exit 1&#10;fi&#10;APP=&quot;${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}&quot;&#10;python3 &quot;${SRCROOT}/../scripts/prepare-app.py&quot; &quot;$APP&quot; --channel development&#10;python3 &quot;${SRCROOT}/../scripts/sign-app.py&quot; &quot;$APP&quot; --channel development&#10;python3 &quot;${SRCROOT}/../scripts/relaunch-app.py&quot; &quot;$APP&quot;&#10;">
                <EnvironmentBuildable>
-                  <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8BC2655B2DEDD3F400F279A4" BuildableName="Remarc.app" BlueprintName="Remarc" ReferencedContainer="container:Remarc.xcodeproj"/>
+                  <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8BC2655B2DEDD3F400F279A4" BuildableName="JotBaton.app" BlueprintName="Remarc" ReferencedContainer="container:Remarc.xcodeproj"/>
                </EnvironmentBuildable>
             </ActionContent>
          </ExecutionAction>
@@ -55,7 +55,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8BC2655B2DEDD3F400F279A4"
-            BuildableName = "Remarc.app"
+            BuildableName = "JotBaton.app"
             BlueprintName = "Remarc"
             ReferencedContainer = "container:Remarc.xcodeproj">
          </BuildableReference>
@@ -72,7 +72,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8BC2655B2DEDD3F400F279A4"
-            BuildableName = "Remarc.app"
+            BuildableName = "JotBaton.app"
             BlueprintName = "Remarc"
             ReferencedContainer = "container:Remarc.xcodeproj">
          </BuildableReference>

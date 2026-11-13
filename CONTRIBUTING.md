@@ -1,6 +1,6 @@
-# Contributing to Remarc
+# Contributing to JotBaton
 
-Thanks for your interest in improving Remarc.
+Thanks for your interest in improving JotBaton.
 
 ## Prerequisites
 
@@ -11,14 +11,14 @@ Thanks for your interest in improving Remarc.
 ## Build and run
 
 ```bash
-git clone https://github.com/handsomeliuyang/Remarc.git
-cd Remarc
+git clone https://github.com/handsomeliuyang/JotBaton.git
+cd JotBaton
 bash scripts/dev-preview.sh
 ```
 
 This builds the current Mac's development package locally when its toolchain is
 supported, signs it with the shared test identity, and installs/relaunches
-`Remarc Dev.app`. Unsupported hosts receive an error instead of dispatching cloud
+`JotBaton Dev.app`. Unsupported hosts receive an error instead of dispatching cloud
 compilation. Local builds are Dev only and skip full tests by default; add
 `--with-tests` explicitly when needed. Production uses the manually dispatched
 GitHub Release workflow with full tests and both native packages; see
@@ -26,7 +26,7 @@ GitHub Release workflow with full tests and both native packages; see
 
 Development has a DEV app icon and distinct menu icon, Bundle ID
 `com.metepolat.Remarc.dev`, local data in `Application Support/Remarc Dev`, and
-snapshots in `iCloud Drive/Remarc Dev`. It can coexist with production `Remarc`.
+snapshots in `iCloud Drive/Remarc Dev`. It can coexist with production `JotBaton`.
 Their settings, permissions, callbacks, sockets and integration registrations are
 separate. See [RELEASING.md](RELEASING.md) for the full channel contract.
 
@@ -34,7 +34,7 @@ Debug builds log to `/tmp/remarc_dev_debug.log`. Production Release logging is o
 unless enabled with `defaults write com.metepolat.Remarc debugFileLoggingEnabled -bool YES`;
 then it uses `~/Library/Logs/Remarc/remarc_debug.log` and one previous `.old` log.
 
-Grant Accessibility and Screen Recording to **Remarc Dev** on first use on each
+Grant Accessibility and Screen Recording to **JotBaton Dev** on first use on each
 Mac. Reuse the same identity on subsequent builds; do not fall back to ad-hoc signing.
 
 ## Project structure

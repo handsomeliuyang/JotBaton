@@ -1,6 +1,6 @@
 # GitHub releases and local development
 
-Local compilation is for **Remarc Dev only**. Production packages are built, tested,
+Local compilation is for **JotBaton Dev only**. Production packages are built, tested,
 signed and published by the manually dispatched **Release** workflow on GitHub.
 Pushes and pull requests never start compilation. Software releases no longer use
 iCloud; production and development iCloud data snapshots remain independent.
@@ -16,7 +16,7 @@ bash scripts/dev-preview.sh --with-tests
 ```
 
 The default builds only the current host architecture in Debug, uses the shared
-committed development identity, installs `/Applications/Remarc Dev.app`, and
+committed development identity, installs `/Applications/JotBaton Dev.app`, and
 relaunches that exact app. It does not run the full test suite. `run-local.sh`
 retains its Command Line Tools / macOS 26.5 SDK preview path. UI layout changes
 require a clean build; the Xcode builders already clean-build.
@@ -117,7 +117,7 @@ alone are not a production Release.
 ## Application update checks
 
 Production reads the public API for
-`handsomeliuyang/Remarc/releases/latest`. No token, GitHub login or iCloud folder
+`handsomeliuyang/JotBaton/releases/latest`. No token, GitHub login or iCloud folder
 authorization is required. Only published, non-prerelease versions are accepted.
 Versions are compared numerically and older/equal releases are never offered as an
 upgrade. A compatible native installer must exist in that exact Release.
@@ -189,12 +189,12 @@ On Apple Silicon, mount the ARM DMG read-only. On Intel, extract the Intel ZIP w
 Archive Utility or `ditto`. From this checkout, verify and install the extracted app:
 
 ```bash
-python3 scripts/install-app.py /absolute/path/Remarc.app --channel production --keep-one-backup
+python3 scripts/install-app.py /absolute/path/JotBaton.app --channel production --keep-one-backup
 ```
 
 The installer verifies the pinned signature and native architecture, backs up the
 previous app and data under `Application Support/Remarc Update Backups/Previous`,
-installs without re-signing, and relaunches `/Applications/Remarc.app`. Verify the
+installs without re-signing, and relaunches `/Applications/JotBaton.app`. Verify the
 running version/build matches the Release. Never launch an Intel package on ARM or
 claim Ventura runtime verification from an ARM host. Intel macOS 13 still needs its
 own runtime verification only when explicitly requested.

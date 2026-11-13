@@ -65,8 +65,8 @@ public final class WebhookService: ObservableObject {
     public func sendTest(_ webhook: Webhook) async {
         let sample = Comment(
             type: .comment(text: "This is a sample selection from a test event."),
-            commentText: "Test comment from Remarc webhook settings.",
-            source: "Remarc",
+            commentText: "Test task from JotBaton webhook settings.",
+            source: "JotBaton",
             appBundleID: "com.metepolat.Remarc",
             sessionID: AppServices.shared.comments.appState.activeSessionID ?? UUID()
         )
@@ -223,7 +223,7 @@ public final class WebhookService: ObservableObject {
         let payload = Payload(
             event: event.rawValue,
             timestamp: timestamp,
-            app: AppInfo(name: "Remarc", version: appVersion),
+            app: AppInfo(name: "JotBaton", version: appVersion),
             session: sessionID.map { SessionInfo(id: $0, name: sessionName ?? "") },
             comment: CommentBody(comment: comment)
         )

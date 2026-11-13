@@ -197,7 +197,7 @@ package enum SnapshotArchive {
     }
 
     package static func read(_ version: SnapshotVersion, archive: URL) throws -> Prepared {
-        guard version.formatVersion == 2 else { throw SnapshotError.message(L10n.tr("This snapshot requires a newer version of Remarc.")) }
+        guard version.formatVersion == 2 else { throw SnapshotError.message(L10n.tr("This snapshot requires a newer version of JotBaton.")) }
         guard try fileDigest(archive) == version.archiveHash else { throw SnapshotError.message(L10n.tr("Snapshot verification failed. Your local data has not been changed.")) }
         let entries = String(decoding: try command("/usr/bin/unzip", ["-Z1", archive.path], limit: 8_000_000), as: UTF8.self)
             .split(separator: "\n").map(String.init)

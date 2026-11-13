@@ -36,8 +36,8 @@ struct LocalizationTests {
         #expect(L10n.tr("Resolve all \(3) comments in \(name)?", language: .simplifiedChinese) == "将“" + name + "”中的 3 条评论全部设为已完成？")
         #expect(L10n.tr("Copied \(2) comment\("s")", language: .english) == "Copied 2 comments")
         #expect(L10n.tr("Copied \(2) comment\("s")", language: .simplifiedChinese) == "已复制 2 条评论")
-        #expect(L10n.lookup("Remarc cannot access the snapshot files.", language: .simplifiedChinese) == "Remarc 无法访问快照文件。")
-        #expect(L10n.lookup("Remarc 无法访问快照文件。", language: .english) == "Remarc cannot access the snapshot files.")
+        #expect(L10n.lookup("JotBaton cannot access the snapshot files.", language: .simplifiedChinese) == "JotBaton 无法访问快照文件。")
+        #expect(L10n.lookup("JotBaton 无法访问快照文件。", language: .english) == "JotBaton cannot access the snapshot files.")
     }
 
     @Test("The bundled catalog contains core surfaces and only references arguments supplied by its source key")

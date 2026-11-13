@@ -24,28 +24,11 @@ package struct RemarcBrandMark: View {
     package var size: CGFloat = 16
 
     package var body: some View {
-        Group {
-            if AppIdentity.current.isDevelopment {
-                Image(nsImage: RemarcBrandAssets.applicationIcon)
-                    .resizable()
-                    .renderingMode(.original)
-                    .interpolation(.high)
-                    .scaledToFit()
-            } else {
-                ZStack {
-                    Circle().fill(Color.remarcBrandIndigo)
-                    RemarcLogoShape(part: .outline)
-                        .fill(.white)
-                        .overlay {
-                            RemarcLogoShape(part: .counter)
-                                .fill(.black)
-                                .blendMode(.destinationOut)
-                        }
-                        .compositingGroup()
-                        .frame(width: size / 2, height: size / 2)
-                }
-            }
-        }
+        Image(nsImage: RemarcBrandAssets.applicationIcon)
+        .resizable()
+        .renderingMode(.original)
+        .interpolation(.high)
+        .scaledToFit()
         .frame(width: size, height: size)
         .accessibilityLabel(AppIdentity.current.displayName)
     }
@@ -70,7 +53,7 @@ package struct DevelopmentIdentityBadge: View {
             .padding(.vertical, 3)
             .background(Capsule().fill(Color.remarcPrimary(for: colorScheme).opacity(0.12)))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(L10n.tr("Remarc Dev"))
+            .accessibilityLabel(AppIdentity.current.displayName)
         }
     }
 }

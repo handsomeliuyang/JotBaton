@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000" role="img" aria-labelledby="title description">
+<title id="title">AI 协作待办名称和图标方案</title>
+<desc id="description">JotBaton、CueBaton、JotHandoff 三种名称与图标提案，包含独立应用图标、DEV 示意，以及浅色和深色菜单栏预览。推荐 JotBaton，最终名称尚待选择。</desc>
+<rect width="1440" height="1000" fill="#F6F7FB"/>
+<g font-family="-apple-system, BlinkMacSystemFont, PingFang SC, Helvetica, sans-serif">
+<text x="64" y="63" font-size="13" font-weight="700" letter-spacing="2" fill="#6366F1">AI COLLABORATION INBOX</text>
+<text x="64" y="117" font-size="39" font-weight="750" fill="#1F2338">把想法，接着做。</text>
+<text x="64" y="157" font-size="18" fill="#646B80">随手记录想法与反馈，带着上下文交给 AI，做完就清掉。</text>
+<text x="64" y="199" font-size="13" letter-spacing="1" fill="#646B80">CAPTURE  →  COLLECT  →  HAND OFF  →  COMPLETE</text>
+<text x="1376" y="63" text-anchor="end" font-size="13" fill="#646B80">品牌提案 · 待选择</text>
+<rect x="64" y="239" width="416" height="586" rx="24" fill="white" stroke="#A5B4FC" stroke-width="2"/>
+<text x="96" y="279" font-size="12" font-weight="700" letter-spacing="1" fill="#6366F1">01 / RECOMMENDED</text>
+<svg x="88" y="304" width="144" height="144" viewBox="0 0 256 256"><defs><linearGradient id="jotbaton-preview" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#jotbaton-preview)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M88 68H62V194H182V170" stroke-width="12" opacity=".65"/><path d="M100 156L132 124M156 100L184 72" stroke-width="26"/></g></g></svg>
+<svg x="367" y="346" width="64" height="64" viewBox="0 0 256 256"><defs><linearGradient id="jotbaton-dev" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#jotbaton-dev)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M88 68H62V194H182V170" stroke-width="12" opacity=".65"/><path d="M100 156L132 124M156 100L184 72" stroke-width="26"/></g></g><rect x="128" y="183" width="94" height="40" rx="13" fill="#171B2F"/><text x="175" y="211" font-family="-apple-system, Helvetica, sans-serif" font-size="24" font-weight="800" text-anchor="middle" fill="white">DEV</text></svg>
+<text x="399" y="433" text-anchor="middle" font-size="11" fill="#646B80">DEV 示意</text>
+<text x="96" y="492" font-size="34" font-weight="750" fill="#1F2338">JotBaton</text>
+<text x="96" y="528" font-size="18" font-weight="500" fill="#4338CA">随手记下，交棒给 AI。</text>
+<text x="96" y="566" font-size="15" fill="#646B80">Jot 是随手记，Baton 是接力棒。</text>
+<text x="96" y="591" font-size="15" fill="#646B80">用简短的名字表达从想法到行动的交接。</text>
+<path d="M96 620H448" stroke="#ECEEF4"/>
+<rect x="88" y="644" width="368" height="46" rx="12" fill="#F0F2F8"/>
+<svg x="107" y="658" width="18" height="18" viewBox="48 48 168 168"><g color="#303449"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M88 68H62V194H182V170" stroke-width="12" opacity=".65"/><path d="M100 156L132 124M156 100L184 72" stroke-width="26"/></g></g></svg>
+<text x="143" y="673" font-size="12" fill="#303449" opacity=".8">浅色菜单栏 · 18 px</text>
+<path d="M407 661l6 6-6 6" fill="none" stroke="#303449" opacity=".6" stroke-width="1.5"/>
+<rect x="88" y="706" width="368" height="46" rx="12" fill="#252938"/>
+<svg x="107" y="720" width="18" height="18" viewBox="48 48 168 168"><g color="#FFFFFF"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M88 68H62V194H182V170" stroke-width="12" opacity=".65"/><path d="M100 156L132 124M156 100L184 72" stroke-width="26"/></g></g></svg>
+<text x="143" y="735" font-size="12" fill="#FFFFFF" opacity=".8">深色菜单栏 · 18 px</text>
+<path d="M407 723l6 6-6 6" fill="none" stroke="#FFFFFF" opacity=".6" stroke-width="1.5"/>
+<text x="96" y="796" font-size="12" letter-spacing="1" fill="#7577A0">记录 + 接力</text>
+<rect x="512" y="239" width="416" height="586" rx="24" fill="white" stroke="#E3E5EE" stroke-width="1"/>
+<text x="544" y="279" font-size="12" font-weight="700" letter-spacing="1" fill="#6366F1">02 / ACTION</text>
+<svg x="536" y="304" width="144" height="144" viewBox="0 0 256 256"><defs><linearGradient id="cuebaton-preview" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#cuebaton-preview)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="15"><path d="M174 166V188H66V70H106" opacity=".65"/><path d="M108 128H194M163 97L194 128L163 159"/></g></g></svg>
+<svg x="815" y="346" width="64" height="64" viewBox="0 0 256 256"><defs><linearGradient id="cuebaton-dev" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#cuebaton-dev)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="15"><path d="M174 166V188H66V70H106" opacity=".65"/><path d="M108 128H194M163 97L194 128L163 159"/></g></g><rect x="128" y="183" width="94" height="40" rx="13" fill="#171B2F"/><text x="175" y="211" font-family="-apple-system, Helvetica, sans-serif" font-size="24" font-weight="800" text-anchor="middle" fill="white">DEV</text></svg>
+<text x="847" y="433" text-anchor="middle" font-size="11" fill="#646B80">DEV 示意</text>
+<text x="544" y="492" font-size="34" font-weight="750" fill="#1F2338">CueBaton</text>
+<text x="544" y="528" font-size="18" font-weight="500" fill="#4338CA">捕捉一个念头，接着做。</text>
+<text x="544" y="566" font-size="15" fill="#646B80">Cue 是行动的提示，Baton 是接力。</text>
+<text x="544" y="591" font-size="15" fill="#646B80">强调把眼前的问题变成下一步行动。</text>
+<path d="M544 620H896" stroke="#ECEEF4"/>
+<rect x="536" y="644" width="368" height="46" rx="12" fill="#F0F2F8"/>
+<svg x="555" y="658" width="18" height="18" viewBox="48 48 168 168"><g color="#303449"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="15"><path d="M174 166V188H66V70H106" opacity=".65"/><path d="M108 128H194M163 97L194 128L163 159"/></g></g></svg>
+<text x="591" y="673" font-size="12" fill="#303449" opacity=".8">浅色菜单栏 · 18 px</text>
+<path d="M855 661l6 6-6 6" fill="none" stroke="#303449" opacity=".6" stroke-width="1.5"/>
+<rect x="536" y="706" width="368" height="46" rx="12" fill="#252938"/>
+<svg x="555" y="720" width="18" height="18" viewBox="48 48 168 168"><g color="#FFFFFF"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="15"><path d="M174 166V188H66V70H106" opacity=".65"/><path d="M108 128H194M163 97L194 128L163 159"/></g></g></svg>
+<text x="591" y="735" font-size="12" fill="#FFFFFF" opacity=".8">深色菜单栏 · 18 px</text>
+<path d="M855 723l6 6-6 6" fill="none" stroke="#FFFFFF" opacity=".6" stroke-width="1.5"/>
+<text x="544" y="796" font-size="12" letter-spacing="1" fill="#7577A0">捕捉 + 行动</text>
+<rect x="960" y="239" width="416" height="586" rx="24" fill="white" stroke="#E3E5EE" stroke-width="1"/>
+<text x="992" y="279" font-size="12" font-weight="700" letter-spacing="1" fill="#6366F1">03 / DIRECT</text>
+<svg x="984" y="304" width="144" height="144" viewBox="0 0 256 256"><defs><linearGradient id="jothandoff-preview" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#jothandoff-preview)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="13"><path d="M174 102V90L146 62H72V194H174V184M96 104H130M96 130H116" opacity=".65"/><path d="M136 150H202M180 128L202 150L180 172"/></g></g></svg>
+<svg x="1263" y="346" width="64" height="64" viewBox="0 0 256 256"><defs><linearGradient id="jothandoff-dev" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366F1"/><stop offset="1" stop-color="#4338CA"/></linearGradient></defs><rect x="16" y="20" width="224" height="224" rx="52" fill="#252853" opacity=".12"/><rect x="16" y="14" width="224" height="224" rx="52" fill="url(#jothandoff-dev)"/><rect x="16.8" y="14.8" width="222.4" height="222.4" rx="51.2" fill="none" stroke="white" stroke-opacity=".25" stroke-width="1.6"/><g color="white"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="13"><path d="M174 102V90L146 62H72V194H174V184M96 104H130M96 130H116" opacity=".65"/><path d="M136 150H202M180 128L202 150L180 172"/></g></g><rect x="128" y="183" width="94" height="40" rx="13" fill="#171B2F"/><text x="175" y="211" font-family="-apple-system, Helvetica, sans-serif" font-size="24" font-weight="800" text-anchor="middle" fill="white">DEV</text></svg>
+<text x="1295" y="433" text-anchor="middle" font-size="11" fill="#646B80">DEV 示意</text>
+<text x="992" y="492" font-size="34" font-weight="750" fill="#1F2338">JotHandoff</text>
+<text x="992" y="528" font-size="18" font-weight="500" fill="#4338CA">把随手记录，交给 AI。</text>
+<text x="992" y="566" font-size="15" fill="#646B80">将快速记录和交接直接写进名称。</text>
+<text x="992" y="591" font-size="15" fill="#646B80">用途清楚，名称比另外两种方案稍长。</text>
+<path d="M992 620H1344" stroke="#ECEEF4"/>
+<rect x="984" y="644" width="368" height="46" rx="12" fill="#F0F2F8"/>
+<svg x="1003" y="658" width="18" height="18" viewBox="48 48 168 168"><g color="#303449"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="13"><path d="M174 102V90L146 62H72V194H174V184M96 104H130M96 130H116" opacity=".65"/><path d="M136 150H202M180 128L202 150L180 172"/></g></g></svg>
+<text x="1039" y="673" font-size="12" fill="#303449" opacity=".8">浅色菜单栏 · 18 px</text>
+<path d="M1303 661l6 6-6 6" fill="none" stroke="#303449" opacity=".6" stroke-width="1.5"/>
+<rect x="984" y="706" width="368" height="46" rx="12" fill="#252938"/>
+<svg x="1003" y="720" width="18" height="18" viewBox="48 48 168 168"><g color="#FFFFFF"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="13"><path d="M174 102V90L146 62H72V194H174V184M96 104H130M96 130H116" opacity=".65"/><path d="M136 150H202M180 128L202 150L180 172"/></g></g></svg>
+<text x="1039" y="735" font-size="12" fill="#FFFFFF" opacity=".8">深色菜单栏 · 18 px</text>
+<path d="M1303 723l6 6-6 6" fill="none" stroke="#FFFFFF" opacity=".6" stroke-width="1.5"/>
+<text x="992" y="796" font-size="12" letter-spacing="1" fill="#7577A0">随记 + 交办</text>
+<text x="64" y="880" font-size="17" font-weight="650" fill="#1F2338">现在复制交接，未来可接入 MCP。</text>
+<text x="64" y="913" font-size="15" fill="#646B80">名称围绕捕捉与交接；图标先用现有主题色，比较识别性与小尺寸表现。</text>
+<text x="64" y="956" font-size="12" fill="#7577A0">以上均为候选品牌。正式应用、数据目录和发布地址尚未改名。初步网络检索不等于商标或域名可用性确认。</text>
+</g></svg>

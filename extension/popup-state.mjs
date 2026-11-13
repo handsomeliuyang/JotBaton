@@ -61,7 +61,7 @@ export function derivePopupState({
 
   let status = "disconnected";
   let statusText = "Disconnected";
-  let statusTitle = "Launch Remarc macOS app, then retry the connection";
+  let statusTitle = "Launch JotBaton macOS app, then retry the connection";
 
   if (paused) {
     status = "paused";
@@ -71,9 +71,9 @@ export function derivePopupState({
     status = "connected";
     statusText = "Connected";
     if (needsTabReload) {
-      statusTitle = "Remarc is connected. Reload this page to enable popup controls.";
+      statusTitle = "JotBaton is connected. Reload this page to enable popup controls.";
     } else if (unsupportedTab) {
-      statusTitle = "Remarc is connected, but this page cannot be controlled.";
+      statusTitle = "JotBaton is connected, but this page cannot be controlled.";
     } else {
       statusTitle = "";
     }
@@ -86,8 +86,8 @@ export function derivePopupState({
 
   if (!paused && !isConnected) {
     hintVisible = true;
-    hintText = "Launch Remarc or retry";
-    hintTitle = "Retry Remarc connection";
+    hintText = "Launch JotBaton or retry";
+    hintTitle = "Retry JotBaton connection";
     hintAction = PopupHintAction.RETRY_WORKER;
   } else if (needsTabReload) {
     hintVisible = true;

@@ -164,7 +164,7 @@ package final class RegionSelectionView: NSView {
         NSColor.black.withAlphaComponent(0.82).setFill()
         NSBezierPath(roundedRect: badge, xRadius: 10, yRadius: 10).fill()
         RemarcBrandAssets.applicationIcon.draw(in: NSRect(x: badge.minX + 6, y: badge.minY + 4, width: 28, height: 28))
-        ("Remarc Dev" as NSString).draw(at: NSPoint(x: badge.minX + 40, y: badge.minY + 11),
+        (AppIdentity.current.displayName as NSString).draw(at: NSPoint(x: badge.minX + 40, y: badge.minY + 11),
             withAttributes: [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.white])
     }
 

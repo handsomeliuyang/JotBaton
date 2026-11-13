@@ -47,12 +47,13 @@ class ReleaseTests(unittest.TestCase):
             app = Path(directory) / 'Remarc.app'
             (app / 'Contents').mkdir(parents=True)
             info = {'CFBundleIdentifier': 'com.metepolat.Remarc', 'RemarcChannel': 'production',
+                    'CFBundleName': 'JotBaton', 'CFBundleDisplayName': 'JotBaton',
                     'CFBundleShortVersionString': '1.2.5', 'CFBundleVersion': '24',
                     'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': False, 'RemarcGitHubUpdates': True,
                     'RemarcInAppUpdates': True, 'SUEnableAutomaticChecks': False, 'SUAutomaticallyUpdate': False,
                     'SUAllowsAutomaticUpdates': False, 'SUVerifyUpdateBeforeExtraction': True, 'SURequireSignedFeed': True,
                     'SUPublicEDKey': json.loads(Path('signing/updates.json').read_text())['public_ed_key'],
-                    'SUFeedURL': 'https://github.com/handsomeliuyang/Remarc/releases/latest/download/appcast-arm64.xml'}
+                    'SUFeedURL': 'https://github.com/handsomeliuyang/JotBaton/releases/latest/download/appcast-arm64.xml'}
             for helper in ['Updater.app/Contents/MacOS/Updater', 'Autoupdate']:
                 path = app / 'Contents/Frameworks/Sparkle.framework/Versions/B' / helper
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +64,8 @@ class ReleaseTests(unittest.TestCase):
                 plist.write_bytes(plistlib.dumps(info))
                 verify.verify_app(app, 'verifier.py')
                 for key, wrong in [('CFBundleIdentifier', 'com.metepolat.Remarc.dev'),
-                                   ('RemarcChannel', 'development'), ('CFBundleShortVersionString', '1.2.4'),
+                                   ('RemarcChannel', 'development'), ('CFBundleName', 'Remarc'),
+                                   ('CFBundleDisplayName', 'Remarc'), ('CFBundleShortVersionString', '1.2.4'),
                                    ('CFBundleVersion', '23'), ('RemarcSourceCommit', 'b' * 40),
                                    ('RemarcManualUpdates', True), ('RemarcGitHubUpdates', False),
                                    ('SUPublicEDKey', 'another key'), ('SURequireSignedFeed', False),

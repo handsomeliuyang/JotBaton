@@ -63,7 +63,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
         )
         // Prevent AppKit's legacy release-on-close (crashes under ARC with dangling pointers)
         window.isReleasedWhenClosed = false
-        window.setLocalizedTitle("Remarc Comments")
+        window.setLocalizedTitle("JotBaton Tasks")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.backgroundColor = .clear

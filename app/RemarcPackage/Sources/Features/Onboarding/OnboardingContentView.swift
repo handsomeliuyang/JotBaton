@@ -55,7 +55,7 @@ package struct OnboardingContentView: View {
 
     private var welcomeText: some View {
         VStack(spacing: 8) {
-            Text(L10n.tr("Welcome to Remarc!"))
+            Text(L10n.tr("Welcome to JotBaton!"))
                 .font(.system(size: 24, weight: .bold))
 
             Text(L10n.tr("A few permissions are needed to get started."))
@@ -71,7 +71,7 @@ package struct OnboardingContentView: View {
             permissionRow(
                 icon: "hand.raised.fill",
                 title: L10n.tr("Accessibility"),
-                description: L10n.tr("Remarc reads your selected text so it can attach comments to it."),
+                description: L10n.tr("JotBaton reads your selected text so it can attach comments to it."),
                 state: controller.accessibilityState,
                 action: { controller.requestAccessibility() },
                 waitingAction: { controller.openAccessibilitySettings() }

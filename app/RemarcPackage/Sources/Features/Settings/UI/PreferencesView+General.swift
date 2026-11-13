@@ -22,7 +22,7 @@ extension PreferencesView {
                         get: { settings.launchAtLogin },
                         set: { settings.launchAtLogin = $0 }
                     ))
-                    describedRow(L10n.tr("When enabled, Remarc always shows in the Dock. Otherwise, it only appears while Settings or Permissions are open.")) {
+                    describedRow(L10n.tr("When enabled, JotBaton always shows in the Dock. Otherwise, it only appears while Settings or Permissions are open.")) {
                         toggleRow(L10n.tr("Show in Dock"), isOn: $settings.showInDock)
                     }
                     describedRow(L10n.tr("Dot shows only whether you have unresolved comments. Dot and Off keep the icon at a fixed width, which helps in crowded menu bars.")) {
@@ -34,14 +34,14 @@ extension PreferencesView {
                         }
                         .nestedSetting()
                     }
-                    describedRow(L10n.tr("Auto-detect shows the Remarc popup as soon as you select text. Hotkey only hides the popup and waits for your shortcut.")) {
+                    describedRow(L10n.tr("Auto-detect shows the JotBaton popup as soon as you select text. Hotkey only hides the popup and waits for your shortcut.")) {
                         pickerRow(L10n.tr("Detection mode"), selection: $settings.selectionDetectionMode) { $0.label }
                     }
                     if PopClipInstaller.isInstalled() {
                         CalloutView(.info, L10n.tr("Using PopClip? Choose Hotkey Only\nto prevent duplicate selection popups."), contentPlacement: .trailing) {
                             GetExtensionButton(
                                 title: L10n.tr("Install PopClip Extension"),
-                                help: L10n.tr("Install the Remarc PopClip extension")
+                                help: L10n.tr("Install the JotBaton PopClip extension")
                             ) {
                                 PopClipInstaller.shared.install()
                             }

@@ -1,6 +1,6 @@
 # Third-party notices
 
-This is the canonical third-party notice for Remarc. A byte-identical copy is
+This is the canonical third-party notice for JotBaton. A byte-identical copy is
 included in the application resources at
 `app/RemarcPackage/Sources/App/Resources/THIRD-PARTY-NOTICES.md`.
 
@@ -8,7 +8,7 @@ The software license texts below were reproduced from the exact source
 checkouts resolved by `app/RemarcPackage/Package.resolved`. Markdown fencing and
 normalization of insignificant trailing whitespace do not alter their terms.
 
-## Swift package dependencies linked into Remarc
+## Swift package dependencies linked into JotBaton
 
 ### Sparkle 2.9.5
 

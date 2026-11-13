@@ -173,7 +173,7 @@ public final class UpdateManager: NSObject, ObservableObject {
                 var request = URLRequest(url: GitHubRelease.latestURL)
                 request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
                 request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-                request.setValue("Remarc", forHTTPHeaderField: "User-Agent")
+                request.setValue("JotBaton", forHTTPHeaderField: "User-Agent")
                 let (data, response) = try await session.data(for: request)
                 let release = try GitHubRelease.decode(data, response: response)
                 #if arch(arm64)
@@ -189,7 +189,7 @@ public final class UpdateManager: NSObject, ObservableObject {
                 candidate = result
                 availableVersion = result?.version
                 guard let result else {
-                    status = L10n.tr("Remarc is up to date.")
+                    status = L10n.tr("JotBaton is up to date.")
                     if manual { showMessage(status) }
                     return
                 }
@@ -215,7 +215,7 @@ public final class UpdateManager: NSObject, ObservableObject {
         promptedVersion = candidate.version
         let alert = NSAlert()
         alert.messageText = L10n.tr("Update \(candidate.version) is available.")
-        alert.informativeText = L10n.tr("Download and verify the update, then automatically restart Remarc. Your comments and settings are kept.")
+        alert.informativeText = L10n.tr("Download and verify the update, then automatically restart JotBaton. Your comments and settings are kept.")
         if !candidate.releaseNotes.isEmpty {
             let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 380, height: 160))
             scroll.hasVerticalScroller = true
@@ -313,7 +313,7 @@ public final class UpdateManager: NSObject, ObservableObject {
     private func showMessage(_ message: String) {
         if let testingMessage { testingMessage(message); return }
         let alert = NSAlert()
-        alert.messageText = L10n.tr("Remarc Update")
+        alert.messageText = L10n.tr("JotBaton Update")
         alert.informativeText = message
         alert.runModal()
     }

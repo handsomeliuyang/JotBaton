@@ -14,8 +14,9 @@ public enum AppIdentity: String, Sendable, CaseIterable {
 
     public var isDevelopment: Bool { self == .development }
     public var bundleIdentifier: String { isDevelopment ? "com.metepolat.Remarc.dev" : "com.metepolat.Remarc" }
-    public var displayName: String { isDevelopment ? "Remarc Dev" : "Remarc" }
-    public var directoryName: String { displayName }
+    public var displayName: String { isDevelopment ? "JotBaton Dev" : "JotBaton" }
+    // Storage names are a compatibility contract, independent of the product brand.
+    public var directoryName: String { isDevelopment ? "Remarc Dev" : "Remarc" }
     public var urlScheme: String { isDevelopment ? "remarc-dev" : "remarc" }
     public var webSocketPort: UInt16 { isDevelopment ? 9275 : 9274 }
     public var appIconName: String { isDevelopment ? "AppIconDev" : "AppIcon" }

@@ -2,8 +2,8 @@ import Foundation
 
 /// Pure release selection policy, shared by both macOS deployment profiles.
 package struct GitHubRelease: Decodable, Sendable {
-    package static let latestURL = URL(string: "https://api.github.com/repos/handsomeliuyang/Remarc/releases/latest")!
-    private static let releasePath = "/handsomeliuyang/Remarc/releases/"
+    package static let latestURL = URL(string: "https://api.github.com/repos/handsomeliuyang/JotBaton/releases/latest")!
+    private static let releasePaths = ["/handsomeliuyang/JotBaton/releases/", "/handsomeliuyang/Remarc/releases/"]
 
     package let tagName: String
     package let htmlURL: URL
@@ -63,7 +63,7 @@ package struct GitHubRelease: Decodable, Sendable {
         let version = tagName.hasPrefix("v") ? String(tagName.dropFirst()) : tagName
         guard !draft, !prerelease,
               let remote = Self.versionParts(version), let local = Self.versionParts(installedVersion),
-              Self.validURL(htmlURL, path: Self.releasePath + "tag/" + tagName) else {
+              let releasePath = Self.releasePaths.first(where: { Self.validURL(htmlURL, path: $0 + "tag/" + tagName) }) else {
             throw UpdateError.invalidResponse
         }
         guard local.lexicographicallyPrecedes(remote) else { return nil }
@@ -75,7 +75,7 @@ package struct GitHubRelease: Decodable, Sendable {
         }
         let matching = assets.filter { $0.name == filename && $0.state == "uploaded" && $0.size > 0 }
         guard matching.count == 1, let asset = matching.first,
-              Self.validURL(asset.browserDownloadURL, path: Self.releasePath + "download/" + tagName + "/" + filename) else {
+              Self.validURL(asset.browserDownloadURL, path: releasePath + "download/" + tagName + "/" + filename) else {
             throw UpdateError.missingPackage
         }
         return Candidate(version: version, releaseURL: htmlURL, downloadURL: asset.browserDownloadURL,

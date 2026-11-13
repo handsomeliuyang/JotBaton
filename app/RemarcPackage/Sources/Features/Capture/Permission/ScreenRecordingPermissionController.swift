@@ -247,7 +247,7 @@ package struct ScreenRecordingPermissionView: View {
                 Text(L10n.tr("Screen Recording Access"))
                     .font(.system(size: 18, weight: .semibold))
 
-                Text(L10n.tr("Remarc needs Screen Recording permission to capture screenshots of selected regions."))
+                Text(L10n.tr("JotBaton needs Screen Recording permission to capture screenshots of selected regions."))
                     .font(.system(size: 13))
                     .foregroundColor(.primary.opacity(0.6))
                     .multilineTextAlignment(.center)

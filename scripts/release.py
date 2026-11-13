@@ -11,7 +11,7 @@ import sys
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = 'handsomeliuyang/Remarc'
+REPOSITORY = 'handsomeliuyang/JotBaton'
 VERSION_PATTERN = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
 RELEASE_SUBJECT = r'(?:Release v|chore\([^)]+\): release v)' + VERSION_PATTERN
 MARKER = '<!-- remarc-release: '

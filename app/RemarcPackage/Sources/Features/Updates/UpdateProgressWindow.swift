@@ -16,7 +16,7 @@ final class UpdateProgressWindow: NSWindowController {
         self.manager = manager
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 230),
                               styleMask: [.titled, .miniaturizable], backing: .buffered, defer: false)
-        window.title = L10n.tr("Remarc Update")
+        window.title = L10n.tr("JotBaton Update")
         window.isReleasedWhenClosed = false
         super.init(window: window)
         let stack = NSStackView()

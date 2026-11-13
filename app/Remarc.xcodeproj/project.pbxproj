@@ -21,7 +21,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		8BC2655C2DEDD3F400F279A4 /* Remarc.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Remarc.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8BC2655C2DEDD3F400F279A4 /* JotBaton.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JotBaton.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8BC265742DEDD3F500F279A4 /* RemarcUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RemarcUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -87,7 +87,7 @@
 		8BC2655D2DEDD3F400F279A4 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				8BC2655C2DEDD3F400F279A4 /* Remarc.app */,
+				8BC2655C2DEDD3F400F279A4 /* JotBaton.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -117,7 +117,7 @@
 				8B90D1472DEDD44A00FBD189 /* RemarcFeature */,
 			);
 			productName = Remarc;
-			productReference = 8BC2655C2DEDD3F400F279A4 /* Remarc.app */;
+			productReference = 8BC2655C2DEDD3F400F279A4 /* JotBaton.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

@@ -40,7 +40,9 @@ jobs:
     timeout-minutes: 45
     env:
       REMARC_BUILD_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
-      REMARC_APP_NAME: ${{ inputs.configuration == 'Debug' && 'Remarc Dev' || 'Remarc' }}
+      REMARC_APP_NAME: ${{ inputs.configuration == 'Debug' && 'JotBaton Dev' || 'JotBaton' }}
+      # Keep published package filenames compatible with existing installers.
+      REMARC_PACKAGE_NAME: ${{ inputs.configuration == 'Debug' && 'Remarc Dev' || 'Remarc' }}
       REMARC_CHANNEL: ${{ inputs.configuration == 'Debug' && 'development' || 'production' }}
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
@@ -82,18 +84,18 @@ jobs:
           $REMARC_APP_NAME — Apple Silicon，macOS 14+
           将 $REMARC_APP_NAME.app 拖入 Applications 后打开。无需本机重新签名。
           此构建使用固定私有证书，未经过 Apple 公证。首次安装请允许运行并授予所需权限。
-          Remarc Dev 使用独立的 Application Support/Remarc Dev 与 iCloud Drive/Remarc Dev。
+          JotBaton Dev 使用独立的 Application Support/Remarc Dev 与 iCloud Drive/Remarc Dev。
           正式版继续使用 Application Support/Remarc 与 iCloud Drive/Remarc。
           Production checks GitHub Releases and offers Upgrade and Restart for verified in-app download, installation and relaunch. Browser-only older versions need one final manual installation.
           https://support.apple.com/en-us/102445
           TEXT
           printf '\nSource commit: %s\n' "$(git rev-parse HEAD)" >> build/dmg/INSTALL.txt
           hdiutil create -volname "$REMARC_APP_NAME Apple Silicon" -srcfolder build/dmg \
-            -ov -format UDZO "build/apple-silicon/$REMARC_APP_NAME-Apple-Silicon-arm64.dmg"
-          hdiutil verify "build/apple-silicon/$REMARC_APP_NAME-Apple-Silicon-arm64.dmg"
+            -ov -format UDZO "build/apple-silicon/$REMARC_PACKAGE_NAME-Apple-Silicon-arm64.dmg"
+          hdiutil verify "build/apple-silicon/$REMARC_PACKAGE_NAME-Apple-Silicon-arm64.dmg"
           cp build/dmg/INSTALL.txt build/apple-silicon/INSTALL.txt
           cd build/apple-silicon
-          shasum -a 256 "$REMARC_APP_NAME-Apple-Silicon-arm64.dmg" > SHA256SUMS
+          shasum -a 256 "$REMARC_PACKAGE_NAME-Apple-Silicon-arm64.dmg" > SHA256SUMS
       - name: Upload installable app
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

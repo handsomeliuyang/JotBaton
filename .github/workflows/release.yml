@@ -43,9 +43,9 @@ jobs:
       NOTES: ${{ inputs.release_notes }}
       EXPECTED_SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
     steps:
-      - name: Require this fork and main
+      - name: Require this repository and main
         run: |
-          test "$GITHUB_REPOSITORY" = handsomeliuyang/Remarc
+          test "$GITHUB_REPOSITORY" = handsomeliuyang/JotBaton
           test "$GITHUB_REF" = refs/heads/main
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -57,6 +57,7 @@ jobs:
           python3 -B scripts/test-release-command.py
           python3 -B scripts/test-sparkle-release.py
           python3 -B scripts/test-build-policy.py
+          python3 -B scripts/test-install-app.py
       - name: Test browser extension
         run: |
           node --test tests/extension/*.test.mjs
@@ -181,12 +182,12 @@ jobs:
           notes += '| `Remarc-Apple-Silicon-arm64.dmg` | Apple Silicon，macOS 14+ |\n\n'
           notes += '两个安装包均为 Release 配置，使用同一源码提交。附带 SHA256SUMS 和安装说明。\n\n'
           notes += '两个安装包使用同一固定私有发布证书签名，未经过 Apple 公证；首次打开可能需要允许运行并重新授权。'
-          notes += '首次安装或旧版迁移需手动替换一次；接入应用内升级后可点击“升级并重启”，自动下载、校验、安装并重启。无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立，测试版不接收正式版更新。\n\n'
+          notes += '首次安装或旧版迁移需手动替换一次；接入应用内升级后可点击“升级并重启”，自动下载、校验、安装并重启。无需本机重新签名。JotBaton Dev 与正式版的数据及 iCloud 目录独立，测试版不接收正式版更新。\n\n'
           notes += f'[安装与发布说明](https://github.com/{repo}/blob/v{version}/RELEASING.md)\n'
           Path('build/release-notes.md').write_text(notes)
           PY
           gh release create "$TAG" build/release/* --draft --verify-tag \
-            --title "Remarc $TAG — Intel + Apple Silicon" --notes-file build/release-notes.md
+            --title "JotBaton $TAG — Intel + Apple Silicon" --notes-file build/release-notes.md
           gh release view "$TAG" --json assets,isDraft,body > build/draft.json
           python3 - <<'PY'
           import json

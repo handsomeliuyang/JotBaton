@@ -20,7 +20,7 @@ extension PreferencesView {
                     toggleRow(L10n.tr("Capture HyperFrames context"), isOn: $settings.webContextHyperframesEnabled)
 
                     if settings.webContextHyperframesEnabled {
-                        Text(L10n.tr("When grabbing an element (or region) on a page that exposes `window.__remarcHFContext`, Remarc captures the current paused timeline moment, the active beat, and the top-3 active tweens with their `timeline.js` source-line ranges. Use Alt+Shift+N for a quick note tied only to the timeline moment (no DOM target)."))
+                        Text(L10n.tr("When grabbing an element (or region) on a page that exposes `window.__remarcHFContext`, JotBaton captures the current paused timeline moment, the active beat, and the top-3 active tweens with their `timeline.js` source-line ranges. Use Alt+Shift+N for a quick note tied only to the timeline moment (no DOM target)."))
                             .font(.system(size: 11))
                             .foregroundStyle(.primary.opacity(0.45))
                             .fixedSize(horizontal: false, vertical: true)

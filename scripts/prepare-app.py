@@ -18,7 +18,7 @@ plist = args.app / 'Contents/Info.plist'
 info = plistlib.loads(plist.read_bytes())
 dev = args.channel == 'development'
 info['CFBundleIdentifier'] = 'com.metepolat.Remarc.dev' if dev else 'com.metepolat.Remarc'
-info['CFBundleName'] = info['CFBundleDisplayName'] = 'Remarc Dev' if dev else 'Remarc'
+info['CFBundleName'] = info['CFBundleDisplayName'] = 'JotBaton Dev' if dev else 'JotBaton'
 info['CFBundleURLTypes'] = [{'CFBundleURLName': info['CFBundleIdentifier'], 'CFBundleURLSchemes': ['remarc-dev' if dev else 'remarc']}]
 info['RemarcManualUpdates'] = dev
 info['RemarcGitHubUpdates'] = not dev
@@ -50,7 +50,7 @@ if dev:
     if popclip.exists():
         content = popclip.read_text().replace('com.metepolat.remarc.popclip', 'com.metepolat.remarc.dev.popclip')
         content = content.replace('["com.metepolat.Remarc"]', '["com.metepolat.Remarc.dev"]')
-        content = content.replace('// name: Remarc\n', '// name: Remarc Dev\n').replace('name: Remarc,', 'name: Remarc Dev,')
+        content = content.replace('// name: JotBaton\n', '// name: JotBaton Dev\n').replace('name: JotBaton,', 'name: JotBaton Dev,')
         content = content.replace('remarc://comment', 'remarc-dev://comment')
         popclip.write_text(content)
 

@@ -1,12 +1,12 @@
 // #popclip
-// name: Remarc
+// name: JotBaton
 // identifier: com.metepolat.remarc.popclip
-// description: Comment on the selected text in Remarc.
+// description: Comment on the selected text in JotBaton.
 // popclipVersion: 4586
 // macosVersion: "14.0"
 // keywords: comments feedback review annotation notes agent
 // icon: scale=80 file:remarc-logo.svg
-// app: { name: Remarc, link: "https://remarc.app", bundleIdentifiers: ["com.metepolat.Remarc"], checkInstalled: true }
+// app: { name: JotBaton, link: "https://github.com/handsomeliuyang/JotBaton", bundleIdentifiers: ["com.metepolat.Remarc"], checkInstalled: true }
 
 // Deliberately sends no selection text. Remarc re-reads its own selection, which
 // keeps the comment text identical to the hotkey path, preserves the selection

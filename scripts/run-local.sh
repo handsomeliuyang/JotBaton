@@ -4,7 +4,7 @@ set -euo pipefail
 REMARC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REMARC_APP_DIR="$REMARC_ROOT/app"
 REMARC_PACKAGE="$REMARC_APP_DIR/RemarcPackage"
-REMARC_OUTPUT="$REMARC_APP_DIR/DerivedData/Build/Products/Debug/Remarc Dev.app"
+REMARC_OUTPUT="$REMARC_APP_DIR/DerivedData/Build/Products/Debug/JotBaton Dev.app"
 REMARC_LOCK_BACKUP="$(mktemp -t remarc-local-lock)"
 cp "$REMARC_PACKAGE/Package.resolved" "$REMARC_LOCK_BACKUP"
 trap 'cp "$REMARC_LOCK_BACKUP" "$REMARC_PACKAGE/Package.resolved"; rm -f "$REMARC_LOCK_BACKUP"' EXIT
@@ -21,7 +21,7 @@ then
         bash "$REMARC_ROOT/scripts/build-apple-silicon.sh"
     fi
 else
-    echo "Building a signed Remarc Dev preview with Command Line Tools."
+    echo "Building a signed JotBaton Dev preview with Command Line Tools."
     REMARC_SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
     if [ ! -d "$REMARC_SDK" ]; then
         echo "This preview needs the macOS 26.5 SDK, or full Xcode selected with xcode-select." >&2
@@ -94,8 +94,8 @@ PYTHON
     cp "$REMARC_APP_DIR/Remarc/Info.plist" "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.metepolat.Remarc.dev' "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundleExecutable string RemarcDev' "$REMARC_OUTPUT/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c 'Add :CFBundleName string Remarc Dev' "$REMARC_OUTPUT/Contents/Info.plist"
-    /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string Remarc Dev' "$REMARC_OUTPUT/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c 'Add :CFBundleName string JotBaton Dev' "$REMARC_OUTPUT/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c 'Add :CFBundleDisplayName string JotBaton Dev' "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundlePackageType string APPL' "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundleShortVersionString string 1.2.4' "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundleVersion string 23' "$REMARC_OUTPUT/Contents/Info.plist"

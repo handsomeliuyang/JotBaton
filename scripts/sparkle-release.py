@@ -70,15 +70,15 @@ def write_feed(directory, arch, version, build, notes, signature):
     package = directory / filename
     rss = ET.Element('rss', version='2.0')
     channel = ET.SubElement(rss, 'channel')
-    ET.SubElement(channel, 'title').text = 'Remarc ' + arch
+    ET.SubElement(channel, 'title').text = 'JotBaton ' + arch
     item = ET.SubElement(channel, 'item')
-    ET.SubElement(item, 'title').text = 'Remarc ' + version
+    ET.SubElement(item, 'title').text = 'JotBaton ' + version
     ET.SubElement(item, tag('version')).text = build
     ET.SubElement(item, tag('shortVersionString')).text = version
     ET.SubElement(item, tag('minimumSystemVersion')).text = minimum_os
     ET.SubElement(item, 'description', {tag('format'): 'markdown'}).text = notes
     ET.SubElement(item, 'enclosure', {
-        'url': f'https://github.com/handsomeliuyang/Remarc/releases/download/v{version}/{filename}',
+        'url': f'https://github.com/handsomeliuyang/JotBaton/releases/download/v{version}/{filename}',
         'length': str(package.stat().st_size), 'type': 'application/octet-stream',
         tag('edSignature'): signature,
     })
@@ -112,7 +112,7 @@ def verify(directory, version, build):
             raise ValueError('Expected one native update package')
         enclosure = enclosures[0]
         package = directory / filename
-        url = f'https://github.com/handsomeliuyang/Remarc/releases/download/v{version}/{filename}'
+        url = f'https://github.com/handsomeliuyang/JotBaton/releases/download/v{version}/{filename}'
         if enclosure.get('url') != url or enclosure.get('length') != str(package.stat().st_size):
             raise ValueError('Update feed package URL or size does not match the release')
         verify_signature(public, package, enclosure.attrib[tag('edSignature')])

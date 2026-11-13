@@ -55,7 +55,7 @@ package enum SnapshotCloudLocation {
             let probe = folder.appendingPathComponent(".remarc-write-test-\(UUID())")
             defer { try? fm.removeItem(at: probe) }
             do { try Data().write(to: probe, options: .withoutOverwriting) }
-            catch { throw SnapshotError.underlying(L10n.tr("Remarc cannot write to \(channel.cloudDisplayPath). Authorize access and retry."), error as NSError) }
+            catch { throw SnapshotError.underlying(L10n.tr("JotBaton cannot write to \(channel.cloudDisplayPath). Authorize access and retry."), error as NSError) }
         }
         return folder
     }

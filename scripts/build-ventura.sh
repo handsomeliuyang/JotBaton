@@ -46,10 +46,10 @@ mkdir -p "$LOCK_DIR"
 cp RemarcPackage/Package.resolved "$LOCK_DIR/Package.resolved"
 
 CHANNEL=production
-APP_NAME=Remarc
+APP_NAME=JotBaton
 if [[ "$CONFIGURATION" = Debug ]]; then
   CHANNEL=development
-  APP_NAME="Remarc Dev"
+  APP_NAME="JotBaton Dev"
 fi
 xcodebuild clean build \
   -workspace "$REPO_ROOT/app/Remarc.xcworkspace" \

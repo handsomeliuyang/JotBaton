@@ -43,7 +43,9 @@ jobs:
     env:
       REMARC_SIGNING_P12_BASE64: ${{ secrets.REMARC_SIGNING_P12_BASE64 }}
       REMARC_SIGNING_P12_PASSWORD: ${{ secrets.REMARC_SIGNING_P12_PASSWORD }}
-      REMARC_APP_NAME: ${{ (inputs.configuration || 'Debug') == 'Debug' && 'Remarc Dev' || 'Remarc' }}
+      REMARC_APP_NAME: ${{ (inputs.configuration || 'Debug') == 'Debug' && 'JotBaton Dev' || 'JotBaton' }}
+      # Keep published package filenames compatible with existing installers.
+      REMARC_PACKAGE_NAME: ${{ (inputs.configuration || 'Debug') == 'Debug' && 'Remarc Dev' || 'Remarc' }}
       REMARC_CHANNEL: ${{ (inputs.configuration || 'Debug') == 'Debug' && 'development' || 'production' }}
       REMARC_VENTURA: '1'
       REMARC_BUILD_CONFIGURATION: ${{ inputs.configuration || 'Debug' }}
@@ -58,9 +60,9 @@ jobs:
         run: |
           mkdir -p build/ventura
           ditto -c -k --sequesterRsrc --keepParent \
-            "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app" "build/ventura/$REMARC_APP_NAME-Ventura-x86_64.zip"
+            "app/DerivedData/Build/Products/$REMARC_BUILD_CONFIGURATION/$REMARC_APP_NAME.app" "build/ventura/$REMARC_PACKAGE_NAME-Ventura-x86_64.zip"
           cd build/ventura
-          shasum -a 256 "$REMARC_APP_NAME-Ventura-x86_64.zip" > SHA256SUMS
+          shasum -a 256 "$REMARC_PACKAGE_NAME-Ventura-x86_64.zip" > SHA256SUMS
       # Intel hosted VMs lack a usable Metal device for Core Image tests.
       # Run keyboard/toast/backend behavior here; the full suite runs below.
       - name: Run compatibility behavior tests on Intel

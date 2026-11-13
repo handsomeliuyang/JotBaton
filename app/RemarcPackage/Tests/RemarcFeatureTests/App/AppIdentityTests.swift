@@ -7,6 +7,7 @@ import Testing
 struct AppIdentityTests {
     @Test func productionKeepsExistingLocationsAndIdentity() {
         let identity = AppIdentity.production
+        #expect(identity.displayName == "JotBaton")
         #expect(identity.bundleIdentifier == "com.metepolat.Remarc")
         #expect(identity.appSupportURL(in: URL(fileURLWithPath: "/Users/test")).path == "/Users/test/Library/Application Support/Remarc")
         #expect(identity.cloudURL(in: URL(fileURLWithPath: "/cloud")).path == "/cloud/Remarc")
@@ -19,6 +20,8 @@ struct AppIdentityTests {
         let drive = URL(fileURLWithPath: "/cloud")
         let dev = AppIdentity.development
         let release = AppIdentity.production
+        #expect(dev.displayName == "JotBaton Dev")
+        #expect(dev.directoryName == "Remarc Dev")
         #expect(dev.appSupportURL(in: home) != release.appSupportURL(in: home))
         #expect(dev.cloudURL(in: drive) != release.cloudURL(in: drive))
         #expect(dev.cloudURL(in: drive).path == "/cloud/Remarc Dev")
