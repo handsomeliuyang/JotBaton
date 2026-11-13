@@ -105,7 +105,7 @@ final class OpenSourceReadinessTests: XCTestCase {
 
         let requiredMarkers = [
             "refs/heads/main",
-            "handsomeliuyang/Remarc",
+            "handsomeliuyang/JotBaton",
             "cancel-in-progress: false",
             "scripts/prepare-fork-release.py",
             "scripts/verify-fork-release.py",
@@ -124,12 +124,12 @@ final class OpenSourceReadinessTests: XCTestCase {
             XCTAssertTrue(workflow.contains(marker), "Release workflow is missing safeguard: \(marker)")
         }
 
-        let repositoryGuard = try XCTUnwrap(workflow.range(of: "Require this fork and main"))
+        let repositoryGuard = try XCTUnwrap(workflow.range(of: "Require this repository and main"))
         let checkoutStep = try XCTUnwrap(workflow.range(of: "uses: actions/checkout@"))
         XCTAssertLessThan(
             repositoryGuard.lowerBound,
             checkoutStep.lowerBound,
-            "Fork and branch must be checked before source checkout and all publishing work"
+            "Repository and branch must be checked before source checkout and all publishing work"
         )
 
         let draftVerification = try XCTUnwrap(workflow.range(of: "cd build/draft-verified && shasum"))

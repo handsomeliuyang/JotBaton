@@ -47,7 +47,7 @@ private func makeComment(
     #expect((json["timestamp"] as? String)?.hasPrefix("2023-11-14T") == true)
 
     let app = try #require(json["app"] as? [String: Any])
-    #expect(app["name"] as? String == "Remarc")
+    #expect(app["name"] as? String == "JotBaton")
     #expect(app["version"] as? String == "1.2.3")
 
     let session = try #require(json["session"] as? [String: Any])
