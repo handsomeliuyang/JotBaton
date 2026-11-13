@@ -6,35 +6,27 @@ import KeyboardShortcuts
 import SwiftUI
 
 /// Display name mapping for all app shortcut names.
-/// Used in conflict detection toasts and fn toggle toasts.
+/// Used in conflict detection toasts.
 extension KeyboardShortcuts.Name {
     // KeyboardShortcuts.Name is a struct, not an enum — use if/else, not switch.
     var displayName: String {
         if self == .commentOnSelection { return L10n.tr("Comment on Selection") }
+        if self == .quickNote { return L10n.tr("Quick Note") }
         if self == .screenshotComment { return L10n.tr("Screenshot") }
         if self == .screenshotCommentWake { return L10n.tr("Screenshot & Send Instantly") }
         if self == .pasteAllComments { return L10n.tr("Paste All") }
-        if self == .voiceInput { return L10n.tr("Voice Input") }
-        if self == .dictation { return L10n.tr("Push to Talk") }
-        if self == .dictationHandsFree { return L10n.tr("Hands-free Shortcut") }
-        if self == .pasteLastTranscription { return L10n.tr("Paste Last Transcription") }
         if self == .openRemarc { return L10n.tr("Open Remarc") }
-        if self == .startCritMode { return L10n.tr("Start Crit Mode") }
         return rawValue
     }
 
     /// All shortcut names that participate in conflict detection.
     static let allAppShortcuts: [KeyboardShortcuts.Name] = [
         .commentOnSelection,
+        .quickNote,
         .screenshotComment,
         .screenshotCommentWake,
         .pasteAllComments,
-        .voiceInput,
-        .dictation,
-        .dictationHandsFree,
-        .pasteLastTranscription,
         .openRemarc,
-        .startCritMode,
     ]
 }
 

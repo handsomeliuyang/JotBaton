@@ -32,7 +32,7 @@ extension PreferencesView {
 
     var appShortcutsResetButton: some View {
         textButton(L10n.tr("Reset"), restOpacity: 0.6) {
-            KeyboardShortcuts.reset(.commentOnSelection, .screenshotComment, .screenshotCommentWake, .pasteAllComments, .voiceInput, .dictation, .dictationHandsFree, .pasteLastTranscription, .openRemarc, .startCritMode)
+            KeyboardShortcuts.reset(.commentOnSelection, .quickNote, .screenshotComment, .screenshotCommentWake, .pasteAllComments, .openRemarc)
         }
     }
 
@@ -149,10 +149,6 @@ extension PreferencesView {
         }
     }
 
-    var voiceSettingsGearButton: some View {
-        VoiceSettingsGearButton { selectedSection = .voice }
-    }
-
     /// A picker row using custom RemarcDropdown for uniform width and proper hover states.
     func pickerRow<T: Hashable & CaseIterable & RawRepresentable>(
         _ label: String,
@@ -189,6 +185,5 @@ extension PreferencesView {
     }
 
     // MARK: - Export Tab
-
 
 }

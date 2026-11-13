@@ -24,4 +24,4 @@ Out of scope:
 - Static presentation copy and assets (`website/public/`), unless they create a security impact
 - Third-party dependencies (report upstream, but a heads-up is appreciated if Remarc's usage is affected)
 
-Remarc runs with Accessibility, Screen Recording, and Microphone permissions, so reports about ways a malicious process or web page could abuse Remarc's access are particularly valuable.
+Remarc runs with Accessibility and Screen Recording permissions, so reports about ways a malicious process or web page could abuse Remarc's access are particularly valuable.

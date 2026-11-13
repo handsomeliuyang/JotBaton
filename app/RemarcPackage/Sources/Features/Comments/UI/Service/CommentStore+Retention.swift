@@ -191,10 +191,8 @@ extension CommentStore {
 
     func pruneExpiredHistory() {
         let historyRetention = SettingsManager.shared.historyRetentionDays
-        let transcriptionRetention = SettingsManager.shared.transcriptionRetentionDays
         let now = Date()
         let historyCutoff = Calendar.current.date(byAdding: .day, value: -historyRetention, to: now) ?? now
-        let transcriptionCutoff = Calendar.current.date(byAdding: .day, value: -transcriptionRetention, to: now) ?? now
 
         let commentsBefore = appState.comments.count
         let sessionsBefore = appState.sessions.count
@@ -205,20 +203,10 @@ extension CommentStore {
         // existed would never be collected by anything.
         AnnotationMarkStore.removeOrphanedSidecars()
 
-        // Pass 3: Prune old transcriptions (soft-deleted or past retention)
-        let transcriptionsBefore = appState.transcriptions.count
-        appState.transcriptions.removeAll { transcription in
-            if transcription.isDeleted, let deletedAt = transcription.deletedAt {
-                return deletedAt < historyCutoff
-            }
-            return transcription.createdAt < transcriptionCutoff
-        }
-        let transcriptionsRemoved = transcriptionsBefore - appState.transcriptions.count
-
         let commentsRemoved = commentsBefore - appState.comments.count
         let sessionsRemoved = sessionsBefore - appState.sessions.count
-        if commentsRemoved > 0 || sessionsRemoved > 0 || orphansRemoved > 0 || transcriptionsRemoved > 0 {
-            debugLog("CommentStore: Pruned \(commentsRemoved) comments, \(sessionsRemoved) sessions, \(orphansRemoved) orphaned images, \(transcriptionsRemoved) transcriptions")
+        if commentsRemoved > 0 || sessionsRemoved > 0 || orphansRemoved > 0 {
+            debugLog("CommentStore: Pruned \(commentsRemoved) comments, \(sessionsRemoved) sessions, \(orphansRemoved) orphaned images")
             scheduleSave()
         }
     }

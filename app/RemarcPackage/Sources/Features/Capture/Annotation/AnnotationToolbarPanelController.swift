@@ -3,10 +3,7 @@ import SwiftUI
 import Combine
 
 /// The toolbar panel's own Escape handling.
-///
-/// `KeyablePanel` in `CommentInputWindowController` is shared with the voice path
-/// and branches on `autoSaveCountdownActive`; reusing it here would either steal
-/// that branch or need a third condition inside a type that already has two.
+/// Keeps annotation dismissal routed through its coordinator.
 private final class KeyableAnnotationPanel: AnnotationHistoryPanel {
     package var onCancel: (() -> Void)?
     package override var canBecomeKey: Bool { true }

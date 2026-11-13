@@ -88,16 +88,6 @@ package struct OnboardingContentView: View {
                 waitingAction: { controller.openAccessibilitySettings() }
             )
 
-            if controller.requiresMicrophonePermission {
-                permissionRow(
-                    icon: "mic.fill",
-                    title: L10n.tr("Microphone"),
-                    description: L10n.tr("Used for voice dictation and speaking your comments hands-free."),
-                    state: controller.microphoneState,
-                    action: { controller.requestMicrophone() }
-                )
-            }
-
             permissionRow(
                 icon: "rectangle.dashed.badge.record",
                 title: L10n.tr("Screen Recording"),

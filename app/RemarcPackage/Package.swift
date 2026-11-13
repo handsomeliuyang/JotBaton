@@ -3,7 +3,7 @@
 import PackageDescription
 import Foundation
 
-// Opt in explicitly: the upstream build retains its full speech backend.
+// Opt in explicitly to the macOS 13 compatibility profile.
 let venturaBuild = Context.environment["REMARC_VENTURA"] == "1"
 
 let package = Package(
@@ -18,11 +18,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.5"),
         .package(url: "https://github.com/linearmouse/AppMover", branch: "master"),
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.0.1"),
-        .package(url: "https://github.com/argmaxinc/argmax-oss-swift", from: "1.0.0")
-    ] + (venturaBuild ? [] : [
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.15.5")
-    ]),
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.0.1")
+    ],
     targets: [
         .target(name: "CorePlatform", path: "Sources/Core/Platform"),
         .target(name: "CoreLocalization", path: "Sources/Core/Localization", resources: [.process("Resources")]),
@@ -30,22 +27,13 @@ let package = Package(
         .target(name: "CoreUI", dependencies: ["CorePlatform", "CoreLocalization", "CoreTheme"], path: "Sources/Core/UI"),
         .target(name: "FeatureComments", dependencies: ["CorePlatform", "CoreLocalization"], path: "Sources/Features/Comments", exclude: ["UI"]),
         .target(name: "FeatureCapture", dependencies: ["CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI"], path: "Sources/Features/Capture", exclude: ["UI"]),
-        .target(
-            name: "FeatureVoice",
-            dependencies: ["CorePlatform", "CoreLocalization",
-                .product(name: "WhisperKit", package: "argmax-oss-swift")
-            ] + (venturaBuild ? [] : [.product(name: "FluidAudio", package: "FluidAudio")]),
-            path: "Sources/Features/Voice", exclude: ["UI"],
-            swiftSettings: venturaBuild ? [.define("REMARC_VENTURA")] : []
-        ),
         .target(name: "FeatureIntegrations", dependencies: ["CorePlatform", "CoreLocalization"], path: "Sources/Features/Integrations", exclude: ["UI"]),
         .target(name: "FeatureSnapshotSync", dependencies: ["CorePlatform", "CoreLocalization", "FeatureComments", "FeatureCapture"], path: "Sources/Features/SnapshotSync", exclude: ["UI"]),
         .target(name: "FeatureUpdates", dependencies: ["CorePlatform", "CoreLocalization",
             .product(name: "Sparkle", package: "Sparkle")], path: "Sources/Features/Updates"),
         .target(name: "FeatureSettings", dependencies: ["CorePlatform", "CoreLocalization", "CoreUI",
-            "FeatureComments", "FeatureCapture", "FeatureVoice", "FeatureIntegrations",
-            .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")]
-            + (venturaBuild ? [] : [.product(name: "FluidAudio", package: "FluidAudio")]),
+            "FeatureComments", "FeatureCapture", "FeatureIntegrations",
+            .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")],
             path: "Sources/Features/Settings", exclude: ["UI"]),
         .target(name: "FeatureOnboarding", dependencies: ["CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture", "FeatureIntegrations"], path: "Sources/Features/Onboarding"),
         // Application composition and UI workflows. The Xcode app retains its
@@ -54,11 +42,11 @@ let package = Package(
             name: "RemarcFeature",
             dependencies: [
                 "CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureComments", "FeatureCapture",
-                "FeatureVoice", "FeatureIntegrations", "FeatureSnapshotSync", "FeatureUpdates", "FeatureSettings", "FeatureOnboarding",
+                "FeatureIntegrations", "FeatureSnapshotSync", "FeatureUpdates", "FeatureSettings", "FeatureOnboarding",
                 .product(name: "Sparkle", package: "Sparkle"),
                 .product(name: "AppMover", package: "AppMover"),
                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")
-            ] + (venturaBuild ? [] : [.product(name: "FluidAudio", package: "FluidAudio")]),
+            ],
             path: "Sources",
             exclude: [
                 "Core",
@@ -85,9 +73,6 @@ let package = Package(
                 "Features/SnapshotSync/SnapshotSyncManager.swift",
                 "Features/SnapshotSync/SnapshotSyncState.swift",
                 "Features/Updates",
-                "Features/Voice/Audio",
-                "Features/Voice/Model",
-                "Features/Voice/Transcription",
             ],
             resources: [.process("App/Resources")],
             swiftSettings: venturaBuild ? [.define("REMARC_VENTURA")] : []
@@ -95,7 +80,7 @@ let package = Package(
         .testTarget(
             name: "RemarcFeatureTests",
             dependencies: ["RemarcFeature", "CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI",
-                "FeatureComments", "FeatureCapture", "FeatureVoice", "FeatureIntegrations",
+                "FeatureComments", "FeatureCapture", "FeatureIntegrations",
                 "FeatureSnapshotSync", "FeatureUpdates", "FeatureSettings", "FeatureOnboarding"],
             resources: [.copy("Fixtures")]
         ),

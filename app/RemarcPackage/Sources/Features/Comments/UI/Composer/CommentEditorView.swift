@@ -16,9 +16,7 @@ struct CommentEditorView: View {
     @State private var isCloseHovered = false
     @State private var isSaveHovered = false
     @State private var isAttachHovered = false
-    @State private var isMicHovered = false
     @State private var editorSessionID: UUID?
-    @State private var suppressTextCancelAutoSave = false
 
     let screenshotImagePath: String?
     let referenceText: String?
@@ -120,54 +118,33 @@ struct CommentEditorView: View {
                     .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
                     .help(L10n.tr("Attach image"))
 
-                    if #available(macOS 26, *) {
-                        VoiceMicButton(
-                            isMicHovered: $isMicHovered,
-                            appendText: appendTranscribedText,
-                            transcriptionGeneration: presentationGeneration,
-                            acceptsTranscription: { floatingController.acceptsVoiceTranscription($0) }
-                        )
-                    }
-
                     Spacer()
 
-                    if #available(macOS 26, *) {
-                        VoiceAwareSaveButton(
-                            isSaveHovered: $isSaveHovered,
-                            colorScheme: colorScheme,
-                            onSave: { onSave(commentText, attachments) },
-                            appendText: appendTranscribedText,
-                            transcriptionGeneration: presentationGeneration,
-                            acceptsTranscription: { floatingController.acceptsVoiceTranscription($0) },
-                            autoSaveState: voiceAutoSaveButtonState
-                        )
-                    } else {
-                        Button(action: { onSave(commentText, attachments) }) {
-                            HStack(spacing: 6) {
-                                Text(L10n.tr("Save"))
-                                    .font(.system(size: 12, weight: .medium))
-                                HStack(spacing: 1) {
-                                    Image(systemName: "command")
-                                    Image(systemName: "return")
-                                }
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.5))
+                    Button(action: { onSave(commentText, attachments) }) {
+                        HStack(spacing: 6) {
+                            Text(L10n.tr("Save"))
+                                .font(.system(size: 12, weight: .medium))
+                            HStack(spacing: 1) {
+                                Image(systemName: "command")
+                                Image(systemName: "return")
                             }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5)
-                            .background(
-                                Color.remarcBrandGradient(for: colorScheme),
-                                in: RoundedRectangle(cornerRadius: 6)
-                            )
-                            .opacity(isSaveHovered ? 1.0 : 0.85)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
                         }
-                        .buttonStyle(.plain)
-                        .onHover { hovering in isSaveHovered = hovering }
-                        .animation(.easeInOut(duration: 0.15), value: isSaveHovered)
-                        .modifier(SaveButtonFeedbackModifier(trigger: floatingController.saveFeedbackTrigger))
-                        .accessibilityIdentifier("remarc.commentInput.submitButton")
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(
+                            Color.remarcBrandGradient(for: colorScheme),
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
+                        .opacity(isSaveHovered ? 1.0 : 0.85)
                     }
+                    .buttonStyle(.plain)
+                    .onHover { hovering in isSaveHovered = hovering }
+                    .animation(.easeInOut(duration: 0.15), value: isSaveHovered)
+                    .modifier(SaveButtonFeedbackModifier(trigger: floatingController.saveFeedbackTrigger))
+                    .accessibilityIdentifier("remarc.commentInput.submitButton")
                 }
             }
             .padding(.horizontal, 16)
@@ -187,11 +164,6 @@ struct CommentEditorView: View {
             .padding(.top, 6)
             .padding(.trailing, 6)
         }
-        .overlay {
-            if #available(macOS 26, *) {
-                VoiceRecordingBorder(colorScheme: colorScheme)
-            }
-        }
         .onAppear {
             guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
             isFocused = true
@@ -206,44 +178,12 @@ struct CommentEditorView: View {
         .onRemarcChange(of: commentText) { newValue in
             guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
             floatingController.currentText = newValue
-            if floatingController.autoSaveCountdownActive && !suppressTextCancelAutoSave {
-                floatingController.cancelAutoSave()
-            }
-        }
-        .onRemarcChange(of: floatingController.pendingVoiceText) { text in
-            guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
-            guard let text, !text.isEmpty else { return }
-            suppressTextCancelAutoSave = true
-            appendTranscribedText(text)
-            floatingController.pendingVoiceText = nil
-            floatingController.currentText = commentText
-            if #available(macOS 26, *), VoiceInputService.shared.state == .idle {
-                floatingController.startAutoSaveCountdown()
-            }
-            DispatchQueue.main.async {
-                suppressTextCancelAutoSave = false
-            }
         }
         .onRemarcChange(of: floatingController.validationFeedbackTrigger) { trigger in
             guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
             guard trigger > 0 else { return }
             refocusEditor()
         }
-    }
-
-    private func appendTranscribedText(_ text: String) {
-        appendVoiceText(text, to: &commentText)
-    }
-
-    @available(macOS 26, *)
-    private var voiceAutoSaveButtonState: VoiceAutoSaveButtonState {
-        VoiceAutoSaveButtonState(
-            countdownActive: floatingController.autoSaveCountdownActive,
-            progress: floatingController.autoSaveProgress,
-            remainingSeconds: floatingController.autoSaveRemainingSeconds,
-            feedbackTrigger: floatingController.saveFeedbackTrigger,
-            onHoverChanged: { floatingController.isSaveButtonHovered = $0 }
-        )
     }
 
     private func refocusEditor() {

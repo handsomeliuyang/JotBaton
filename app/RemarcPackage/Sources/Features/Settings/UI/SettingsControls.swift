@@ -52,51 +52,6 @@ struct GetExtensionButton: View {
     }
 }
 
-struct VoiceSettingsGearButton: View {
-    @ObservedObject private var localization = LocalizationManager.shared
-    var action: () -> Void
-    @State private var isHovered = false
-
-    private let collapsedWidth: CGFloat = 15
-    private let expandedWidth: CGFloat = 96
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 3) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.primary.opacity(isHovered ? 0.55 : 0.25))
-
-                Text(L10n.tr("More settings"))
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.55))
-                    .lineLimit(1)
-                    .fixedSize()
-            }
-            .padding(.horizontal, isHovered ? 6 : 3)
-            .padding(.vertical, 2)
-            .frame(width: isHovered ? expandedWidth : collapsedWidth, alignment: .leading)
-            .background(
-                Capsule()
-                    .fill(Color.primary.opacity(isHovered ? 0.06 : 0))
-            )
-            .overlay(
-                Capsule()
-                    .strokeBorder(Color.primary.opacity(isHovered ? 0.12 : 0), lineWidth: 0.5)
-            )
-            .clipShape(Capsule())
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .help(L10n.tr("Open Voice settings"))
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                isHovered = hovering
-            }
-        }
-    }
-}
-
 /// Shortcut recorder styled to match KeyboardShortcuts.Recorder (NSSearchField-based).
 struct ExtensionShortcutRecorder: View {
     @ObservedObject private var localization = LocalizationManager.shared
@@ -232,7 +187,7 @@ struct ExtensionShortcutRecorderField: NSViewRepresentable {
 
         private func checkConflict(_ candidate: ExtensionShortcut) -> String? {
             let appShortcuts: [KeyboardShortcuts.Name] = [
-                .commentOnSelection, .screenshotComment, .pasteAllComments, .voiceInput, .pasteLastTranscription, .openRemarc, .startCritMode
+                .commentOnSelection, .quickNote, .screenshotComment, .pasteAllComments, .openRemarc
             ]
             guard let candidateKeyCode = candidate.carbonKeyCode else { return nil }
             for name in appShortcuts {

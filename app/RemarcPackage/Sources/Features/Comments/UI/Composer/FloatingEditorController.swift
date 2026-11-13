@@ -13,11 +13,7 @@ private class KeyableEditorPanel: NSPanel {
 
     override func cancelOperation(_ sender: Any?) {
         Task { @MainActor in
-            if FloatingEditorController.shared.autoSaveCountdownActive {
-                FloatingEditorController.shared.cancelAutoSave()
-            } else {
-                FloatingEditorController.shared.dismiss()
-            }
+            FloatingEditorController.shared.dismiss()
         }
     }
 }
@@ -30,13 +26,8 @@ public final class FloatingEditorController: ObservableObject {
     @Published public var currentText: String = ""
     @Published public var currentAttachments: [String] = []
     @Published public var targetSessionID: UUID?
-    @Published public var pendingVoiceText: String?
-    @Published public var autoSaveCountdownActive: Bool = false
-    @Published public var autoSaveProgress: Double = 0
-    @Published public var autoSaveRemainingSeconds: Int = 0
     @Published public private(set) var saveFeedbackTrigger: Int = 0
     @Published public private(set) var validationFeedbackTrigger: Int = 0
-    @Published public var isSaveButtonHovered: Bool = false
     public var suppressClickOutside: Bool = false
 
     private var panel: NSPanel?
@@ -46,13 +37,9 @@ public final class FloatingEditorController: ObservableObject {
     private var contentCancellable: AnyCancellable?
     private var initialText: String = ""
     private var initialAttachments: [String] = []
-    private var isVoiceInvoked: Bool = false
-    private var allowsVoiceAutoSave: Bool = false
     private var currentCommentType: CommentType?
     private var currentSaveAction: ((String, [String]) -> Bool)?
     private var currentSuccessMessage: String?
-    private var autoSaveTask: Task<Void, Never>?
-    private var autoSaveClickMonitor: Any?
     private var presentationGeneration: UInt64 = 0
 
     public var currentPresentationGeneration: UInt64 { presentationGeneration }
@@ -86,6 +73,15 @@ public final class FloatingEditorController: ObservableObject {
 
     /// Show editor for creating a quick note
     public func showForQuickNote() {
+        // Repeated shortcuts and menu actions must never replace an open draft.
+        if CommentInputController.shared.isVisible {
+            CommentInputController.shared.bringToFront()
+            return
+        }
+        if isVisible {
+            bringToFront()
+            return
+        }
         show(
             referenceText: nil,
             screenshotImagePath: nil,
@@ -108,6 +104,12 @@ public final class FloatingEditorController: ObservableObject {
         )
     }
 
+    public func bringToFront() {
+        guard isVisible, !suppressClickOutside else { return }
+        dimOverlay?.orderFront(nil)
+        panel?.makeKeyAndOrderFront(nil)
+    }
+
     /// Temporarily hide editor and dim overlay so system dialogs (NSOpenPanel) appear unobstructed.
     /// NSOpenPanel runs out-of-process and its window level cannot be controlled by the host app.
     public func orderOutForSystemDialog() {
@@ -121,33 +123,12 @@ public final class FloatingEditorController: ObservableObject {
         panel?.makeKeyAndOrderFront(nil)
     }
 
-    public func appendVoiceText(_ text: String, forPresentationGeneration generation: UInt64) {
-        guard acceptsVoiceTranscription(generation) else {
-            debugLog("FloatingEditorController: Discarded transcription for stale presentation")
-            return
-        }
-        pendingVoiceText = text
-    }
-
-    public func markVoiceInvoked() {
-        isVoiceInvoked = true
-    }
-
     func isCurrentPresentation(_ generation: UInt64) -> Bool {
         presentationGeneration == generation
     }
 
-    func acceptsVoiceTranscription(_ generation: UInt64) -> Bool {
-        DraftGenerationPolicy.accepts(
-            capturedGeneration: generation,
-            currentGeneration: presentationGeneration,
-            isVisible: isVisible
-        )
-    }
-
     private func attemptSave(text: String, attachments: [String]) {
-        // Button, Command-Return, and voice auto-save all converge here.
-        cancelAutoSaveCountdown()
+        // Button and Command-Return saves converge here.
 
         guard let type = currentCommentType,
               let saveAction = currentSaveAction
@@ -194,97 +175,7 @@ public final class FloatingEditorController: ObservableObject {
         )
     }
 
-    // MARK: - Auto-Save Voice Notes
-
-    public func startAutoSaveCountdown() {
-        guard VoiceAutoSavePolicy.shouldStartCountdown(
-            isVoiceInvoked: isVoiceInvoked,
-            autoSaveEnabled: SettingsManager.shared.autoSaveVoiceNotes,
-            text: currentText,
-            allowsAutoSave: allowsVoiceAutoSave
-        )
-        else { return }
-
-        cancelAutoSaveCountdown()
-        autoSaveCountdownActive = true
-        autoSaveProgress = 0
-
-        let duration = SettingsManager.shared.autoSaveDelay.duration
-        autoSaveRemainingSeconds = Int(ceil(duration))
-
-        autoSaveClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            guard let self, !self.isSaveButtonHovered else { return event }
-            self.cancelAutoSave()
-            return event
-        }
-
-        let steps = max(1, Int(duration * 60))
-        let interval = duration / Double(steps)
-        let start = Date()
-
-        autoSaveTask = Task { [weak self] in
-            for i in 1...steps {
-                try? await Task.sleep(for: .milliseconds(Int(interval * 1000)))
-                guard !Task.isCancelled else { return }
-                let progress = Double(i) / Double(steps)
-                self?.autoSaveProgress = progress
-
-                let elapsed = Date().timeIntervalSince(start)
-                let remaining = max(0, Int(ceil(duration - elapsed)))
-                if remaining != self?.autoSaveRemainingSeconds {
-                    self?.autoSaveRemainingSeconds = remaining
-                }
-            }
-
-            guard !Task.isCancelled else { return }
-            self?.performAutoSave()
-        }
-
-        debugLog("FloatingEditorController: Auto-save countdown started (\(duration)s)")
-    }
-
-    private func performAutoSave() {
-        guard autoSaveCountdownActive, currentSaveAction != nil else { return }
-        let text = currentText
-        let attachments = currentAttachments
-        cleanupAutoSaveState()
-        attemptSave(text: text, attachments: attachments)
-        debugLog("FloatingEditorController: Auto-saved voice quick note")
-    }
-
-    public func cancelAutoSave() {
-        guard autoSaveCountdownActive else { return }
-        cleanupAutoSaveState()
-        triggerSaveFeedback()
-        debugLog("FloatingEditorController: Auto-save cancelled")
-    }
-
-    public func cancelAutoSaveCountdown() {
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        cleanupAutoSaveState()
-    }
-
-    private func cleanupAutoSaveState() {
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        autoSaveCountdownActive = false
-        autoSaveProgress = 0
-        autoSaveRemainingSeconds = 0
-        if let monitor = autoSaveClickMonitor {
-            NSEvent.removeMonitor(monitor)
-            autoSaveClickMonitor = nil
-        }
-    }
-
     private func resetDraftState() {
-        cancelAutoSaveCountdown()
-        if #available(macOS 26, *) {
-            VoiceInputService.shared.cancelRecording()
-        }
-        pendingVoiceText = nil
-        isVoiceInvoked = false
-        allowsVoiceAutoSave = false
         currentCommentType = nil
         currentSaveAction = nil
         currentSuccessMessage = nil
@@ -295,7 +186,6 @@ public final class FloatingEditorController: ObservableObject {
         targetSessionID = nil
         saveFeedbackTrigger = 0
         validationFeedbackTrigger = 0
-        isSaveButtonHovered = false
         suppressClickOutside = false
     }
 
@@ -355,9 +245,6 @@ public final class FloatingEditorController: ObservableObject {
         self.currentText = initialText
         self.initialAttachments = initialAttachments
         self.currentAttachments = initialAttachments
-        self.pendingVoiceText = nil
-        self.isVoiceInvoked = false
-        self.allowsVoiceAutoSave = comment == nil
         self.currentCommentType = commentType
         self.currentSaveAction = onSave
         self.currentSuccessMessage = successMessage

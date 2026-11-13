@@ -14,18 +14,10 @@ private class KeyablePanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func cancelOperation(_ sender: Any?) {
-        // Annotation first. The autoSaveCountdownActive branch below is
-        // unreachable in screenshot mode (the policy requires isVoiceInvoked, which
-        // screenshots set false) but this panel is shared with the voice path, so
-        // it stays exactly as it was.
         if CommentInputController.shared.routeDismissalThroughAnnotation(intent: .escape) {
             return
         }
-        if CommentInputController.shared.autoSaveCountdownActive {
-            CommentInputController.shared.cancelAutoSave()
-        } else {
-            CommentInputController.shared.dismiss()
-        }
+        CommentInputController.shared.dismiss()
     }
 }
 
@@ -41,21 +33,13 @@ public final class CommentInputController: NSObject, ObservableObject {
     @Published public var textResetToken = UUID()
     @Published public var currentText: String = ""
     @Published public var currentAttachments: [String] = []
-    @Published public var pendingVoiceText: String?
     @Published public var targetSessionID: UUID?
-    @Published public var isVoiceInvoked: Bool = false
-    @Published public var autoSaveCountdownActive: Bool = false
-    @Published public var autoSaveProgress: Double = 0
-    @Published public var autoSaveRemainingSeconds: Int = 0
     @Published public private(set) var saveFeedbackTrigger: Int = 0
     @Published public private(set) var validationFeedbackTrigger: Int = 0
     /// Set by the wake screenshot shortcut: this capture's save wakes a
     /// running session, so Save performs the wake and the separate bolt button
     /// would be redundant. Cleared on dismiss.
     @Published public var wakeOnSave: Bool = false
-    @Published public var isSaveButtonHovered: Bool = false
-    private var autoSaveTask: Task<Void, Never>?
-    private var autoSaveClickMonitor: Any?
 
     private var panel: NSPanel?
     private var panelVEV: NSVisualEffectView?
@@ -158,11 +142,7 @@ public final class CommentInputController: NSObject, ObservableObject {
 
         screenshotCopyButton.teardown()
 
-        cancelAutoSaveCountdown()
         removeScreenshotKeyMonitor()
-        if #available(macOS 26, *) {
-            VoiceInputService.shared.cancelRecording()
-        }
         if pendingElementWebContext != nil {
             WebSocketService.shared.dismissRegionHighlight()
         }
@@ -180,9 +160,6 @@ public final class CommentInputController: NSObject, ObservableObject {
         self.wakeOnSave = wakeOnSave
         currentText = ""
         currentAttachments = []
-        pendingVoiceText = nil
-        isVoiceInvoked = false
-        isSaveButtonHovered = false
         saveFeedbackTrigger = 0
         validationFeedbackTrigger = 0
         suppressClickOutside = false
@@ -198,29 +175,22 @@ public final class CommentInputController: NSObject, ObservableObject {
         screenshotCopyButton.teardown()
         draftGeneration &+= 1
         wakeOnSave = false
-        cancelAutoSaveCountdown()
         removeScreenshotKeyMonitor()
         panelLayoutReady = false
         endAnnotationAnchoring()
-        if #available(macOS 26, *) {
-            VoiceInputService.shared.cancelRecording()
-        }
 
-        isVoiceInvoked = false
         currentSelection = nil
         screenshotImagePath = nil
         isScreenshotMode = false
         screenshotCopyError = nil
         currentText = ""
         currentAttachments = []
-        pendingVoiceText = nil
         targetSessionID = nil
         arrowEdge = nil
         screenshotSelectionRect = nil
         screenshotSourceBundleID = nil
         saveFeedbackTrigger = 0
         validationFeedbackTrigger = 0
-        isSaveButtonHovered = false
         suppressClickOutside = false
         if pendingElementWebContext != nil {
             WebSocketService.shared.dismissRegionHighlight()
@@ -304,6 +274,11 @@ public final class CommentInputController: NSObject, ObservableObject {
             let mouse = NSEvent.mouseLocation
             show(near: CGRect(x: mouse.x - 170, y: mouse.y + 10, width: 340, height: 20))
         }
+    }
+
+    public func bringToFront() {
+        guard isVisible, !suppressClickOutside else { return }
+        makeCommentPanelKey()
     }
 
     public func showStandaloneNote() {
@@ -437,95 +412,6 @@ public final class CommentInputController: NSObject, ObservableObject {
         ScreenshotWebContextPolicy.allowsWebContext(sourceBundleID: screenshotSourceBundleID)
     }
 
-    public func appendVoiceText(_ text: String, forDraftGeneration generation: UInt64) {
-        guard isCurrentDraft(generation) else {
-            debugLog("CommentInputController: Discarded transcription for stale draft")
-            return
-        }
-        pendingVoiceText = text
-    }
-
-    // MARK: - Auto-Save Voice Notes
-
-    public func startAutoSaveCountdown() {
-        guard VoiceAutoSavePolicy.shouldStartCountdown(
-            isVoiceInvoked: isVoiceInvoked,
-            autoSaveEnabled: SettingsManager.shared.autoSaveVoiceNotes,
-            text: currentText
-        )
-        else { return }
-
-        cancelAutoSaveCountdown()
-        autoSaveCountdownActive = true
-        autoSaveProgress = 0
-
-        let duration = SettingsManager.shared.autoSaveDelay.duration
-        autoSaveRemainingSeconds = Int(ceil(duration))
-
-        // Install click monitor to cancel on any click in the panel
-        // (except clicks on the save button, which should save instead)
-        autoSaveClickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            guard let self, !self.isSaveButtonHovered else { return event }
-            self.cancelAutoSave()
-            return event
-        }
-
-        let steps = max(1, Int(duration * 60)) // ~60fps
-        let interval = duration / Double(steps)
-        let start = Date()
-
-        autoSaveTask = Task { [weak self] in
-            for i in 1...steps {
-                try? await Task.sleep(for: .milliseconds(Int(interval * 1000)))
-                guard !Task.isCancelled else { return }
-                let progress = Double(i) / Double(steps)
-                self?.autoSaveProgress = progress
-                // Update remaining seconds only when the integer value changes
-                let elapsed = Date().timeIntervalSince(start)
-                let remaining = max(0, Int(ceil(duration - elapsed)))
-                if remaining != self?.autoSaveRemainingSeconds {
-                    self?.autoSaveRemainingSeconds = remaining
-                }
-            }
-            guard !Task.isCancelled else { return }
-            self?.performAutoSave()
-        }
-
-        debugLog("CommentInputController: Auto-save countdown started (\(duration)s)")
-    }
-
-    private func performAutoSave() {
-        guard autoSaveCountdownActive else { return }
-        cleanupAutoSaveState()
-        saveComment(text: currentText, attachments: currentAttachments)
-        debugLog("CommentInputController: Auto-saved voice comment")
-    }
-
-    public func cancelAutoSave() {
-        guard autoSaveCountdownActive else { return }
-        cleanupAutoSaveState()
-        triggerSaveFeedback()
-        debugLog("CommentInputController: Auto-save cancelled")
-    }
-
-    public func cancelAutoSaveCountdown() {
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        cleanupAutoSaveState()
-    }
-
-    private func cleanupAutoSaveState() {
-        autoSaveTask?.cancel()
-        autoSaveTask = nil
-        autoSaveCountdownActive = false
-        autoSaveProgress = 0
-        autoSaveRemainingSeconds = 0
-        if let monitor = autoSaveClickMonitor {
-            NSEvent.removeMonitor(monitor)
-            autoSaveClickMonitor = nil
-        }
-    }
-
     public func showForWebElement(_ context: WebContext) {
         debugLog("CommentInput: showForWebElement called — \(context.displaySummary ?? "no summary")")
         SelectionTooltipWindowController.shared.dismiss()
@@ -581,8 +467,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         }
 
         // Every explicit submission path (button, wake, and Command-Return)
-        // converges here, so countdown cancellation cannot drift between them.
-        cancelAutoSaveCountdown()
+        // converges here, so save validation cannot drift between them.
 
         guard CommentSavePolicy.allowsSave(
             type: type,
@@ -807,7 +692,6 @@ public final class CommentInputController: NSObject, ObservableObject {
     /// An explicit image-only action, independent of the save-and-copy setting.
     func copyScreenshot() {
         guard isVisible, isScreenshotMode, captureTransaction == .idle else { return }
-        cancelAutoSaveCountdown()
         screenshotCopyError = nil
         captureTransaction = .copying
         let sourceApplication = screenshotSourceBundleID.flatMap {
@@ -1457,7 +1341,6 @@ public final class CommentInputController: NSObject, ObservableObject {
             vev.maskImage = .roundedRectMask(cornerRadius: ThemeMetrics.panelCornerRadius)
         }
     }
-
 
     /// Fixed-size tooltip-shaped mask (regenerated on resize).
     private static func tooltipMaskImage(size: NSSize, cornerRadius: CGFloat, arrowEdge: Edge, arrowFraction: CGFloat = 0.5) -> NSImage {

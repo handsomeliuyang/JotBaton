@@ -21,10 +21,8 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
 
     @Published public var isVisible: Bool = false
     @Published public var isDetached: Bool = false
-    /// When true, prevents click-outside dismissal (e.g. during Crit Mode recording/processing)
+    /// When true, prevents click-outside dismissal while another app workflow is active.
     public var preventDismiss: Bool = false
-    /// Set to true by GlobalHotkey to request crit mode start. PopoverContentView observes and resets.
-    @Published public var requestCritMode: Bool = false
 
     /// Makes the panel the key window (needed for TextField caret in non-activating panels).
     public func makeKey() {

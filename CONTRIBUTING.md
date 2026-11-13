@@ -35,8 +35,7 @@ unless enabled with `defaults write com.metepolat.Remarc debugFileLoggingEnabled
 then it uses `~/Library/Logs/Remarc/remarc_debug.log` and one previous `.old` log.
 
 Grant Accessibility and Screen Recording to **Remarc Dev** on first use on each
-Mac. Voice features additionally require their microphone permissions and macOS
-26. Reuse the same identity on subsequent builds; do not fall back to ad-hoc signing.
+Mac. Reuse the same identity on subsequent builds; do not fall back to ad-hoc signing.
 
 ## Project structure
 

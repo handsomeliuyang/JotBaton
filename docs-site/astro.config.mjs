@@ -66,14 +66,6 @@ export default defineConfig({
 						{ label: 'Annotate & redact', slug: 'screenshots/annotating-and-redacting' },
 					],
 				},
-				{
-					label: 'Voice',
-					items: [
-						{ label: 'Dictation', slug: 'voice/dictation' },
-						{ label: 'Voice comments & Crit Mode', slug: 'voice/voice-comments-and-crit-mode' },
-						{ label: 'Transcription engines & models', slug: 'voice/transcription-engines' },
-					],
-				},
 				{ label: 'Chrome extension', slug: 'chrome-extension' },
 				{
 					label: 'Agents & Automation',

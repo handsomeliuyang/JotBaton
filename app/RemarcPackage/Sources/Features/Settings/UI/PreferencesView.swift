@@ -5,7 +5,6 @@ import FeatureComments
 import FeatureIntegrations
 import FeatureSettings
 import FeatureUpdates
-import FeatureVoice
 import AppKit
 import KeyboardShortcuts
 import SwiftUI
@@ -27,10 +26,6 @@ struct PreferencesView: View {
     @State var screenshotFolderError: String?
     @ObservedObject var webSocketService = WebSocketService.shared
     @ObservedObject var updateManager = UpdateManager.shared
-    @ObservedObject var modelManager = WhisperKitModelManager.shared
-    #if canImport(FluidAudio)
-    @ObservedObject var parakeetManager = ParakeetModelManager.shared
-    #endif
     @State var selectedSection: SettingsSection = {
         if let raw = UserDefaults.standard.string(forKey: PreferencesWindowController.selectedSectionKey),
            let section = SettingsSection(rawValue: raw) {
@@ -49,7 +44,6 @@ struct PreferencesView: View {
     @State var isResolvingManualPaths = false
     @State var manualNodeResolutionFailed = false
     @State var manualMCPPathMissing = false
-    @State var newVocabHint: String = ""
     @State var showResetDataConfirm = false
     @ObservedObject var webhookService = WebhookService.shared
     @State var webhookEditorState: WebhookEditorState?
@@ -60,7 +54,6 @@ struct PreferencesView: View {
         case general = "General"
         case iCloudSync = "iCloud Sync"
         case shortcuts = "Shortcuts"
-        case voice = "Voice"
         case export = "Export"
         case chromeExtension = "Chrome Extension"
         case mcpIntegrations = "MCP Integrations"
@@ -76,7 +69,6 @@ struct PreferencesView: View {
             case .general: return "gearshape"
             case .iCloudSync: return "icloud"
             case .shortcuts: return "command"
-            case .voice: return "waveform"
             case .export: return "square.and.arrow.up"
             case .chromeExtension: return "globe"
             case .mcpIntegrations: return "puzzlepiece.extension"
@@ -93,8 +85,7 @@ struct PreferencesView: View {
             #if !DEBUG
             if section == .experimental { return false }
             #endif
-            if #available(macOS 26, *) { return true }
-            return section != .voice
+            return true
         }
     }
 
@@ -137,10 +128,6 @@ struct PreferencesView: View {
                 case .general: generalSection
                 case .iCloudSync: SnapshotSyncView()
                 case .shortcuts: shortcutsSection
-                case .voice:
-                    if #available(macOS 26, *) {
-                        voiceSection
-                    }
                 case .export: exportSection
                 case .chromeExtension: chromeExtensionSection
                 case .mcpIntegrations: mcpIntegrationsSection

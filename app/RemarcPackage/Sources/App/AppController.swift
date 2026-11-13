@@ -7,7 +7,6 @@ import FeatureIntegrations
 import FeatureOnboarding
 import FeatureSettings
 import FeatureUpdates
-import FeatureVoice
 import AppKit
 import SwiftUI
 import ServiceManagement
@@ -111,9 +110,6 @@ public final class AppController: NSObject, ObservableObject {
             debugLog("Accessibility: access missing; requesting permission for this installation")
             OnboardingWindowController.shared.requestAccessibility()
         }
-        if #available(macOS 26, *) {
-            preloadTranscriptionEngine()
-        }
         isOnboardingComplete = true
         // Keep the wake button honest: ask the live sessions, not the plugin
         // registry, whether anything can be woken.
@@ -131,52 +127,8 @@ public final class AppController: NSObject, ObservableObject {
         debugLog("Accessibility: permission changed (granted: \(granted)); reconnecting listeners")
         SelectionTooltipWindowController.shared.dismiss()
         SelectionMonitor.shared.stopMonitoring()
-        FnKeyMonitor.shared.uninstall()
         if !SettingsManager.shared.isPaused {
             SelectionMonitor.shared.startMonitoring()
-        }
-        if granted {
-            FnKeyMonitor.shared.install()
-        }
-    }
-
-    /// Prewarm or fully load the selected transcription engine model in the background.
-    /// When `preloadModelOnLaunch` is enabled, the model is fully loaded into RAM so
-    /// the first dictation invocation is instant. Otherwise, only CoreML compilation/
-    /// caching on disk is triggered (fast cached loads: 3-5s vs 30-60s).
-    @available(macOS 26, *)
-    private func preloadTranscriptionEngine() {
-        let settings = SettingsManager.shared
-        let engine = settings.transcriptionEngine
-        let fullLoad = settings.preloadModelOnLaunch && settings.keepModelInMemory
-
-        Task.detached(priority: .utility) {
-            switch engine {
-            case .whisperKit:
-                let model = await settings.whisperKitModel
-                let manager = await WhisperKitModelManager.shared
-                guard await manager.isModelDownloaded(model) else { return }
-                if fullLoad {
-                    let success = await manager.prepareModel(model)
-                    await debugLog("AppController: WhisperKit preload \(success ? "succeeded" : "failed")")
-                } else {
-                    await manager.prewarmModel(model)
-                }
-            case .parakeet:
-                #if canImport(FluidAudio)
-                let model = await settings.parakeetModelVersion
-                let manager = await ParakeetModelManager.shared
-                guard await manager.isModelDownloaded(model) else { return }
-                if fullLoad {
-                    let success = await manager.prepareModel(model)
-                    await debugLog("AppController: Parakeet preload \(success ? "succeeded" : "failed")")
-                }
-                #else
-                break
-                #endif
-            case .appleSpeech:
-                await debugLog("AppController: Apple Speech — no prewarm needed")
-            }
         }
     }
 

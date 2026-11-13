@@ -96,8 +96,8 @@ notes. Upgrade and Restart authorizes one complete in-app operation: download th
 native installer, verify its EdDSA signature before extraction, back up the app
 and data, quit safely, replace the app and relaunch. No browser, extraction or
 Finder drag is required. Downloading can be canceled; canceling a ready update
-also cancels installation on quit. An active editor, capture, recording,
-transcription or failed durable save pauses the restart until the user resolves
+also cancels installation on quit. An active editor, capture,
+or failed durable save pauses the restart until the user resolves
 it and clicks Upgrade and Restart again. A backup failure cancels installation.
 
 `UpdateManager` keeps the existing six-hour GitHub discovery schedule. Sparkle's

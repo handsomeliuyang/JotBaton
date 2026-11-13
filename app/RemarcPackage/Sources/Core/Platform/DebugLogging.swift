@@ -8,7 +8,7 @@ nonisolated(unsafe) private let debugLogFormatter: ISO8601DateFormatter = {
 }()
 private let debugLogQueue = DispatchQueue(label: "com.metepolat.Remarc.debugLog", qos: .utility)
 
-/// Selected text, window titles, and dictation transcripts pass through here
+/// Selected text and window titles pass through here
 /// (issue #12), so release builds write no log file at all unless the user
 /// opts in for a support case:
 ///

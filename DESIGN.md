@@ -25,7 +25,7 @@ All brand colors are defined in `app/RemarcPackage/Sources/Core/Theme/Colors.swi
 
 ### Raw Brand Tints
 
-For audio-reactive effects, gradients, and glow — not for standard UI elements.
+For animated effects, gradients, and glow — not for standard UI elements.
 
 | Token | Value |
 |---|---|
@@ -160,7 +160,6 @@ referenceContent
 | Onboarding | `.regularMaterial` |
 | Selection tooltip | `.regularMaterial` |
 | Toast | `.thinMaterial` |
-| Dictation pill | `.ultraThinMaterial` |
 
 ### Spacing (8pt grid)
 
@@ -200,8 +199,6 @@ referenceContent
 // Tight spring (session bar, status dots)
 .spring(response: 0.3, dampingFraction: 0.85)
 
-// Bouncy spring (voice input save)
-.spring(response: 0.3, dampingFraction: 0.4)
 ```
 
 **Ease curves:**
@@ -215,7 +212,7 @@ referenceContent
 // Content transitions
 .easeInOut(duration: 0.2)
 
-// State changes (recording, dictation)
+// State changes
 .easeInOut(duration: 0.3)
 ```
 
@@ -253,7 +250,6 @@ panel.animationBehavior = .utilityWindow
 | Screenshot overlay | `false` | `.screenSaver + 2` | Border-only panel |
 | Menu bar popover | `true` | `.popUpMenu` | Shadow follows VEV mask shape |
 | Comment input editor | `true` | `.floating` | — |
-| Dictation pill | `true` | `.floating` | — |
 | Screenshot preview | `true` | `.popUpMenu + 3` | Above other panels |
 | Onboarding | `true` | `.floating` | Movable by background |
 | Floating editor | `true` | `.floating` | `animationBehavior = .none` |
@@ -299,8 +295,7 @@ Secondary variant border (visible at rest):
 
 | Component | Purpose | Defined in |
 |---|---|---|
-| `FloatingActionButton` / `BrandCTAButtonStyle` | Primary brand CTA on a brand gradient (capsule or rounded rect) | `Views/FloatingActionButton.swift` |
-| `CreationHeaderButton` | `28×28pt` circular icon button used in the panel header | `Views/FloatingActionButton.swift` |
+| `CreationHeaderButton` | `28×28pt` circular icon button used in the panel header | `Features/Comments/UI/List/CreationHeaderButton.swift` |
 | `ExpandingCTAButton` | Capsule icon that expands on hover to reveal a label. Roles: `.neutral`, `.destructive`, `.accent` | `Views/ExpandingCTAButton.swift` |
 | `ConfirmationButton` | Tri-role confirm bar. Roles: `.cancel` (outlined), `.destructive` (red), `.confirm` (green) | `Views/ConfirmationButton.swift` |
 | `HoverTintButton` | Generic icon-only button with foreground tint change on hover | `Views/PopoverContentView.swift` |

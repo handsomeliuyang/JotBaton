@@ -6,9 +6,6 @@ import FeatureComments
 import FeatureSettings
 import SwiftUI
 import AppKit
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 struct PopoverContentView: View {
     @ObservedObject private var localization = LocalizationManager.shared
@@ -46,8 +43,6 @@ struct PopoverContentView: View {
     @State private var historySearchText = ""
     @State private var isHistorySearching = false
     @State private var historySortNewestFirst = true
-    @State private var critModeActive = false
-    @State private var showCritModeOnboarding = false
     @State private var historyTab: HistoryTab = .comments
     /// Selected status chips, comma-separated; empty shows every status.
     @AppStorage("commentListStatusFilters") private var statusFilterStorage = ""
@@ -73,7 +68,7 @@ struct PopoverContentView: View {
     }
 
     private enum HistoryTab: String {
-        case comments, sessions, transcriptions
+        case comments, sessions
     }
 
     // MARK: - Computed Comments
@@ -129,7 +124,6 @@ struct PopoverContentView: View {
                 SessionSidebarView(statusFilters: statusFilters) {
                     if showingHistory { dismissHistory() }
                 }
-                .disabled(critModeActive || showCritModeOnboarding)
 
                 Rectangle()
                     .fill(Color.remarcHairline(for: colorScheme))
@@ -162,7 +156,7 @@ struct PopoverContentView: View {
             if let toast = toastManager.currentToast {
                 ToastOverlay(toast: toast)
                     .frame(width: WorkspaceMetrics.commentPaneWidth)
-                    .padding(.bottom, !critModeActive && !showCritModeOnboarding ? 52 : 12)
+                    .padding(.bottom, 52)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: toastManager.currentToast?.id)
@@ -185,14 +179,6 @@ struct PopoverContentView: View {
                 historySearchText = ""
                 isHistorySearching = false
                 historyTab = .comments
-                showCritModeOnboarding = false
-                if critModeActive {
-                    if #available(macOS 26, *) {
-                        CritModeService.shared.cancelRecording()
-                    }
-                    critModeActive = false
-                    popoverController.preventDismiss = false
-                }
             }
         }
         .onRemarcChange(of: persistence.appState.activeSessionID) { _ in
@@ -203,23 +189,13 @@ struct PopoverContentView: View {
         .onRemarcChange(of: statusFilterStorage) { _ in
             popoverController.resizeAfterLayoutSettles()
         }
-        .onRemarcChange(of: popoverController.requestCritMode) { requested in
-            if requested {
-                popoverController.requestCritMode = false
-                startCritMode()
-            }
-        }
     }
 
     /// All comment/history controls keep the original pane width; session
     /// navigation takes its own additional space on the leading side.
     private var commentPane: some View {
         VStack(spacing: 0) {
-            if showCritModeOnboarding {
-                critModeOnboardingContent
-            } else if critModeActive {
-                critModeContent
-            } else if showingHistory {
+            if showingHistory {
                 if isHistorySearching {
                     historySearchHeader
                 } else {
@@ -228,8 +204,6 @@ struct PopoverContentView: View {
                 Divider()
                 if historyTab == .sessions {
                     SessionHistoryView(showingHistory: $showingHistory, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
-                } else if #available(macOS 26, *), historyTab == .transcriptions {
-                    TranscriptionHistoryView(searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
                 } else {
                     CommentHistoryView(showingHistory: $showingHistory, restoredCommentID: $restoredCommentID, searchText: $historySearchText, sortNewestFirst: $historySortNewestFirst)
                 }
@@ -259,10 +233,8 @@ struct PopoverContentView: View {
                     }
                 }
             }
-            if !critModeActive && !showCritModeOnboarding {
-                Divider()
-                footer
-            }
+            Divider()
+            footer
         }
     }
 
@@ -321,12 +293,6 @@ struct PopoverContentView: View {
         }
         .help(L10n.tr("Screenshot comment"))
 
-        if #available(macOS 26, *) {
-            creationButton(icon: "mic.fill") {
-                startCritMode()
-            }
-            .help(L10n.tr("Crit Mode"))
-        }
     }
 
     /// Invisible button that owns ⌘F now that search has no header icon.
@@ -364,9 +330,6 @@ struct PopoverContentView: View {
         HStack(spacing: 0) {
             historyTabButton(L10n.tr("Comments"), tab: .comments)
             historyTabButton(L10n.tr("Sessions"), tab: .sessions)
-            if #available(macOS 26, *) {
-                historyTabButton(L10n.tr("Dictation"), tab: .transcriptions)
-            }
         }
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -442,9 +405,6 @@ struct PopoverContentView: View {
 
     private var hasHistoryContent: Bool {
         if historyTab == .sessions { return !persistence.deletedSessions.isEmpty }
-        if #available(macOS 26, *), historyTab == .transcriptions {
-            return !persistence.transcriptions.isEmpty
-        }
         return !persistence.deletedComments.isEmpty
     }
 
@@ -1134,122 +1094,6 @@ struct PopoverContentView: View {
     }
 
     // MARK: - Actions
-
-    // MARK: - Crit Mode
-
-    @ViewBuilder
-    private var critModeContent: some View {
-        if #available(macOS 26, *) {
-            CritModeRecordingView(
-                service: CritModeService.shared,
-                onCancel: {
-                    CritModeService.shared.cancelRecording()
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        critModeActive = false
-                    }
-                    popoverController.preventDismiss = false
-                    popoverController.resizeAfterLayoutSettles()
-                },
-                onComplete: { newComments in
-                    withAnimation(.easeInOut(duration: 0.4)) {
-                        critModeActive = false
-                    }
-                    popoverController.preventDismiss = false
-                    popoverController.resizeAfterLayoutSettles()
-                    // Highlight new comments briefly
-                    if let firstID = newComments.first?.id {
-                        restoredCommentID = firstID
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                            restoredCommentID = nil
-                        }
-                    }
-                    if newComments.isEmpty {
-                        ToastManager.shared.show(L10n.tr("No speech detected"))
-                    } else {
-                        ToastManager.shared.show(L10n.tr("Added \(newComments.count) comment\(newComments.count == 1 ? "" : "s")"))
-                    }
-                }
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var critModeOnboardingContent: some View {
-        if #available(macOS 26, *) {
-            CritModeOnboardingView(
-                onProceed: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCritModeOnboarding = false
-                        critModeActive = true
-                    }
-                    popoverController.preventDismiss = true
-                    popoverController.resizeAfterLayoutSettles()
-                    Task {
-                        do {
-                            try await CritModeService.shared.startRecording()
-                        } catch {
-                            debugLog("PopoverContentView: Failed to start crit mode: \(error)")
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                critModeActive = false
-                            }
-                            popoverController.preventDismiss = false
-                            popoverController.resizeAfterLayoutSettles()
-                            ToastManager.shared.show(L10n.tr("Microphone access required"))
-                        }
-                    }
-                },
-                onCancel: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCritModeOnboarding = false
-                    }
-                    popoverController.resizeAfterLayoutSettles()
-                }
-            )
-        }
-    }
-
-    private func startCritMode() {
-        guard !critModeActive else { return }
-        if #available(macOS 26, *) {
-            #if canImport(FoundationModels)
-            // Crit Mode requires Apple Intelligence for transcript segmentation.
-            // Check fresh each time — the user may have just enabled it.
-            let modelAvailable = SystemLanguageModel.default.isAvailable
-            debugLog("PopoverContentView: SystemLanguageModel.isAvailable = \(modelAvailable)")
-            guard modelAvailable else {
-                ToastManager.shared.show(L10n.tr("Requires Apple Intelligence (restart after enabling)"))
-                return
-            }
-            #endif
-
-            if !settings.hasSeenCritModeOnboarding {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showCritModeOnboarding = true
-                }
-                popoverController.resizeAfterLayoutSettles()
-                return
-            }
-
-            withAnimation(.easeInOut(duration: 0.3)) {
-                critModeActive = true
-            }
-            popoverController.preventDismiss = true
-            popoverController.resizeAfterLayoutSettles()
-            Task {
-                do {
-                    try await CritModeService.shared.startRecording()
-                } catch {
-                    debugLog("PopoverContentView: Failed to start crit mode: \(error)")
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        critModeActive = false
-                    }
-                    popoverController.preventDismiss = false
-                    popoverController.resizeAfterLayoutSettles()
-                    ToastManager.shared.show(L10n.tr("Microphone access required"))
-                }
-            }
-        }
-    }
 
     private func copyAll() {
         guard let session = persistence.activeSession else { return }

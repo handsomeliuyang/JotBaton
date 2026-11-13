@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting & FAQ
-description: Symptom-first fixes for common Remarc problems, from a missing Comment tooltip to a silent microphone, plus quick answers.
+description: Symptom-first fixes for common Remarc problems, from a missing Comment tooltip to screenshot permissions, plus quick answers.
 ---
 
 Each section below is a symptom, with the cause in one sentence and the steps that fix it. Quick answers to non-problem questions are at the end of the page.
@@ -14,22 +14,6 @@ Four different causes can suppress the tooltip, so check them in order:
 3. If the app you are selecting in is listed under Settings > Excluded Apps, remove it there.
 4. If Detection mode is set to "Hotkey Only", the tooltip never appears on its own. Workaround: press `Ctrl+Option+C` after selecting text. Resolution: switch back to "Auto-detect + Hotkey" in Settings > General.
 
-## Voice features are missing entirely
-
-Dictation, Voice Input, Crit Mode, and the Voice settings tab require macOS 26 (Tahoe) or later; on older versions the controls are hidden, not broken. Everything else works on macOS 14 and up.
-
-## The microphone records silence
-
-macOS sometimes drops Remarc's microphone grant, so recordings produce nothing without any error.
-
-1. Re-grant access in System Settings > Privacy & Security > Microphone.
-2. If recordings are still silent, reset the permission in Terminal:
-
-   ```
-   tccutil reset Microphone com.metepolat.Remarc
-   ```
-
-3. Relaunch Remarc and grant microphone access when prompted.
 
 ## The Chrome extension stays disconnected
 
@@ -62,7 +46,7 @@ Existing images stay in their original folders and remain editable there; changi
 
 **Where is my data stored?** Sessions and comments live in `~/Library/Application Support/Remarc/comments.json`. Screenshots and pasted image attachments use its `images/` folder by default, or a custom folder selected in Settings. See [data, privacy & updates](/reference/data-and-privacy/).
 
-**Is anything sent to a server?** Remarc stores comments, screenshots, and audio on your Mac. Data can leave through agents and webhooks you explicitly use; other network activity is limited to update checks, transcription model downloads, and agent plugin installs.
+**Is anything sent to a server?** Remarc stores comments and screenshots on your Mac. Data can leave through agents and webhooks you explicitly use; other network activity is limited to update checks and agent plugin installs.
 
 **How many sessions can I have?** Up to 8 active sessions, plus the permanent Inbox that catches unfiled comments. See [Sessions & the Inbox](/basics/sessions/).
 

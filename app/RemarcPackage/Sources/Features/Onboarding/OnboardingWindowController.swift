@@ -3,7 +3,6 @@ import CorePlatform
 import CoreUI
 import FeatureCapture
 import AppKit
-import AVFAudio
 import SwiftUI
 @preconcurrency import ApplicationServices
 
@@ -12,7 +11,6 @@ public final class OnboardingWindowController: NSObject, ObservableObject {
     public static let shared = OnboardingWindowController()
 
     @Published public private(set) var accessibilityState: PermissionRowState = .needsPermission
-    @Published public private(set) var microphoneState: PermissionRowState = .needsPermission
     @Published public private(set) var screenRecordingState: PermissionRowState = .needsPermission
     @Published public private(set) var isVisible: Bool = false
 
@@ -22,14 +20,8 @@ public final class OnboardingWindowController: NSObject, ObservableObject {
 
     public var onComplete: ((_ hasPermission: Bool) -> Void)?
 
-    public var requiresMicrophonePermission: Bool {
-        if #available(macOS 26, *) { return true }
-        return false
-    }
-
     public var allPermissionsGranted: Bool {
         accessibilityState == .granted
-            && (!requiresMicrophonePermission || microphoneState == .granted)
             && screenRecordingState == .granted
     }
 
@@ -41,17 +33,9 @@ public final class OnboardingWindowController: NSObject, ObservableObject {
         AXIsProcessTrusted()
     }
 
-    private func checkMicrophonePermission() -> Bool {
-        guard #available(macOS 14, *) else { return false }
-        return AVAudioApplication.shared.recordPermission == .granted
-    }
-
     public func show() {
         if checkAccessibilityPermission() {
             accessibilityState = .granted
-        }
-        if checkMicrophonePermission() {
-            microphoneState = .granted
         }
         if ScreenRecordingPermissionController.shared.hasPermission() {
             screenRecordingState = .granted
@@ -103,20 +87,6 @@ public final class OnboardingWindowController: NSObject, ObservableObject {
     public func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
-        }
-    }
-
-    public func requestMicrophone() {
-        guard #available(macOS 14, *), requiresMicrophonePermission else { return }
-        microphoneState = .waitingForGrant
-        AVAudioApplication.requestRecordPermission { [weak self] granted in
-            Task { @MainActor in
-                guard let self else { return }
-                self.microphoneState = granted ? .granted : .needsPermission
-                if granted {
-                    debugLog("Onboarding: Microphone permission granted")
-                }
-            }
         }
     }
 

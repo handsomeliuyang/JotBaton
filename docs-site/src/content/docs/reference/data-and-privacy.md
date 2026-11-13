@@ -16,16 +16,11 @@ Keep custom folders available to Remarc and accessible to any agent that needs t
 
 Agents read and update comments through MCP (Model Context Protocol) tools rather than editing the file directly. See the [agents overview](/agents/overview/).
 
-## Voice stays on-device
-
-All three [transcription engines](/voice/transcription-engines/) (Apple Speech, WhisperKit, Parakeet) run entirely on your Mac. Audio is never uploaded, and transcription works offline once a model is downloaded.
-
 ## What does touch the network
 
 Nothing you capture leaves your Mac unless you explicitly set that up. Remarc's network activity is limited to:
 
 - Update checks, described under Updates below.
-- Transcription model downloads: choosing the WhisperKit or Parakeet engine downloads the model in-app. Apple Speech needs no download.
 - [Webhooks](/agents/webhooks/) you configure: each one sends the comment events you subscribed to, to the URL you entered. Remarc sends nothing unless you add one.
 - Agent plugin installs: installing the Claude Code, Codex, or OMP integration runs that harness's own CLI, which downloads the plugin from the public [Remarc agent integrations repository](https://github.com/metedata/remarc-agent-plugins).
 
@@ -33,7 +28,7 @@ The [Chrome extension](/chrome-extension/) talks to the app over a local WebSock
 
 ## Retention
 
-The retention pickers in [Settings](/reference/settings/) prune data automatically. Comment history and its images and attachments share one retention period; dictation transcriptions keep their own setting. Deleting a comment moves it to History first, where it can be restored until retention removes it.
+The retention pickers in [Settings](/reference/settings/) prune data automatically. Comment history and its images and attachments share one retention period. Deleting a comment moves it to History first, where it can be restored until retention removes it.
 
 History retention also applies to associated Remarc images in custom folders, including folders you used previously. Removing an image removes its annotation sidecars too. Active comments and images still referenced by retained comments are preserved. Failed image deletions remain queued for retry. Unrelated files in those folders are left alone.
 
@@ -45,7 +40,7 @@ Release builds write no debug log. If you are troubleshooting a problem with us,
 defaults write com.metepolat.Remarc debugFileLoggingEnabled -bool YES
 ```
 
-Then relaunch Remarc. While the flag is set, the app writes `~/Library/Logs/Remarc/remarc_debug.log`, readable only by your account. Each launch starts a fresh file and keeps the previous launch's file next to it as `remarc_debug.log.old`, so the log stays small and a problem that spans a relaunch is still captured. The log traces app behavior, so it can include fragments of selected text, window titles, and dictation transcripts. That is what makes it useful for debugging, and why it stays off unless you enable it.
+Then relaunch Remarc. While the flag is set, the app writes `~/Library/Logs/Remarc/remarc_debug.log`, readable only by your account. Each launch starts a fresh file and keeps the previous launch's file next to it as `remarc_debug.log.old`, so the log stays small and a problem that spans a relaunch is still captured. The log traces app behavior, so it can include fragments of selected text and window titles. That is what makes it useful for debugging, and why it stays off unless you enable it.
 
 Turn logging back off with:
 

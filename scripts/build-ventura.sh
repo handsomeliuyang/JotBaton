@@ -15,7 +15,7 @@ if [[ "$CONFIGURATION" = Release && "${GITHUB_ACTIONS:-}" != true ]]; then
 fi
 cd "$REPO_ROOT/app"
 
-# Resolve the reduced dependency graph, retaining the upstream pinned revisions.
+# Resolve the compatibility profile without changing pinned revisions.
 PIN_BACKUP_DIR="$(mktemp -d)"
 PIN_BACKUP="$PIN_BACKUP_DIR/package.resolved"
 LOCK_DIR="$REPO_ROOT/app/Remarc.xcworkspace/xcshareddata/swiftpm"
@@ -37,7 +37,7 @@ bash "$REPO_ROOT/scripts/resolve-packages.sh" "$REPO_ROOT/app/RemarcPackage"
 python3 - "$PIN_BACKUP" RemarcPackage/Package.resolved <<'PY'
 import json, sys
 original, resolved = [json.load(open(path))['pins'] for path in sys.argv[1:]]
-expected = {p['identity']: p['state']['revision'] for p in original if p['identity'] != 'fluidaudio'}
+expected = {p['identity']: p['state']['revision'] for p in original}
 actual = {p['identity']: p['state']['revision'] for p in resolved}
 if actual != expected:
     raise SystemExit('Ventura resolution changed pinned dependencies; review Package.resolved before building')

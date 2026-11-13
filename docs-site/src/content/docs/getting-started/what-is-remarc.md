@@ -20,7 +20,6 @@ Each comment card records where it came from:
 | Comment | A text selection in any app |
 | Screenshot | A captured screen region, with annotation and redaction tools |
 | Quick Note | A standalone note, no selection needed |
-| Crit | Crit Mode, which splits spoken feedback into separate comment cards |
 | Web Element | The Chrome extension, with CSS selectors, React component info, and page context |
 
 Comments are grouped into [sessions](/basics/sessions/) and carry a [status](/basics/statuses-and-history/) (Open, Handed Off, In-Progress, Resolved). Everything is [stored locally on your Mac](/reference/data-and-privacy/).
@@ -28,6 +27,5 @@ Comments are grouped into [sessions](/basics/sessions/) and carry a [status](/ba
 ## System requirements
 
 - macOS 14 or later.
-- Voice features (Dictation, Voice comments, Crit Mode) require macOS 26 (Tahoe) or later. On older versions those controls are hidden; everything else works.
 
 To try it, [install Remarc](/getting-started/installation/).

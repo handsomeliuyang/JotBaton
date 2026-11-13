@@ -17,18 +17,17 @@ ALLOWED = {
     "CoreUI": {"CorePlatform", "CoreLocalization", "CoreTheme"},
     "FeatureComments": {"CorePlatform", "CoreLocalization"},
     "FeatureCapture": {"CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI"},
-    "FeatureVoice": {"CorePlatform", "CoreLocalization"},
     "FeatureIntegrations": {"CorePlatform", "CoreLocalization"},
     "FeatureSnapshotSync": {"CorePlatform", "CoreLocalization", "FeatureComments", "FeatureCapture"},
     "FeatureUpdates": {"CorePlatform", "CoreLocalization"},
     "FeatureSettings": {
         "CorePlatform", "CoreLocalization", "CoreUI", "FeatureComments",
-        "FeatureCapture", "FeatureVoice", "FeatureIntegrations",
+        "FeatureCapture", "FeatureIntegrations",
     },
     "FeatureOnboarding": {"CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI", "FeatureCapture", "FeatureIntegrations"},
 }
 APP = "RemarcFeature"
-EXTERNAL = {"WhisperKit", "FluidAudio", "KeyboardShortcuts", "Sparkle", "AppMover"}
+EXTERNAL = {"KeyboardShortcuts", "Sparkle", "AppMover"}
 
 
 def manifest(ventura):
@@ -83,11 +82,8 @@ class SwiftBoundariesTests(unittest.TestCase):
                     imports = set(re.findall(
                         r"^\s*(?:@\w+\s+)?import\s+(\w+)", source.read_text(), re.M
                     ))
-                    # Optional engine imports remain gated by canImport in Ventura.
-                    optional = ({"FluidAudio"} if name in {"FeatureVoice", "FeatureSettings", APP}
-                                and "FluidAudio" not in declared else set())
                     self.assertLessEqual(
-                        imports & (owned | EXTERNAL), declared | optional,
+                        imports & (owned | EXTERNAL), declared,
                         str(source.relative_to(ROOT)),
                     )
 

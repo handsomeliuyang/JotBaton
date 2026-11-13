@@ -15,7 +15,7 @@ Independently maintained macOS menu bar app (SwiftUI + AppKit) for contextual co
 1. Use the checkout's deterministic `app/DerivedData` output. Existing Xcode builders use `-derivedDataPath "$(pwd)/DerivedData"` from `app/` and clean-build UI changes.
 2. Production delivery uses `.github/workflows/release.yml`: build both architectures from one version commit, run full standard/Ventura Swift suites and native Intel compatibility checks, verify packages/signatures/provenance, then publish both assets to one GitHub Release. Do not compile production packages locally.
 3. Intel runtime compatibility verification, when explicitly requested, must run on an Intel Mac after native package installation. Do not launch Intel apps on Apple Silicon or claim Ventura runtime verification there.
-4. Production checks the public GitHub latest Release, compares semantic versions numerically and offers Upgrade and Restart. Sparkle verifies the signed native package and feed before replacing/relaunching the app, after app/data backup and editor/recording/save gates. Never offer a downgrade or consume production updates in Dev. Keep application-update settings separate from iCloud snapshot sync.
+4. Production checks the public GitHub latest Release, compares semantic versions numerically and offers Upgrade and Restart. Sparkle verifies the signed native package and feed before replacing/relaunching the app, after app/data backup and editor/capture/save gates. Never offer a downgrade or consume production updates in Dev. Keep application-update settings separate from iCloud snapshot sync.
 5. For explicit manual installs use `python3 scripts/install-app.py /absolute/path/Remarc.app --channel production`; development uses `--channel development`. These verify, back up, install without re-signing, and relaunch only the matching app.
 6. Standing maintainer preference: when asked to publish a production release and update this Mac, do not rerun local suites solely for delivery, and do not run post-install diagnostics, smoke tests, UI walkthroughs or functional tests unless explicitly requested. The production installer defaults to a normal launch without diagnostics. Keep pre-install checksum/signature/architecture checks, backups and the matching-channel relaunch; read version/build metadata only to report installation. Required GitHub Release workflow checks still run. Do not ask the maintainer to repeat this preference.
 
@@ -82,19 +82,6 @@ This repository is independently developed and released at `handsomeliuyang/Rema
 - Local builds are Dev only. Production delivery uses the explicitly dispatched GitHub Release workflow with full regression tests and both published native packages. Ventura Intel downloads its native Intel package from GitHub and performs runtime verification only when explicitly requested; it cannot compile the current Swift package with its installed toolchain.
 
 For an explicitly requested worktree, use `.worktrees/<name>`. Always use `"$(pwd)/DerivedData"` (command substitution), never `"$PWD/DerivedData"` (variable).
-
-### Crit Mode / Microphone Capture
-
-When building from worktrees (or after nuking DerivedData), macOS TCC microphone permissions get fragmented across binary paths. The audio tap silently produces 0 buffers without any error. **Fix: nuke DerivedData + reset TCC before relaunch:**
-
-```bash
-rm -rf app/DerivedData
-# rebuild...
-tccutil reset Microphone com.metepolat.Remarc.dev
-python3 scripts/relaunch-app.py "/Applications/Remarc Dev.app"
-```
-
-The example targets development. For a confirmed production issue, use `com.metepolat.Remarc` and `/Applications/Remarc.app` instead. Reset only the affected channel after confirming 0 buffers in its log; the user must grant mic access again when macOS prompts.
 
 ### Color System
 

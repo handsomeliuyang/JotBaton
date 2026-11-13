@@ -12,43 +12,6 @@ extension PreferencesView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: Self.itemSpacing) {
                     sectionHeader(
-                        L10n.tr("Vocabulary Hints"),
-                        description: L10n.tr("Words and phrases that improve speech recognition accuracy. These bias the WhisperKit decoder toward domain-specific terms.")
-                    )
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(settings.vocabularyHints, id: \.self) { hint in
-                            HStack {
-                                Text(hint)
-                                    .font(.system(size: 13))
-                                Spacer()
-                                Button {
-                                    settings.vocabularyHints.removeAll { $0 == hint }
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                    }
-
-                    HStack(spacing: 8) {
-                        TextField(L10n.tr("Add word or phrase"), text: $newVocabHint)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 13))
-                            .onSubmit { addVocabHint() }
-
-                        Button(L10n.tr("Add")) { addVocabHint() }
-                            .disabled(newVocabHint.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: Self.itemSpacing) {
-                    sectionHeader(
                         L10n.tr("HyperFrames Context"),
                         leadingIcon: "HyperFramesLogo",
                         description: L10n.tr("Attach HyperFrames composition context (beat, active tweens, source-line ranges) to web-element, region, and quick-note comments captured on HF compositions. Experimental — requires a `window.__remarcHFContext` bridge in the composition.")
@@ -90,13 +53,6 @@ extension PreferencesView {
             }
             .padding(20)
         }
-    }
-
-    func addVocabHint() {
-        let trimmed = newVocabHint.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !settings.vocabularyHints.contains(trimmed) else { return }
-        settings.vocabularyHints.append(trimmed)
-        newVocabHint = ""
     }
 
     func resetDataForTesting() {

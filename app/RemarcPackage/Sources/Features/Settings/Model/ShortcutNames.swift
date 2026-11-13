@@ -6,6 +6,10 @@ package extension KeyboardShortcuts.Name {
         "commentOnSelection",
         initial: .init(.c, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
+    static let quickNote = Self(
+        "quickNote",
+        initial: .init(.n, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
+    )
     static let screenshotComment = Self(
         "screenshotComment",
         initial: .init(.s, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
@@ -17,28 +21,8 @@ package extension KeyboardShortcuts.Name {
         "pasteAllComments",
         initial: .init(.p, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
-    static let voiceInput = Self(
-        "voiceInput",
-        initial: .init(.v, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
-    )
-    static let dictation = Self(
-        "dictation",
-        initial: .init(.d, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
-    )
-    static let dictationHandsFree = Self(
-        "dictationHandsFree",
-        initial: .init(.h, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
-    )
-    static let pasteLastTranscription = Self(
-        "pasteLastTranscription",
-        initial: .init(.l, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
-    )
     static let openRemarc = Self(
         "openRemarc",
         initial: .init(.r, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
-    )
-    static let startCritMode = Self(
-        "startCritMode",
-        initial: .init(.m, modifiers: AppIdentity.current.isDevelopment ? [.control, .option, .shift] : [.control, .option])
     )
 }

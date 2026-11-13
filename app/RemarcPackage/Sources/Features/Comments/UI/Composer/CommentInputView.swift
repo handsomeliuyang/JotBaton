@@ -20,9 +20,7 @@ struct CommentInputView: View {
     @State private var isCloseHovered = false
     @State private var isSaveHovered = false
     @State private var isAttachHovered = false
-    @State private var isMicHovered = false
     @State private var isTextScrollable = false
-    @State private var suppressTextCancelAutoSave = false
     @FocusState private var isFocused: Bool
 
     private let textMaxHeight: CGFloat = 300
@@ -49,11 +47,7 @@ struct CommentInputView: View {
                 text: $commentText,
                 onSubmit: { controller.saveComment(text: commentText, attachments: attachments) },
                 onCancel: {
-                    if controller.autoSaveCountdownActive {
-                        controller.cancelAutoSave()
-                    } else {
-                        controller.dismiss()
-                    }
+                    controller.dismiss()
                 },
                 onImagePaste: { image in
                     if let path = AppServices.shared.comments.saveAttachmentImage(image) {
@@ -92,15 +86,6 @@ struct CommentInputView: View {
                 .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
                 .help(L10n.tr("Attach image"))
 
-                if #available(macOS 26, *) {
-                    VoiceMicButton(
-                        isMicHovered: $isMicHovered,
-                        appendText: appendTranscribedText,
-                        transcriptionGeneration: controller.currentDraftGeneration,
-                        acceptsTranscription: { controller.isCurrentDraft($0) }
-                    )
-                }
-
                 Spacer()
 
                 // Sits left of Save: it is the less-common action, and reading
@@ -121,31 +106,14 @@ struct CommentInputView: View {
                     }
                 }
 
-                // Save / Recording button
-                if #available(macOS 26, *) {
-                    VoiceAwareSaveButton(
-                        isSaveHovered: $isSaveHovered,
-                        colorScheme: colorScheme,
-                        onSave: { controller.saveComment(text: commentText, attachments: attachments) },
-                        appendText: appendTranscribedText,
-                        transcriptionGeneration: controller.currentDraftGeneration,
-                        acceptsTranscription: { controller.isCurrentDraft($0) },
-                        autoSaveState: voiceAutoSaveButtonState
-                    )
-                } else {
-                    saveButton
-                }
+                // Save button
+                saveButton
 
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
         .frame(width: 340)
-        .overlay {
-            if #available(macOS 26, *) {
-                VoiceRecordingBorder(colorScheme: colorScheme)
-            }
-        }
 
             // Close button
             Button(action: { controller.dismiss() }) {
@@ -169,18 +137,12 @@ struct CommentInputView: View {
             isFocused = true
         }
         .onRemarcChange(of: controller.textResetToken) { _ in
-            if #available(macOS 26, *), VoiceInputService.shared.state != .idle {
-                VoiceInputService.shared.cancelRecording()
-            }
             commentText = ""
             attachments = []
             isFocused = true
         }
         .onRemarcChange(of: commentText) { _ in
             controller.currentText = commentText
-            if controller.autoSaveCountdownActive && !suppressTextCancelAutoSave {
-                controller.cancelAutoSave()
-            }
         }
         .onRemarcChange(of: attachments) { _ in
             controller.currentAttachments = attachments
@@ -189,37 +151,9 @@ struct CommentInputView: View {
             guard trigger > 0 else { return }
             refocusEditor()
         }
-        .onRemarcChange(of: controller.pendingVoiceText) { _ in
-            if let text = controller.pendingVoiceText, !text.isEmpty {
-                // Suppress auto-save cancellation for this programmatic text change
-                suppressTextCancelAutoSave = true
-                appendTranscribedText(text)
-                controller.pendingVoiceText = nil
-                controller.currentText = commentText
-                // Start auto-save countdown after voice transcription completes
-                if #available(macOS 26, *), VoiceInputService.shared.state == .idle {
-                    controller.startAutoSaveCountdown()
-                }
-                // Re-enable after a brief delay so the batched onChange(of: commentText) is skipped
-                DispatchQueue.main.async {
-                    suppressTextCancelAutoSave = false
-                }
-            }
-        }
     }
 
-    @available(macOS 26, *)
-    private var voiceAutoSaveButtonState: VoiceAutoSaveButtonState {
-        VoiceAutoSaveButtonState(
-            countdownActive: controller.autoSaveCountdownActive,
-            progress: controller.autoSaveProgress,
-            remainingSeconds: controller.autoSaveRemainingSeconds,
-            feedbackTrigger: controller.saveFeedbackTrigger,
-            onHoverChanged: { controller.isSaveButtonHovered = $0 }
-        )
-    }
-
-    // MARK: - Save Button (fallback for pre-macOS 26)
+    // MARK: - Save Button
 
     private var saveButton: some View {
         Button(action: { controller.saveComment(text: commentText, attachments: attachments) }) {
@@ -382,10 +316,6 @@ struct CommentInputView: View {
     }
 
     // MARK: - Helpers
-
-    private func appendTranscribedText(_ text: String) {
-        appendVoiceText(text, to: &commentText)
-    }
 
     private func pickAttachmentImage() {
         controller.suppressClickOutside = true

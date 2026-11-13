@@ -11,8 +11,9 @@ Create a quick note from the popover or the menu bar icon:
 
 - Click the **New quick note** button in the [popover header](/basics/menu-bar-and-popover/).
 - Right-click the menu bar icon and choose **New Quick Note**.
+- Press `Ctrl+Option+N` in any app, or `Ctrl+Option+Shift+N` in Remarc Dev.
 
-Both open a composer with no quoted text. Write your note and press `Cmd+Return` to save. Quick notes have no global hotkey of their own.
+These open a composer with no quoted text, even when text is selected. Write your note and press `Cmd+Return` to save. Repeating the shortcut brings the open editor forward without clearing its draft. If another comment editor is open, it is brought forward so your current work is preserved. Change or clear the shortcut in Settings > Shortcuts.
 
 ## Quick note behavior
 

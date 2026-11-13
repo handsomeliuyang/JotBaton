@@ -13,7 +13,6 @@ app/RemarcPackage/
     Features/
       Comments/                       Comment document, sessions, history and export
       Capture/                        Text selection, screenshots, annotation and storage
-      Voice/                          Recording, dictation and transcription engines
       Integrations/                   Agent clients, browser bridge, webhooks and PopClip
       Settings/                       Preferences and settings panes
       SnapshotSync/                   iCloud snapshots, comparison, publication and recovery
@@ -36,7 +35,7 @@ tests/architecture/                   Swift dependency and source-ownership chec
 
 ## Compilation ownership
 
-One package contains four `Core*` targets, eight `Feature*` targets, and the
+One package contains four `Core*` targets, seven `Feature*` targets, and the
 `RemarcFeature` application-composition target. A folder does not itself create a
 Swift module; `Package.swift` declares the actual boundaries.
 
@@ -100,8 +99,8 @@ The app, MCP server and hooks still coordinate on one document and its existing
 cross-process lock. Session and comment repositories do not own separate files.
 
 Production and development continue to use `AppIdentity.current` for isolated
-storage, snapshots, notifications and integrations. Standard and Ventura keep
-their pinned dependencies and availability guards. Resource bundles belong to
+storage, snapshots, notifications and integrations. Standard and Ventura share
+the same pinned dependencies and keep their availability guards. Resource bundles belong to
 their compiling target: localization resources belong to `CoreLocalization`;
 application resources remain under `App/Resources`.
 

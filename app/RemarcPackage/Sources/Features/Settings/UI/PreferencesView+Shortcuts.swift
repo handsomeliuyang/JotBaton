@@ -18,6 +18,9 @@ extension PreferencesView {
                 settingsRow(L10n.tr("Comment")) {
                     ConflictAwareRecorder(name: .commentOnSelection)
                 }
+                settingsRow(L10n.tr("Quick Note")) {
+                    ConflictAwareRecorder(name: .quickNote)
+                }
                 settingsRow(L10n.tr("Screenshot")) {
                     ConflictAwareRecorder(name: .screenshotComment)
                 }
@@ -31,31 +34,6 @@ extension PreferencesView {
                 }
                 settingsRow(L10n.tr("Open Remarc")) {
                     ConflictAwareRecorder(name: .openRemarc)
-                }
-                settingsRow(L10n.tr("Start Crit Mode")) {
-                    ConflictAwareRecorder(name: .startCritMode)
-                }
-                if #available(macOS 26, *) {
-                    settingsRow(L10n.tr("Paste Last Dictation")) {
-                        ConflictAwareRecorder(name: .pasteLastTranscription)
-                    }
-                    settingsRow(L10n.tr("Voice Input"), labelAccessory: { voiceSettingsGearButton }) {
-                        ConflictAwareRecorder(name: .voiceInput)
-                    }
-                    settingsRow(L10n.tr("Dictation"), labelAccessory: { voiceSettingsGearButton }) {
-                        if settings.dictationUsesFnKey {
-                            Text(L10n.tr("fn🌐"))
-                                .font(.system(size: 12, weight: .medium))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color.primary.opacity(0.06))
-                                )
-                        } else {
-                            ConflictAwareRecorder(name: .dictation)
-                        }
-                    }
                 }
 
                 Divider()
@@ -107,6 +85,5 @@ extension PreferencesView {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-
 
 }

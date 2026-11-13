@@ -87,19 +87,6 @@ Worktrees go in `.worktrees/` (gitignored). Use `git worktree add .worktrees/<na
 
 When the user describes a UI bug, confirm WHICH specific component/view they mean before editing. Ask clarifying questions if ambiguous.
 
-## Microphone / TCC Permissions
-
-Building from worktrees (or nuking DerivedData) fragments macOS TCC mic permissions. Audio tap silently produces 0 buffers. **Fix:**
-
-```bash
-rm -rf app/DerivedData
-# rebuild...
-tccutil reset Microphone com.metepolat.Remarc
-pkill -x Remarc; sleep 0.5; open app/DerivedData/Build/Products/Debug/Remarc.app
-```
-
-User must grant mic access when prompted. Do this whenever audio capture stops working.
-
 ## Color System
 
 The source map and dependency rules are in [ARCHITECTURE.md](ARCHITECTURE.md).

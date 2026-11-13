@@ -64,7 +64,7 @@ package extension Color {
             : Color(red: 0.008, green: 0.518, blue: 0.780)   // #0284C7
     }
 
-    // MARK: - Raw Brand Tints (for audio-reactive effects, gradients, etc.)
+    // MARK: - Raw Brand Tints (for animated effects, gradients, etc.)
 
     /// Raw brand indigo — use `remarcPrimary` for standard UI elements.
     public static let remarcBrandIndigo = Color(red: 0.388, green: 0.400, blue: 0.945)  // #6366F1

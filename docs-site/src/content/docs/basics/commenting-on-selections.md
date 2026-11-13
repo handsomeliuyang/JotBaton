@@ -40,3 +40,7 @@ Five settings control when and where Remarc detects selections:
 :::tip
 If the tooltip appears too often, switch Detection mode to Hotkey Only. Remarc keeps detecting selections in the background but stops showing the tooltip, so you press `Ctrl+Option+C` when you want to comment.
 :::
+
+## Using your input method
+
+You can use your input method's voice input in the comment text field, then review the text and save it normally. Remarc does not record audio or run speech recognition.

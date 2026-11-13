@@ -65,50 +65,7 @@ History retention covers archived comments and their images and attachments. Its
 
 ## Shortcuts
 
-Rebind global shortcuts here; Remarc flags conflicts between its own shortcuts as you record them, and a Reset button restores the defaults. The Chrome extension shortcuts also appear here. The one exception is the hands-free dictation binding, which is rebound in Settings > Voice. Full list: [keyboard shortcuts](/reference/keyboard-shortcuts/).
-
-## Voice
-
-:::note
-The Voice tab appears only on macOS 26 (Tahoe) or later.
-:::
-
-### Transcription engine
-
-The engine settings choose which on-device model transcribes your speech; details are on [transcription engines](/voice/transcription-engines/).
-
-| Setting | Default | Notes |
-| --- | --- | --- |
-| Engine | Apple Speech | Options: Apple Speech, WhisperKit, Parakeet. |
-| Model (WhisperKit) | Balanced (217 MB) | Options: Fast (75 MB), Balanced (217 MB), Max (954 MB). |
-| Model (Parakeet) | Multilingual (~1.2 GB) | Options: English, Multilingual. |
-| Keep model in memory | Off | Faster responses, uses roughly 200-500 MB of RAM. Recommended with 16 GB+ RAM. |
-| Load model on launch | Off | Appears only when "Keep model in memory" is on. |
-
-Models download in-app with a progress bar and can be deleted later. Remarc falls back to Apple Speech until a download finishes.
-
-### Behavior
-
-These settings control what happens while you record.
-
-| Setting | Default | Notes |
-| --- | --- | --- |
-| Sound effects | On | Start and stop sounds for recording. |
-| Mute audio while recording | Off | Mutes system audio when recording starts, restores it when you stop. |
-| Prefer Mac built-in mic | On | Uses known studio USB mics when present; otherwise prefers the built-in microphone over AirPods and headset mics. |
-| Auto-save voice notes | Off | Saves comments created with the voice shortcut automatically. Delay picker: 1s to 5s, default 2s. |
-
-### Dictation
-
-Dictation settings cover the system-wide dictation shortcuts and transcription history.
-
-| Setting | Default | Notes |
-| --- | --- | --- |
-| Enable dictation | On | When off, dictation shortcuts are ignored entirely. |
-| Push to talk | `Ctrl+Option+D` | A "Use fn key" toggle (off by default) binds it to the fn/globe key instead. |
-| Hands-free mode | Single tap | Options: Single tap, Double tap, Custom shortcut. |
-| Paste last dictation | `Ctrl+Option+L` | Re-pastes the most recent transcription. |
-| History retention | 1 week | Options: 1 day, 1 week, 1 month, 3 months. |
+Rebind global shortcuts here; Remarc flags conflicts between its own shortcuts as you record them, and a Reset button restores the defaults. The Chrome extension shortcuts also appear here. Full list: [keyboard shortcuts](/reference/keyboard-shortcuts/).
 
 ## Export
 

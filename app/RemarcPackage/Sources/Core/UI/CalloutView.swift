@@ -6,7 +6,7 @@ import SwiftUI
 ///
 /// Usage:
 /// ```
-/// CalloutView(.info, "Model will download on first use.")
+/// CalloutView(.info, "Choose a folder to continue.")
 /// CalloutView(.error, "Download failed: \(message)")
 /// CalloutView(.warning, "Large model requires 1 GB of disk space.")
 /// ```

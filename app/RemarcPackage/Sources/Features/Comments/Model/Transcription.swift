@@ -1,5 +1,6 @@
 import Foundation
 
+/// Legacy persisted records only. New recordings and transcription UI have been removed.
 public struct Transcription: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public var text: String

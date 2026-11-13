@@ -5,6 +5,7 @@ public enum CommentType: Codable, Equatable, Sendable {
     case comment(text: String)
     case quickNote
     case screenshot(imagePath: String)
+    /// Legacy on-disk type, retained for existing comments and integrations.
     case critMode
     case webElement(componentName: String?, filePath: String?)
 
@@ -28,11 +29,6 @@ public enum CommentType: Codable, Equatable, Sendable {
         return false
     }
 
-    public var isCritMode: Bool {
-        if case .critMode = self { return true }
-        return false
-    }
-
     public var isWebElement: Bool {
         if case .webElement = self { return true }
         return false
@@ -45,11 +41,15 @@ public enum CommentType: Codable, Equatable, Sendable {
 
     // MARK: - Metadata
 
-    public var identifier: String { kind.rawValue }
+    public var identifier: String {
+        // Keep the stored/exported identifier while grouping retired comments with notes.
+        if case .critMode = self { return "critMode" }
+        return kind.rawValue
+    }
 
     public var exportDisplayName: String {
         switch self {
-        case .critMode: return "Crit Mode"  // Kind uses "Crit" (shorter for filters)
+        case .critMode: return "Crit Mode"
         default: return kind.exportDisplayName
         }
     }
@@ -69,7 +69,7 @@ public enum CommentType: Codable, Equatable, Sendable {
 package extension CommentType {
     /// A simple, Hashable enum for filtering — strips associated values from CommentType.
     public enum Kind: String, Hashable, CaseIterable, Sendable {
-        case comment, screenshot, quickNote, critMode, webElement
+        case comment, screenshot, quickNote, webElement
     }
 
     public var kind: Kind {
@@ -77,7 +77,7 @@ package extension CommentType {
         case .comment: return .comment
         case .screenshot: return .screenshot
         case .quickNote: return .quickNote
-        case .critMode: return .critMode
+        case .critMode: return .quickNote
         case .webElement: return .webElement
         }
     }
@@ -89,7 +89,6 @@ package extension CommentType.Kind {
         case .comment: return "Comment"
         case .screenshot: return "Screenshot"
         case .quickNote: return "Quick Note"
-        case .critMode: return "Crit"
         case .webElement: return "Web Element"
         }
     }
@@ -101,7 +100,6 @@ package extension CommentType.Kind {
         case .comment: return "text.quote"
         case .screenshot: return "camera.viewfinder"
         case .quickNote: return "note.text"
-        case .critMode: return "mic.fill"
         case .webElement: return "globe"
         }
     }

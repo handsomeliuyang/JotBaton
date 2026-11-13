@@ -1,7 +1,7 @@
 import AppKit
 
 /// A temporary use of the clipboard. Never restores over a subsequent owner.
-/// Shared by selection reading and the delayed dictation paste paths.
+/// Protects the user's clipboard while reading text through a synthetic copy.
 @MainActor
 struct ClipboardRestoration {
     static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")

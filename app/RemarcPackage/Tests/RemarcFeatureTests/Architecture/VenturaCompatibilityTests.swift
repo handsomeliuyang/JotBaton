@@ -1,5 +1,4 @@
 @testable import CoreUI
-@testable import FeatureVoice
 @testable import RemarcFeature
 import AppKit
 import Combine
@@ -36,11 +35,4 @@ final class VenturaCompatibilityTests: XCTestCase {
         withExtendedLifetime(subscription) {}
     }
 
-    func testEngineChoicesMatchLinkedBackends() {
-        #if canImport(FluidAudio)
-        XCTAssertTrue(TranscriptionEngineType.availableCases.contains(.parakeet))
-        #else
-        XCTAssertEqual(TranscriptionEngineType.availableCases, [.appleSpeech, .whisperKit])
-        #endif
-    }
 }

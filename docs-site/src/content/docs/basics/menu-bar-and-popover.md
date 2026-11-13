@@ -23,7 +23,6 @@ The header has five buttons:
 | History (clock icon) | Open deleted-comment history |
 | New quick note | Open the composer for a standalone note |
 | Screenshot comment | Start a screen region capture |
-| Crit Mode (mic icon) | Record spoken feedback (macOS 26 or later only) |
 
 The footer holds session-wide actions:
 

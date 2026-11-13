@@ -22,9 +22,6 @@ Grab any region of the screen, adjust the selection, then add arrows, shapes, te
 
 The [companion Chrome extension](https://remarc.app/chrome-extension/) captures the page URL, selected element or page region, CSS, layout, accessibility data, and React component details when available. The captured web context stays with the comment. Installation and capture shortcuts are in the [extension guide](https://docs.remarc.app/chrome-extension/).
 
-#### Voice comments and Crit Mode
-
-On macOS 26 or later, dictate one comment or record a longer review in [Crit Mode](https://docs.remarc.app/voice/voice-comments-and-crit-mode/). Crit Mode transcribes the recording and splits it into separate comment cards. Apple Speech, WhisperKit, and Parakeet all run transcription on your Mac.
 
 #### Quick Notes
 
@@ -95,7 +92,7 @@ To build the current checkout and immediately launch its Debug app, without a co
 
 With supported Xcode selected, the script clean-builds and signs `Remarc Dev.app` with the shared test identity, installs it at `/Applications/Remarc Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the Intel production package from GitHub Releases; previews never fall back to GitHub automatically.
 
-On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Voice segmentation uses the existing speech-segment fallback because CLT lacks the Foundation Models macro plugin. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
+On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 
 Run `./scripts/test-snapshots.sh` for the snapshot suite. With CLT, run the local preview script first; the test script uses the same production sources and pinned dependencies in a separate Swift Testing target without the unavailable XCTest runtime.
 
@@ -121,8 +118,7 @@ and local UI customizations. Use `main` for development and builds. The
 An opt-in build supports **macOS 13.0+ / x86_64**,
 including Ventura 13.7.8. The standard build keeps the upstream macOS 14 minimum.
 Comments, sessions, selection monitoring, screenshots, annotations and exports
-share the same implementation and data format. Voice features still require
-macOS 26; FluidAudio/Parakeet is omitted from the compatibility build. Official
+share the same implementation and data format.
 The app checks GitHub Releases for updates. **Upgrade and Restart** selects the native Intel package and completes download, verification, installation and relaunch. Background installation without user consent remains disabled.
 
 For versioned delivery, use the **Release** workflow to build both Intel and
@@ -163,8 +159,7 @@ screenshot annotation (including blur/pixelation), export and restart persistenc
 
 The **Release** workflow builds and publishes a native arm64 Release app together
 with the Intel app. The standalone **Apple Silicon** workflow is for development
-and produces an Actions artifact only. The standard macOS 14 minimum
-and full speech backends are preserved (voice features require macOS 26).
+and produces an Actions artifact only. The standard macOS 14 minimum is preserved.
 Automatic upstream updates are disabled for this independently packaged build.
 
 Download `Remarc-Apple-Silicon-arm64.dmg` from
@@ -195,7 +190,7 @@ The MCP server's source of truth lives in the public, MIT-licensed [remarc-agent
 
 ## Tech stack
 
-Swift 6, SwiftUI + AppKit, [Sparkle](https://github.com/sparkle-project/Sparkle) for updates, [WhisperKit](https://github.com/argmaxinc/WhisperKit) and [FluidAudio](https://github.com/FluidInference/FluidAudio) for on-device transcription, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), and the Model Context Protocol for agent integrations.
+Swift 6, SwiftUI + AppKit, [Sparkle](https://github.com/sparkle-project/Sparkle) for updates, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), and the Model Context Protocol for agent integrations.
 
 ## Contributing
 

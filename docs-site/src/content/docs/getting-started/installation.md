@@ -18,7 +18,6 @@ Remarc appears as an icon in the menu bar, with no dock icon by default.
 On first launch, Remarc opens a welcome window with four rows:
 
 - **Accessibility** - lets Remarc read your selected text so comments can quote it.
-- **Microphone** - used for voice dictation and speaking your comments hands-free.
 - **Screen Recording** - used to capture screenshots of selected regions alongside your comments.
 - **Claude Code plugin** - optional. Click **Install** to add the Remarc plugin to Claude Code in one step, or do it later from Settings > MCP Integrations.
 

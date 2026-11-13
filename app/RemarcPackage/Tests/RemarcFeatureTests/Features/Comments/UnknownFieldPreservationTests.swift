@@ -51,10 +51,39 @@ final class UnknownFieldPreservationTests: XCTestCase {
         let raw = try roundTrip("""
         {
           "sessions": [], "comments": [], "totalCommentsCreated": 3,
-          "transcriptions": [], "orphanedImages": []
+          "transcriptions": [{
+            "id": "22222222-2222-2222-2222-222222222222",
+            "text": "Archived input", "createdAt": 807824960.0,
+            "appName": "Editor", "isDeleted": false
+          }], "orphanedImages": []
         }
         """)
         XCTAssertEqual(raw["totalCommentsCreated"] as? Int, 3)
+        let archived = try XCTUnwrap((raw["transcriptions"] as? [[String: Any]])?.first)
+        XCTAssertEqual(archived["text"] as? String, "Archived input")
+        XCTAssertEqual(archived["appName"] as? String, "Editor")
+    }
+
+    func testRetiredCommentTypeSurvivesEditingAnOldDocument() throws {
+        let json = """
+        {
+          "sessions": [], "totalCommentsCreated": 1,
+          "comments": [{
+            "id": "33333333-3333-3333-3333-333333333333",
+            "type": { "critMode": {} }, "commentText": "Existing feedback",
+            "source": "Editor", "createdAt": 807824960.0, "updatedAt": 807824960.0,
+            "sessionID": "11111111-1111-1111-1111-111111111111",
+            "isDeleted": false, "status": "open", "attachments": []
+          }]
+        }
+        """
+        var state = try JSONDecoder().decode(AppState.self, from: Data(json.utf8))
+        XCTAssertEqual(state.comments.first?.type, .critMode)
+        state.comments[0].commentText = "Edited feedback"
+        let saved = try JSONDecoder().decode(AppState.self, from: JSONEncoder().encode(state))
+        XCTAssertEqual(saved.comments.first?.type, .critMode)
+        XCTAssertEqual(saved.comments.first?.type.identifier, "critMode")
+        XCTAssertEqual(saved.comments.first?.commentText, "Edited feedback")
     }
 
     /// A harness this build has never heard of must keep its own name. Decoding

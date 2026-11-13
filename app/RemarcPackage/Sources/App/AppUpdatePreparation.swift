@@ -5,11 +5,6 @@ import CoreLocalization
 @MainActor
 enum AppUpdatePreparation {
     static func prepareForRestart() -> String? {
-        if #available(macOS 26, *) {
-            if DictationService.shared.state != .idle || VoiceInputService.shared.state != .idle || CritModeService.shared.state != .idle {
-                return L10n.tr("Finish recording or transcription, then click Upgrade and Restart again.")
-            }
-        }
         if FloatingEditorController.shared.isVisible || FloatingEditorController.shared.hasUnsavedChanges
             || CommentInputController.shared.isVisible
             || !CommentInputController.shared.currentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

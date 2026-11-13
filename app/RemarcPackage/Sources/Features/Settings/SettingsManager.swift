@@ -4,7 +4,6 @@ import CoreUI
 import FeatureCapture
 import FeatureComments
 import FeatureIntegrations
-import FeatureVoice
 import Foundation
 import Combine
 import ServiceManagement
@@ -17,14 +16,7 @@ public final class SettingsManager: ObservableObject {
     private let defaults = UserDefaults.standard
 
     /// Subset of keys that must be readable outside @MainActor (e.g. CGEventTap callbacks).
-    package nonisolated static let fnKeyDictationKey = "dictationUsesFnKey"
-    package nonisolated static let fnKeyHandsFreeKey = "dictationHandsFreeUsesFnKey"
-    package nonisolated static let dictationEnabledKey = "dictationEnabled"
     package nonisolated static let screenshotDirectoryPathKey = remarcScreenshotDirectoryPathKey
-
-    package nonisolated static func isDictationEnabled(in defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: dictationEnabledKey)
-    }
 
     private enum Keys {
         static let isPaused = "isPaused"
@@ -56,9 +48,6 @@ public final class SettingsManager: ObservableObject {
         static let commentPrefixStyle = "commentPrefixStyle"
         static let timeFormat = "timeFormat"
         static let metadataDividerStyle = "metadataDividerStyle"
-        static let hasSeenCritModeOnboarding = "hasSeenCritModeOnboarding"
-        static let autoSaveVoiceNotes = "autoSaveVoiceNotes"
-        static let autoSaveDelay = "autoSaveDelay"
         static let includeRemarkID = "includeRemarkID"
         static let includeAIHint = "includeAIHint"
         static let showInDock = "showInDock"
@@ -74,19 +63,6 @@ public final class SettingsManager: ObservableObject {
 
         static let extensionGrabElementShortcut = "extensionGrabElementShortcut"
         static let extensionRegionSelectShortcut = "extensionRegionSelectShortcut"
-        static let transcriptionEngine = "transcriptionEngine"
-        static let whisperKitModel = "whisperKitModel"
-        static let parakeetModelVersion = "parakeetModelVersion"
-        static let pauseMusicWhileRecording = VoiceModelPreferences.pauseMusicKey
-        static let smartMicrophoneSelection = "smartMicrophoneSelection"
-        static let soundEffectsEnabled = "soundEffectsEnabled"
-        static let transcriptionRetentionDays = "transcriptionRetentionDays"
-        static let dictationHandsFreeMode = "dictationHandsFreeMode"
-        static let dictationUsesFnKey = SettingsManager.fnKeyDictationKey
-        static let dictationHandsFreeUsesFnKey = SettingsManager.fnKeyHandsFreeKey
-        static let dictationEnabled = SettingsManager.dictationEnabledKey
-        static let keepModelInMemory = VoiceModelPreferences.keepInMemoryKey
-        static let preloadModelOnLaunch = "preloadModelOnLaunch"
 
         static let claudeCodeEnabled = "claudeCodeEnabled"
         static let claudeCodeAutoCreateSession = "claudeCodeAutoCreateSession"
@@ -95,7 +71,6 @@ public final class SettingsManager: ObservableObject {
         static let claudeCodeSessionEndBehavior = "claudeCodeSessionEndBehavior"
         static let mcpUserDisabled = "mcpUserDisabled"
         static let pluginMigrationCompleted = "pluginMigrationCompleted"
-        static let vocabularyHints = VoiceModelPreferences.vocabularyHintsKey
         static let tooltipPosition = "tooltipPosition"
         static let menuBarIndicatorStyle = "menuBarIndicatorStyle"
         static let hidesMenuBarCountAtZero = "hidesMenuBarCountAtZero"
@@ -247,18 +222,6 @@ public final class SettingsManager: ObservableObject {
         didSet { defaults.set(metadataDividerStyle.rawValue, forKey: Keys.metadataDividerStyle) }
     }
 
-    @Published public var hasSeenCritModeOnboarding: Bool {
-        didSet { defaults.set(hasSeenCritModeOnboarding, forKey: Keys.hasSeenCritModeOnboarding) }
-    }
-
-    @Published public var autoSaveVoiceNotes: Bool {
-        didSet { defaults.set(autoSaveVoiceNotes, forKey: Keys.autoSaveVoiceNotes) }
-    }
-
-    @Published public var autoSaveDelay: AutoSaveDelay {
-        didSet { defaults.set(autoSaveDelay.rawValue, forKey: Keys.autoSaveDelay) }
-    }
-
     @Published public var includeRemarkID: Bool {
         didSet { defaults.set(includeRemarkID, forKey: Keys.includeRemarkID) }
     }
@@ -321,97 +284,6 @@ public final class SettingsManager: ObservableObject {
                 defaults.set(data, forKey: Keys.extensionRegionSelectShortcut)
             }
         }
-    }
-
-    @Published public var transcriptionEngine: TranscriptionEngineType {
-        didSet { defaults.set(transcriptionEngine.rawValue, forKey: Keys.transcriptionEngine) }
-    }
-
-    @Published public var whisperKitModel: WhisperKitModelSize {
-        didSet { defaults.set(whisperKitModel.rawValue, forKey: Keys.whisperKitModel) }
-    }
-
-    @Published public var parakeetModelVersion: ParakeetModelVersion {
-        didSet { defaults.set(parakeetModelVersion.rawValue, forKey: Keys.parakeetModelVersion) }
-    }
-
-    @Published public var pauseMusicWhileRecording: Bool {
-        didSet { defaults.set(pauseMusicWhileRecording, forKey: Keys.pauseMusicWhileRecording) }
-    }
-
-    @Published public var smartMicrophoneSelection: Bool {
-        didSet { defaults.set(smartMicrophoneSelection, forKey: Keys.smartMicrophoneSelection) }
-    }
-
-    @Published public var soundEffectsEnabled: Bool {
-        didSet { defaults.set(soundEffectsEnabled, forKey: Keys.soundEffectsEnabled) }
-    }
-
-    @Published public var transcriptionRetentionDays: Int {
-        didSet { defaults.set(transcriptionRetentionDays, forKey: Keys.transcriptionRetentionDays) }
-    }
-
-    @Published public var dictationHandsFreeMode: DictationHandsFreeMode {
-        didSet { defaults.set(dictationHandsFreeMode.rawValue, forKey: Keys.dictationHandsFreeMode) }
-    }
-
-    @Published public var dictationUsesFnKey: Bool {
-        didSet {
-            defaults.set(dictationUsesFnKey, forKey: Keys.dictationUsesFnKey)
-            guard dictationUsesFnKey else { return }
-            if dictationHandsFreeUsesFnKey {
-                dictationHandsFreeUsesFnKey = false
-                ToastManager.shared.show(L10n.tr("fn🌐 moved from Hands-free Shortcut"))
-            }
-            KeyboardShortcuts.setShortcut(nil, for: .dictation)
-        }
-    }
-
-    @Published public var dictationHandsFreeUsesFnKey: Bool {
-        didSet {
-            defaults.set(dictationHandsFreeUsesFnKey, forKey: Keys.dictationHandsFreeUsesFnKey)
-            guard dictationHandsFreeUsesFnKey else { return }
-            if dictationUsesFnKey {
-                dictationUsesFnKey = false
-                ToastManager.shared.show(L10n.tr("fn🌐 moved from Push to Talk"))
-            }
-            KeyboardShortcuts.setShortcut(nil, for: .dictationHandsFree)
-        }
-    }
-
-    // MARK: - Dictation Toggle
-
-    @Published public var dictationEnabled: Bool {
-        didSet { defaults.set(dictationEnabled, forKey: Keys.dictationEnabled) }
-    }
-
-    // MARK: - Keep Model in Memory
-
-    @Published public var keepModelInMemory: Bool {
-        didSet {
-            defaults.set(keepModelInMemory, forKey: Keys.keepModelInMemory)
-            if keepModelInMemory {
-                // Cancel any pending unload timers so a stale timer
-                // doesn't evict a model the user wants kept in memory.
-                WhisperKitModelManager.shared.cancelPendingUnloads()
-                #if canImport(FluidAudio)
-                ParakeetModelManager.shared.cancelPendingUnloads()
-                #endif
-            } else {
-                WhisperKitModelManager.shared.scheduleUnloadIfIdle()
-                #if canImport(FluidAudio)
-                ParakeetModelManager.shared.scheduleUnloadIfIdle()
-                #endif
-                // Disable preload on launch when keep-in-memory is turned off
-                if preloadModelOnLaunch {
-                    preloadModelOnLaunch = false
-                }
-            }
-        }
-    }
-
-    @Published public var preloadModelOnLaunch: Bool {
-        didSet { defaults.set(preloadModelOnLaunch, forKey: Keys.preloadModelOnLaunch) }
     }
 
     // MARK: - Agent Integrations
@@ -479,10 +351,6 @@ public final class SettingsManager: ObservableObject {
     /// Until both hold, cleanup retries on every launch.
     @Published public var pluginMigrationCompleted: Bool {
         didSet { defaults.set(pluginMigrationCompleted, forKey: Keys.pluginMigrationCompleted) }
-    }
-
-    @Published public var vocabularyHints: [String] {
-        didSet { defaults.set(vocabularyHints, forKey: Keys.vocabularyHints) }
     }
 
     @Published public var webhooks: [Webhook] {
@@ -676,16 +544,6 @@ public final class SettingsManager: ObservableObject {
         self.hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
         self.showInDock = defaults.bool(forKey: Keys.showInDock)
         self.hasSeenMenuBarTooltip = defaults.bool(forKey: Keys.hasSeenMenuBarTooltip)
-        self.hasSeenCritModeOnboarding = defaults.bool(forKey: Keys.hasSeenCritModeOnboarding)
-        self.autoSaveVoiceNotes = defaults.bool(forKey: Keys.autoSaveVoiceNotes)
-
-        if let saved = defaults.string(forKey: Keys.autoSaveDelay),
-           let delay = AutoSaveDelay(rawValue: saved) {
-            self.autoSaveDelay = delay
-        } else {
-            self.autoSaveDelay = .twoSeconds
-        }
-
         if defaults.object(forKey: Keys.includeRemarkID) != nil {
             self.includeRemarkID = defaults.bool(forKey: Keys.includeRemarkID)
         } else {
@@ -740,58 +598,6 @@ public final class SettingsManager: ObservableObject {
             self.extensionRegionSelectShortcut = .defaultRegionSelect
         }
 
-        if let saved = defaults.string(forKey: Keys.transcriptionEngine),
-           let engine = TranscriptionEngineType(rawValue: saved) {
-            self.transcriptionEngine = TranscriptionEngineType.availableCases.contains(engine) ? engine : .appleSpeech
-        } else {
-            self.transcriptionEngine = .appleSpeech
-        }
-
-        if let saved = defaults.string(forKey: Keys.whisperKitModel),
-           let model = WhisperKitModelSize(rawValue: saved) {
-            self.whisperKitModel = model
-        } else {
-            self.whisperKitModel = .balanced
-        }
-
-        if let saved = defaults.string(forKey: Keys.parakeetModelVersion),
-           let version = ParakeetModelVersion(rawValue: saved) {
-            self.parakeetModelVersion = version
-        } else {
-            self.parakeetModelVersion = .v3
-        }
-
-        self.pauseMusicWhileRecording = defaults.bool(forKey: Keys.pauseMusicWhileRecording)
-        self.smartMicrophoneSelection = defaults.object(forKey: Keys.smartMicrophoneSelection) == nil
-            ? true : defaults.bool(forKey: Keys.smartMicrophoneSelection)
-
-        // Default to true when key has never been set
-        if defaults.object(forKey: Keys.soundEffectsEnabled) == nil {
-            self.soundEffectsEnabled = true
-        } else {
-            self.soundEffectsEnabled = defaults.bool(forKey: Keys.soundEffectsEnabled)
-        }
-
-        let savedTranscriptionRetention = defaults.integer(forKey: Keys.transcriptionRetentionDays)
-        self.transcriptionRetentionDays = savedTranscriptionRetention > 0 ? savedTranscriptionRetention : CommentConstants.defaultTranscriptionRetentionDays
-
-        if let savedMode = defaults.string(forKey: Keys.dictationHandsFreeMode),
-           let mode = DictationHandsFreeMode(rawValue: savedMode) {
-            self.dictationHandsFreeMode = mode
-        } else {
-            self.dictationHandsFreeMode = .singleTap
-        }
-
-        self.dictationUsesFnKey = defaults.bool(forKey: Keys.dictationUsesFnKey)
-        self.dictationHandsFreeUsesFnKey = defaults.bool(forKey: Keys.dictationHandsFreeUsesFnKey)
-
-        // Standalone dictation is opt-in. An explicit saved choice still wins.
-        self.dictationEnabled = Self.isDictationEnabled(in: defaults)
-
-        // Keep model in memory — defaults to off
-        self.keepModelInMemory = defaults.bool(forKey: Keys.keepModelInMemory)
-        self.preloadModelOnLaunch = defaults.bool(forKey: Keys.preloadModelOnLaunch)
-
         // Agent integrations
         self.claudeCodeEnabled = defaults.bool(forKey: Keys.claudeCodeEnabled)
         // Off by default while the feature settles: waking an idle agent is a
@@ -803,7 +609,6 @@ public final class SettingsManager: ObservableObject {
             : defaults.bool(forKey: Keys.claudeCodeAutoCreateSession)
         self.mcpUserDisabled = defaults.bool(forKey: Keys.mcpUserDisabled)
         self.pluginMigrationCompleted = defaults.bool(forKey: Keys.pluginMigrationCompleted)
-        self.vocabularyHints = defaults.stringArray(forKey: Keys.vocabularyHints) ?? VocabularyHints.defaultHints
 
         if let data = defaults.data(forKey: Keys.webhooksConfig),
            let decoded = try? JSONDecoder().decode([Webhook].self, from: data) {

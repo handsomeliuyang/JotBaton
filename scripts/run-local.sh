@@ -82,15 +82,11 @@ PYTHON
         esac
         REMARC_OBJECTS+=("$REMARC_OBJECT")
     done < <(find "$REMARC_BIN" -name '*.o' -type f -print0)
-    REMARC_MODULE_MAPS=()
-    while IFS= read -r -d '' REMARC_MODULE_MAP; do
-        REMARC_MODULE_MAPS+=(-Xcc "-fmodule-map-file=$REMARC_MODULE_MAP")
-    done < <(find "$REMARC_PACKAGE/.build/checkouts/FluidAudio/Sources" -name module.modulemap -type f -print0)
     swiftc -parse-as-library -D DEBUG -swift-version 5 \
         -sdk "$REMARC_SDK" -target "$(uname -m)-apple-macosx14.0" \
         -I "$REMARC_BIN/Modules" -F "$REMARC_SPARKLE" \
         -Xlinker -rpath -Xlinker '@executable_path/../Frameworks' \
-        "${REMARC_MODULE_MAPS[@]}" "$REMARC_APP_DIR/Remarc/RemarcApp.swift" "${REMARC_OBJECTS[@]}" \
+        "$REMARC_APP_DIR/Remarc/RemarcApp.swift" "${REMARC_OBJECTS[@]}" \
         -o "$REMARC_OUTPUT/Contents/MacOS/RemarcDev"
     cp "$REMARC_APP_DIR/Remarc/Info.plist" "$REMARC_OUTPUT/Contents/Info.plist"
     /usr/libexec/PlistBuddy -c 'Add :CFBundleIdentifier string com.metepolat.Remarc.dev' "$REMARC_OUTPUT/Contents/Info.plist"
