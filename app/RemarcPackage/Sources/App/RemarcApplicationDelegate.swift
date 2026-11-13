@@ -1,4 +1,5 @@
 import CorePlatform
+import FeatureUpdates
 import SwiftUI
 import AppKit
 import AppMover
@@ -108,5 +109,9 @@ public final class RemarcApplicationDelegate: NSObject, NSApplicationDelegate {
             AppController.shared.handleDockIconClick()
         }
         return false
+    }
+
+    public func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        UpdateManager.shared.validateTermination() ? .terminateNow : .terminateCancel
     }
 }

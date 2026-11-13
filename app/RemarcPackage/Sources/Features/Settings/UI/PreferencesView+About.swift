@@ -48,8 +48,14 @@ extension PreferencesView {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 360)
             }
-            if updateManager.availableVersion != nil {
-                Button(L10n.tr("Download from GitHub")) { UpdateManager.shared.openDownload() }
+            if updateManager.isUpdating {
+                if let progress = updateManager.progress {
+                    ProgressView(value: progress).frame(width: 220)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+            } else if updateManager.availableVersion != nil {
+                Button(L10n.tr("Upgrade and Restart")) { UpdateManager.shared.installUpdate() }
                     .disabled(updateManager.isChecking)
             }
 

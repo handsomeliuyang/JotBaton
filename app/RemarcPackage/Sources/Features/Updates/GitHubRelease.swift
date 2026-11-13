@@ -26,13 +26,17 @@ package struct GitHubRelease: Decodable, Sendable {
         let version: String
         let releaseURL: URL
         let downloadURL: URL
+        let releaseNotes: String
     }
 
     package enum CodingKeys: String, CodingKey {
         case draft, prerelease, assets
         case tagName = "tag_name"
         case htmlURL = "html_url"
+        case body
     }
+
+    package let body: String?
 
     package enum UpdateError: LocalizedError {
         case invalidResponse, unavailable, noRelease, missingPackage, unsupportedSystem
@@ -74,7 +78,8 @@ package struct GitHubRelease: Decodable, Sendable {
               Self.validURL(asset.browserDownloadURL, path: Self.releasePath + "download/" + tagName + "/" + filename) else {
             throw UpdateError.missingPackage
         }
-        return Candidate(version: version, releaseURL: htmlURL, downloadURL: asset.browserDownloadURL)
+        return Candidate(version: version, releaseURL: htmlURL, downloadURL: asset.browserDownloadURL,
+                         releaseNotes: String((body ?? "").prefix(12_000)))
     }
 
     private static func versionParts(_ value: String) -> [Int]? {

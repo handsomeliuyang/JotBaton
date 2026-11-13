@@ -17,7 +17,7 @@ app/RemarcPackage/
       Integrations/                   Agent clients, browser bridge, webhooks and PopClip
       Settings/                       Preferences and settings panes
       SnapshotSync/                   iCloud snapshots, comparison, publication and recovery
-      Updates/                        GitHub release discovery and manual installation links
+      Updates/                        GitHub release discovery, Sparkle installation and recovery backups
       Onboarding/                     First-run permission guidance
     Core/
       Platform/                       Identity, app paths, logging, process execution and locks

@@ -48,6 +48,7 @@ jobs:
       - name: Test release and local build policies
         run: |
           python3 -B scripts/test-fork-release.py
+          python3 -B scripts/test-sparkle-release.py
           python3 -B scripts/test-build-policy.py
       - name: Test browser extension
         run: |
@@ -139,6 +140,12 @@ jobs:
           run-id: ${{ github.run_id }}
       - name: Verify both downloaded packages and prepare release assets
         run: python3 scripts/verify-fork-release.py
+      - name: Sign and verify native update feeds
+        env:
+          REMARC_UPDATE_EDDSA_KEY: ${{ secrets.REMARC_UPDATE_EDDSA_KEY }}
+        run: python3 scripts/sparkle-release.py build/release
+      - name: Test update signature validation against tampering
+        run: python3 -B scripts/test-sparkle-release.py
       - name: Tag, upload draft and verify before publishing
         run: |
           set -euo pipefail
@@ -167,7 +174,7 @@ jobs:
           notes += '| `Remarc-Apple-Silicon-arm64.dmg` | Apple Silicon，macOS 14+ |\n\n'
           notes += '两个安装包均为 Release 配置，使用同一源码提交。附带 SHA256SUMS 和安装说明。\n\n'
           notes += '两个安装包使用同一固定私有发布证书签名，未经过 Apple 公证；首次打开可能需要允许运行并重新授权。'
-          notes += '直接替换安装，无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立。正式版从本仓库 GitHub Releases 检查新版本，并打开对应架构的安装包链接供手动安装；测试版保持独立。\n\n'
+          notes += '首次安装或旧版迁移需手动替换一次；接入应用内升级后可点击“升级并重启”，自动下载、校验、安装并重启。无需本机重新签名。Remarc Dev 与正式版的数据及 iCloud 目录独立，测试版不接收正式版更新。\n\n'
           notes += f'[安装与发布说明](https://github.com/{repo}/blob/v{version}/RELEASING.md)\n'
           Path('build/release-notes.md').write_text(notes)
           PY
@@ -185,6 +192,7 @@ jobs:
           PY
           gh release download "$TAG" --dir build/draft-verified
           (cd build/draft-verified && shasum -a 256 -c SHA256SUMS)
+          python3 scripts/sparkle-release.py build/draft-verified --verify-only
           for asset in build/release/*; do
             cmp "$asset" "build/draft-verified/$(basename "$asset")"
           done
@@ -192,6 +200,7 @@ jobs:
           gh release view "$TAG" --json isDraft,url --jq 'if .isDraft then error("Still a draft") else .url end'
           gh release download "$TAG" --dir build/published-verified
           (cd build/published-verified && shasum -a 256 -c SHA256SUMS)
+          python3 scripts/sparkle-release.py build/published-verified --verify-only
           for asset in build/release/*; do
             cmp "$asset" "build/published-verified/$(basename "$asset")"
           done

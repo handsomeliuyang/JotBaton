@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify both packaged apps before allowing a fork Release to be published."""
 import hashlib
+import json
 import os
 import plistlib
 import shutil
@@ -24,11 +25,26 @@ def verify_app(app, verifier):
         'CFBundleShortVersionString': os.environ['VERSION'],
         'CFBundleVersion': os.environ['BUILD_NUMBER'],
         'RemarcSourceCommit': os.environ['SOURCE_SHA'],
-        'RemarcManualUpdates': True,
+        'RemarcManualUpdates': False,
         'RemarcGitHubUpdates': True,
+        'RemarcInAppUpdates': True,
+        'SUPublicEDKey': json.loads(Path('signing/updates.json').read_text())['public_ed_key'],
+        'SUEnableAutomaticChecks': False,
+        'SUAutomaticallyUpdate': False,
+        'SUAllowsAutomaticUpdates': False,
+        'SUVerifyUpdateBeforeExtraction': True,
+        'SURequireSignedFeed': True,
     }.items():
         if info.get(key) != expected:
             raise ValueError(f'{app}: {key} is {info.get(key)!r}; expected {expected!r}')
+    arch = 'x86_64' if verifier.endswith('verify-ventura-app.py') else 'arm64'
+    updates = json.loads(Path('signing/updates.json').read_text())
+    if info.get('SUFeedURL') != updates['feed_base_url'] + f'appcast-{arch}.xml':
+        raise ValueError('The update feed does not match this package architecture')
+    sparkle = app / 'Contents/Frameworks/Sparkle.framework'
+    for helper in ['Updater.app/Contents/MacOS/Updater', 'Autoupdate']:
+        if not (sparkle / 'Versions/B' / helper).is_file():
+            raise ValueError('Missing Sparkle installation helper: ' + helper)
 
 
 def main():
@@ -65,7 +81,7 @@ Remarc Dev 使用独立测试证书、com.metepolat.Remarc.dev 和 DEV 图标，
 本地数据：正式版 Application Support/Remarc；测试版 Application Support/Remarc Dev。
 iCloud：正式版 iCloud Drive/Remarc；测试版 iCloud Drive/Remarc Dev。两版不会自动迁移或共用同步数据。
 两台 Mac 需要分别授权；签名一致不会跨电脑同步 macOS 权限。
-语音功能需要 macOS 26。正式版从 GitHub Releases 检查新版本并打开对应架构的安装包链接，手动安装；测试版保持独立；均未经过 Apple 公证。
+语音功能需要 macOS 26。接入应用内升级的正式版可点击“升级并重启”，自动下载、校验、安装并重启；旧版需最后手动升级一次。测试版保持独立；均未经过 Apple 公证。
 首次打开被拦截时，前往“系统设置 → 隐私与安全性 → 仍要打开”。
 https://support.apple.com/en-us/102445
 在下载目录运行 shasum -a 256 -c SHA256SUMS 校验文件完整性。

@@ -90,6 +90,7 @@ public final class ScreenCaptureCoordinator {
     init(composer: @escaping () -> any ScreenshotComposer) { resolveComposer = composer }
 
     var isAnnotating: Bool { annotationSession != nil }
+    var hasActiveCapture: Bool { captureIsLive || overlayPanel != nil || annotationSession != nil }
 
     var annotationCanvasHasCopyFocus: Bool {
         guard let canvas = selectionView?.annotationCanvas else { return false }

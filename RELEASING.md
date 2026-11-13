@@ -61,6 +61,8 @@ The workflow:
    identity, fall back to ad-hoc signing, expose private material or change trust.
 5. Verifies packaged MCP behavior, all bundled Mach-O architectures and deployment
    floors, code signatures, version/build/source and GitHub update metadata.
+   Sparkle update packages and architecture-specific feeds are signed and verified
+   against the public key pinned in `signing/updates.json`.
    Final package verification and publication use an Intel runner and never
    launch ARM code; full Swift suites stay on the native ARM build runner.
 6. Creates a new annotated tag and draft Release, verifies uploaded assets and
@@ -71,7 +73,8 @@ Published assets:
 - `Remarc-Ventura-x86_64.zip`
 - `Remarc-Apple-Silicon-arm64.dmg`
 - `INSTALL.txt`
-- `SHA256SUMS`
+- `appcast-arm64.xml` and `appcast-x86_64.xml` (signed update feeds)
+- `SHA256SUMS` (includes both feeds)
 
 The production certificate is private/self-signed; these builds are not
 Apple-notarized. Never move tags or overwrite published assets. Actions artifacts
@@ -88,15 +91,49 @@ upgrade. A compatible native installer must exist in that exact Release.
 Checks run shortly after launch and at most once every six hours in the background;
 **Check for Updates** in the menu or About checks immediately. Manual checks report
 when the app is up to date or when GitHub/network access fails. New versions offer
-**Download from GitHub**, **Later** and **Skip This Version**. Download opens the
-matching installer URL in the browser. Quit Remarc and replace the app in
-Applications manually. The updater does not replace/relaunch the app itself.
-Development does not consume production updates.
+**Upgrade and Restart**, **Later** and **Skip This Version**, along with release
+notes. Upgrade and Restart authorizes one complete in-app operation: download the
+native installer, verify its EdDSA signature before extraction, back up the app
+and data, quit safely, replace the app and relaunch. No browser, extraction or
+Finder drag is required. Downloading can be canceled; canceling a ready update
+also cancels installation on quit. An active editor, capture, recording,
+transcription or failed durable save pauses the restart until the user resolves
+it and clicks Upgrade and Restart again. A backup failure cancels installation.
 
-Application update settings are separate from comment/image/snapshot iCloud sync.
-Only obsolete software-update authorization and skip/defer preferences are retired.
-Existing production data, snapshots and permissions are retained. An old installed
-version that only understands iCloud updates needs one manual upgrade to this version.
+`UpdateManager` keeps the existing six-hour GitHub discovery schedule. Sparkle's
+independent automatic checks/downloads are disabled; installation requires the
+user's explicit action and an exact match to the selected GitHub version and
+native package URL. Each architecture uses its own signed feed hosted as an
+asset on the latest public Release. Feed versions use the increasing integer
+`CFBundleVersion`; the display version matches the Release's semantic version.
+Development has no production feed or public update key and cannot install
+production updates.
+
+The update-signing private key is independent of the existing production code
+signing certificate. It is stored in GitHub Actions Secret
+`REMARC_UPDATE_EDDSA_KEY`; only its public key is committed in
+`signing/updates.json` and embedded in production apps. The maintainer's dedicated
+login Keychain account `com.metepolat.Remarc.updates` retains the recovery copy.
+Never print, commit or include the private key in an asset. Production update
+signing runs only in the Release workflow; no local production packaging or
+certificate rotation is needed. The workflow verifies signatures against the
+pinned public key before publication and again on downloaded draft/public assets.
+Keep this key safe: self-signed apps cannot rely on Developer ID key-rotation
+fallback if the update key is lost.
+
+Completed app/data backups are retained under
+`~/Library/Application Support/Remarc Update Backups/Before-<UUID>`; incomplete
+copies are removed. Backups do not include live document locks, do not touch Dev
+storage and do not overwrite historical backups. Replacement is handled by
+Sparkle's installer; backup recovery remains available if a later version cannot
+run. No post-install diagnostic or health-check launch is added.
+
+Application updates remain separate from comment/image/snapshot iCloud sync.
+An installed version with only browser downloads (including 1.2.36) or the old
+iCloud updater needs one final manual installation of an in-app-update-capable
+version. Subsequent versions can use Upgrade and Restart. macOS may still request
+administrator authorization for a protected application directory. Builds remain
+self-signed and not notarized, so system security prompts cannot be ruled out.
 
 ## Verified installation after publication
 

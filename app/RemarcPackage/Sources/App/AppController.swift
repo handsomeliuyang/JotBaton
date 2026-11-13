@@ -59,7 +59,7 @@ public final class AppController: NSObject, ObservableObject {
             MCPManager.shared.checkDependencies()
         }
 
-        _ = UpdateManager.shared
+        UpdateManager.shared.configure(prepareForRestart: AppUpdatePreparation.prepareForRestart)
         _ = AppServices.shared.snapshots // Observe content changes from launch, before the panel opens.
         debugLog("UpdateManager initialized")
 

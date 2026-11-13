@@ -86,7 +86,7 @@ jobs:
           此构建使用固定私有证书，未经过 Apple 公证。首次安装请允许运行并授予所需权限。
           Remarc Dev 使用独立的 Application Support/Remarc Dev 与 iCloud Drive/Remarc Dev。
           正式版继续使用 Application Support/Remarc 与 iCloud Drive/Remarc。
-          Voice features require macOS 26. Production checks GitHub Releases for newer versions and opens the native installer download for manual installation.
+          Voice features require macOS 26. Production checks GitHub Releases and offers Upgrade and Restart for verified in-app download, installation and relaunch. Browser-only older versions need one final manual installation.
           https://support.apple.com/en-us/102445
           TEXT
           printf '\nSource commit: %s\n' "$(git rev-parse HEAD)" >> build/dmg/INSTALL.txt

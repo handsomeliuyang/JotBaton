@@ -30,6 +30,7 @@ public final class ScreenshotPreviewController {
     private var localEscapeMonitor: Any?
 
     public var isAnnotating: Bool { session != nil }
+    var isVisible: Bool { panel?.isVisible == true || isApplying }
 
     public func show(imagePath: String, commentText: String?) {
         // A label still being typed is resolved first, exactly as any other

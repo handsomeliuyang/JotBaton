@@ -40,7 +40,8 @@ let package = Package(
         ),
         .target(name: "FeatureIntegrations", dependencies: ["CorePlatform", "CoreLocalization"], path: "Sources/Features/Integrations", exclude: ["UI"]),
         .target(name: "FeatureSnapshotSync", dependencies: ["CorePlatform", "CoreLocalization", "FeatureComments", "FeatureCapture"], path: "Sources/Features/SnapshotSync", exclude: ["UI"]),
-        .target(name: "FeatureUpdates", dependencies: ["CorePlatform", "CoreLocalization"], path: "Sources/Features/Updates"),
+        .target(name: "FeatureUpdates", dependencies: ["CorePlatform", "CoreLocalization",
+            .product(name: "Sparkle", package: "Sparkle")], path: "Sources/Features/Updates"),
         .target(name: "FeatureSettings", dependencies: ["CorePlatform", "CoreLocalization", "CoreUI",
             "FeatureComments", "FeatureCapture", "FeatureVoice", "FeatureIntegrations",
             .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")]

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for release version and package provenance checks."""
 import importlib.util
+import json
 import os
 import plistlib
 import tempfile
@@ -45,7 +46,15 @@ class ReleaseTests(unittest.TestCase):
             (app / 'Contents').mkdir(parents=True)
             info = {'CFBundleIdentifier': 'com.metepolat.Remarc', 'RemarcChannel': 'production',
                     'CFBundleShortVersionString': '1.2.5', 'CFBundleVersion': '24',
-                    'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': True, 'RemarcGitHubUpdates': True}
+                    'RemarcSourceCommit': 'a' * 40, 'RemarcManualUpdates': False, 'RemarcGitHubUpdates': True,
+                    'RemarcInAppUpdates': True, 'SUEnableAutomaticChecks': False, 'SUAutomaticallyUpdate': False,
+                    'SUAllowsAutomaticUpdates': False, 'SUVerifyUpdateBeforeExtraction': True, 'SURequireSignedFeed': True,
+                    'SUPublicEDKey': json.loads(Path('signing/updates.json').read_text())['public_ed_key'],
+                    'SUFeedURL': 'https://github.com/handsomeliuyang/Remarc/releases/latest/download/appcast-arm64.xml'}
+            for helper in ['Updater.app/Contents/MacOS/Updater', 'Autoupdate']:
+                path = app / 'Contents/Frameworks/Sparkle.framework/Versions/B' / helper
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
             env = {'VERSION': '1.2.5', 'BUILD_NUMBER': '24', 'SOURCE_SHA': 'a' * 40}
             plist = app / 'Contents/Info.plist'
             with patch.dict(os.environ, env), patch.object(verify, 'run'):
@@ -54,7 +63,10 @@ class ReleaseTests(unittest.TestCase):
                 for key, wrong in [('CFBundleIdentifier', 'com.metepolat.Remarc.dev'),
                                    ('RemarcChannel', 'development'), ('CFBundleShortVersionString', '1.2.4'),
                                    ('CFBundleVersion', '23'), ('RemarcSourceCommit', 'b' * 40),
-                                   ('RemarcManualUpdates', False), ('RemarcGitHubUpdates', False)]:
+                                   ('RemarcManualUpdates', True), ('RemarcGitHubUpdates', False),
+                                   ('SUPublicEDKey', 'another key'), ('SURequireSignedFeed', False),
+                                   ('SUVerifyUpdateBeforeExtraction', False), ('RemarcInAppUpdates', False),
+                                   ('SUFeedURL', info['SUFeedURL'].replace('arm64', 'x86_64'))]:
                     plist.write_bytes(plistlib.dumps({**info, key: wrong}))
                     with self.subTest(key=key), self.assertRaises(ValueError):
                         verify.verify_app(app, 'verifier.py')

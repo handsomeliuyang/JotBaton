@@ -78,7 +78,7 @@ Download both packages from [this fork's GitHub Releases](https://github.com/han
 - `Remarc-Apple-Silicon-arm64.dmg`: Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-These fork builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases and opens the matching native installer link for manual installation. Versions using the retired iCloud updater need one manual upgrade. iCloud data snapshot synchronization remains supported.
+These fork builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases. Click **Upgrade and Restart** to download, verify, install and relaunch automatically. Versions with browser-only downloads or the retired iCloud updater need one final manual upgrade to enable this flow. iCloud data snapshot synchronization remains supported.
 See [installation and release instructions](RELEASING.md) for verified installation without local re-signing,
 first launch, checksums and permissions. The upstream signed distribution is
 available separately at [remarc.app/download](https://remarc.app/download).
@@ -123,7 +123,7 @@ including Ventura 13.7.8. The standard build keeps the upstream macOS 14 minimum
 Comments, sessions, selection monitoring, screenshots, annotations and exports
 share the same implementation and data format. Voice features still require
 macOS 26; FluidAudio/Parakeet is omitted from the compatibility build. Official
-The app checks GitHub Releases for updates and opens the Intel installer link for manual installation; Sparkle automatic installation remains disabled.
+The app checks GitHub Releases for updates. **Upgrade and Restart** selects the native Intel package and completes download, verification, installation and relaunch. Background installation without user consent remains disabled.
 
 For versioned delivery, use the **Release** workflow to build both Intel and
 Apple Silicon packages from the same commit with Xcode 26.2. Download

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Finalize bundle metadata/resources before applying its stable signature."""
 import argparse
+import base64
+import json
 import os
 import plistlib
 import subprocess
@@ -18,12 +20,28 @@ dev = args.channel == 'development'
 info['CFBundleIdentifier'] = 'com.metepolat.Remarc.dev' if dev else 'com.metepolat.Remarc'
 info['CFBundleName'] = info['CFBundleDisplayName'] = 'Remarc Dev' if dev else 'Remarc'
 info['CFBundleURLTypes'] = [{'CFBundleURLName': info['CFBundleIdentifier'], 'CFBundleURLSchemes': ['remarc-dev' if dev else 'remarc']}]
-info['RemarcManualUpdates'] = True  # GitHub downloads are installed manually.
+info['RemarcManualUpdates'] = dev
 info['RemarcGitHubUpdates'] = not dev
+info['RemarcInAppUpdates'] = not dev
 info.pop('RemarcCloudUpdates', None)
 info.pop('SUFeedURL', None)
 info.pop('SUPublicEDKey', None)
 info['SUEnableAutomaticChecks'] = False
+info['SUAutomaticallyUpdate'] = False
+info['SUAllowsAutomaticUpdates'] = False
+info['SUEnableSystemProfiling'] = False
+info['SUVerifyUpdateBeforeExtraction'] = not dev
+info['SURequireSignedFeed'] = not dev
+if not dev:
+    root = Path(__file__).resolve().parents[1]
+    updates = json.loads((root / 'signing/updates.json').read_text())
+    if len(base64.b64decode(updates['public_ed_key'], validate=True)) != 32:
+        raise ValueError('Invalid pinned public update key')
+    archs = subprocess.check_output(['lipo', '-archs', str(args.app / 'Contents/MacOS' / info['CFBundleExecutable'])], text=True).split()
+    if archs not in (['arm64'], ['x86_64']):
+        raise ValueError('Production updates require one native architecture per package')
+    info['SUPublicEDKey'] = updates['public_ed_key']
+    info['SUFeedURL'] = updates['feed_base_url'] + 'appcast-' + archs[0] + '.xml'
 info['RemarcChannel'] = args.channel
 info['RemarcSourceCommit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 plist.write_bytes(plistlib.dumps(info))

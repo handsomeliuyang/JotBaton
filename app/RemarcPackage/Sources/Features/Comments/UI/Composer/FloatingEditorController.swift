@@ -57,7 +57,7 @@ public final class FloatingEditorController: ObservableObject {
 
     public var currentPresentationGeneration: UInt64 { presentationGeneration }
 
-    private var hasUnsavedChanges: Bool {
+    var hasUnsavedChanges: Bool {
         currentText.trimmingCharacters(in: .whitespacesAndNewlines)
             != initialText.trimmingCharacters(in: .whitespacesAndNewlines)
             || currentAttachments != initialAttachments
