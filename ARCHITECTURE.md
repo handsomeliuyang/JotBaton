@@ -15,7 +15,7 @@ app/RemarcPackage/
       Capture/                        Text selection, screenshots, annotation and storage
       Integrations/                   Browser bridge, webhooks and PopClip
       Settings/                       Preferences and settings panes
-      SnapshotSync/                   iCloud snapshots, comparison, publication and recovery
+      CloudSync/                      Automatic iCloud sync: per-comment merge, device files, image blobs
       Updates/                        GitHub release discovery, Sparkle installation and recovery backups
       Onboarding/                     First-run permission guidance
     Core/
@@ -53,7 +53,7 @@ profiles. When adding a lower-target source directory, update that exclusion
 list with its feature's target declaration.
 
 Dependencies flow from application composition to features to core. Feature
-dependencies are explicit: snapshots use comment and capture contracts;
+dependencies are explicit: cloud sync uses comment contracts;
 settings use the features whose preferences they edit; onboarding uses capture
 permissions. Core never imports a feature.
 
@@ -78,9 +78,12 @@ re-export barrels, duplicate contract types or per-method forwarding wrappers.
   required by `ScreenCaptureCoordinator`. The application supplies the concrete
   comment editor. `RegionSelectionView` and annotation components remain capture
   implementation details.
-- `SnapshotSync/SnapshotDocumentStore.swift` is a consumer-owned transaction
-  port. The snapshot manager receives it through its initializer; the
-  application makes `CommentStore` conform to it.
+- `CloudSync/CloudSyncDocumentStore.swift` is a consumer-owned transaction
+  port. `CloudSyncManager` receives it through its initializer; the
+  application makes `CommentStore` conform to it. Synced changes commit through
+  the ordinary locked three-way save. `SyncMerge` is the cross-Mac merge: unlike
+  `AppStateMerge`, both Macs must reach the same result, so ties never favor the
+  local side.
 - Settings preference contracts live with their owning features. Settings panes
   are separated by capability.
 - Dock-policy mechanics live in `Core/UI`. The application supplies the user's

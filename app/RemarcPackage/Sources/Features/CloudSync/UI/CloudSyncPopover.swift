@@ -3,11 +3,11 @@ import AppKit
 import SwiftUI
 
 /// Own the native popover so its measured size and anchor are set before show.
-struct SnapshotSyncPopoverAnchor: NSViewRepresentable {
+struct CloudSyncPopoverAnchor: NSViewRepresentable {
     @Binding var isPresented: Bool
     let colorScheme: ColorScheme
 
-    func makeCoordinator() -> SnapshotSyncPopoverController { SnapshotSyncPopoverController() }
+    func makeCoordinator() -> CloudSyncPopoverController { CloudSyncPopoverController() }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView(frame: NSRect(x: 0, y: 0, width: 26, height: 26))
@@ -27,14 +27,14 @@ struct SnapshotSyncPopoverAnchor: NSViewRepresentable {
         }
     }
 
-    static func dismantleNSView(_ view: NSView, coordinator: SnapshotSyncPopoverController) {
+    static func dismantleNSView(_ view: NSView, coordinator: CloudSyncPopoverController) {
         coordinator.onClose = nil
         coordinator.close()
     }
 }
 
 @MainActor
-final class SnapshotSyncPopoverController: NSObject, NSPopoverDelegate {
+final class CloudSyncPopoverController: NSObject, NSPopoverDelegate {
     let popover = NSPopover()
     private(set) var documentSize: CGSize = .zero
     private var hostingView: NSHostingView<AnyView>?
@@ -59,7 +59,7 @@ final class SnapshotSyncPopoverController: NSObject, NSPopoverDelegate {
         guard !popover.isShown, anchor.window != nil else { return }
         let screen = NSScreen.bestScreen(for: anchor.window)
         prepare(screenSize: screen.visibleFrame.size, colorScheme: colorScheme) {
-            SnapshotSyncControls(compact: true, onReviewChanged: { [weak self] in self?.isReviewing = $0 },
+            CloudSyncControls(compact: true, onReviewChanged: { [weak self] in self?.isReviewing = $0 },
                                  onDismiss: { [weak self] in self?.close() })
                 .accessibilityIdentifier("sync.popover")
         }

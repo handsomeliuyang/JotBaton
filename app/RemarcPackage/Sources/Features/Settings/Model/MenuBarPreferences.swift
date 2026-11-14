@@ -21,12 +21,12 @@ public enum MenuBarIndicatorStyle: String, CaseIterable, Sendable {
         }
     }
 
-    /// - Parameter hidesCountAtZero: only consulted for `.count`. The dot is
-    ///   binary by definition and `.off` draws nothing either way.
-    public func indicator(forCommentCount count: Int, hidesCountAtZero: Bool) -> MenuBarIndicator {
+    /// Nothing is shown at zero in any style.
+    public func indicator(forCommentCount count: Int) -> MenuBarIndicator {
+        guard count > 0 else { return .none }
         switch self {
-        case .count: return (count > 0 || !hidesCountAtZero) ? .count(count) : .none
-        case .dot: return count > 0 ? .dot : .none
+        case .count: return .count(count)
+        case .dot: return .dot
         case .off: return .none
         }
     }

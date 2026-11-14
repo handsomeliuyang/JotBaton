@@ -22,7 +22,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         isVisible = true
-        Task { await AppServices.shared.snapshots.mainInterfaceDidShow(wasVisible: wasVisible) }
+        AppServices.shared.cloudSync.mainInterfaceDidShow(wasVisible: wasVisible)
         MenuBarPopoverController.shared.isDetached = true
     }
 

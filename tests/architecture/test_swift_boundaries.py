@@ -18,7 +18,7 @@ ALLOWED = {
     "FeatureComments": {"CorePlatform", "CoreLocalization"},
     "FeatureCapture": {"CorePlatform", "CoreLocalization", "CoreTheme", "CoreUI"},
     "FeatureIntegrations": {"CorePlatform", "CoreLocalization"},
-    "FeatureSnapshotSync": {"CorePlatform", "CoreLocalization", "FeatureComments", "FeatureCapture"},
+    "FeatureCloudSync": {"CorePlatform", "CoreLocalization", "FeatureComments"},
     "FeatureUpdates": {"CorePlatform", "CoreLocalization"},
     "FeatureSettings": {
         "CorePlatform", "CoreLocalization", "CoreUI", "FeatureComments",

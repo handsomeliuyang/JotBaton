@@ -80,7 +80,6 @@ extension CommentStore {
             customTitle: customTitle
         )
         candidate.comments.append(comment)
-        candidate.markSnapshotDataChanged()
         // Inside the candidate, never applied afterwards: the counter is part of
         // the encoded document and the merge resolves it by max, so incrementing
         // after the write would diverge memory from disk.
@@ -251,7 +250,6 @@ extension CommentStore {
                     merged.comments[index].updatedAt = now
                 }
 
-                if !clearableIDs.isEmpty { merged.markSnapshotDataChanged() }
                 let encoded: Data
                 do { encoded = try JSONEncoder().encode(merged) }
                 catch { throw PersistenceError.encodeFailed("\(error)") }

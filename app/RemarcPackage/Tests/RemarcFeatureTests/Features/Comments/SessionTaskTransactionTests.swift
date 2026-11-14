@@ -1,6 +1,6 @@
 @testable import CorePlatform
 @testable import FeatureComments
-@testable import FeatureSnapshotSync
+@testable import FeatureCloudSync
 @testable import RemarcFeature
 import Foundation
 import Testing
@@ -204,15 +204,14 @@ struct SessionTaskTransactionTests {
         #expect(try read(file) == disk)
     }
 
-    @Test("Empty-session clocks are local housekeeping and do not change cloud snapshot content")
-    func snapshotClockIsolation() throws {
-        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+    @Test("Empty-session clocks are local housekeeping and do not change synced content")
+    func syncClockIsolation() {
         var state = fixture()
-        let original = try SnapshotArchive.prepare(state, root: dir)
+        let original = SyncProjection.make(state)
         state.sessions[1].emptySince = now
-        let changed = try SnapshotArchive.prepare(state, root: dir)
-        #expect(original.hash == changed.hash)
-        #expect(changed.state.sessions.allSatisfy { $0.emptySince == nil })
+        let changed = SyncProjection.make(state)
+        #expect(original == changed)
+        #expect(changed.sessions.allSatisfy { $0.emptySince == nil })
     }
 
     @Test("Immediate completion and archive are persisted together, with a receipt that can undo from History")

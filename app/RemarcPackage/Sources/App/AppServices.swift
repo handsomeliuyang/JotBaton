@@ -1,6 +1,6 @@
 import FeatureComments
 import FeatureIntegrations
-import FeatureSnapshotSync
+import FeatureCloudSync
 import AppKit
 import Combine
 
@@ -10,7 +10,7 @@ import Combine
 final class AppServices {
     static let shared = AppServices()
     let comments: CommentStore
-    lazy var snapshots = SnapshotSyncManager(documents: comments)
+    lazy var cloudSync = CloudSyncManager(documents: comments)
     lazy var capture = ScreenCaptureCoordinator(composer: { CommentInputController.shared })
 
     private init() {
@@ -34,6 +34,6 @@ extension CommentInputController: ScreenshotComposer {
 }
 
 @MainActor
-extension CommentStore: SnapshotDocumentStore {
+extension CommentStore: CloudSyncDocumentStore {
     package var statePublisher: AnyPublisher<AppState, Never> { $appState.eraseToAnyPublisher() }
 }

@@ -6,7 +6,6 @@ public struct AppState: Codable, Sendable, Equatable {
     public var activeSessionID: UUID?
     public var totalCommentsCreated: Int
     public var orphanedImages: [OrphanedImage]
-    public var transcriptions: [Transcription]
     /// Document-level keys written by a newer app version.
     /// Carried through untouched so this build cannot delete them.
     public var unknownFields: [String: JSONValue]
@@ -17,7 +16,6 @@ public struct AppState: Codable, Sendable, Equatable {
         activeSessionID: UUID? = nil,
         totalCommentsCreated: Int = 0,
         orphanedImages: [OrphanedImage] = [],
-        transcriptions: [Transcription] = [],
         unknownFields: [String: JSONValue] = [:]
     ) {
         self.sessions = sessions
@@ -25,7 +23,6 @@ public struct AppState: Codable, Sendable, Equatable {
         self.activeSessionID = activeSessionID
         self.totalCommentsCreated = totalCommentsCreated
         self.orphanedImages = orphanedImages
-        self.transcriptions = transcriptions
         self.unknownFields = unknownFields
     }
 
@@ -36,26 +33,27 @@ public struct AppState: Codable, Sendable, Equatable {
             comments: [],
             activeSessionID: nil,
             totalCommentsCreated: 0,
-            orphanedImages: [],
-            transcriptions: []
+            orphanedImages: []
         )
     }
 
     // MARK: - Backward-Compatible Codable
 
     private enum CodingKeys: String, CodingKey {
-        case sessions, comments, activeSessionID, totalCommentsCreated, orphanedImages, transcriptions
+        case sessions, comments, activeSessionID, totalCommentsCreated, orphanedImages
         // Legacy keys for reading old data
         case stacks, activeStackID
     }
 
-    /// Every key this build claims. Anything else is preserved verbatim.
+    /// Every key this build claims. Anything else, including the retired
+    /// `transcriptions` archive, is preserved verbatim.
     private static let modelledKeys: Set<String> = [
-        "sessions", "comments", "activeSessionID", "totalCommentsCreated",
-        "orphanedImages", "transcriptions",
+        "sessions", "comments", "activeSessionID", "totalCommentsCreated", "orphanedImages",
         // Legacy names are modelled too: they are read, and deliberately not
         // written back, so they must not be resurrected as "unknown".
         "stacks", "activeStackID",
+        // Bookkeeping of the retired manual iCloud snapshots: dropped on the next save.
+        "_snapshotReceipt", "_snapshotContentStamp", "_snapshotUndo", "_snapshotDataUpdatedAt",
     ]
 
     public init(from decoder: Decoder) throws {
@@ -77,7 +75,6 @@ public struct AppState: Codable, Sendable, Equatable {
         }
 
         orphanedImages = try container.decodeIfPresent([OrphanedImage].self, forKey: .orphanedImages) ?? []
-        transcriptions = try container.decodeIfPresent([Transcription].self, forKey: .transcriptions) ?? []
 
         let dynamic = try decoder.container(keyedBy: DynamicCodingKey.self)
         unknownFields = dynamic.unknownFields(besides: Self.modelledKeys)
@@ -92,26 +89,8 @@ public struct AppState: Codable, Sendable, Equatable {
         if !orphanedImages.isEmpty {
             try container.encode(orphanedImages, forKey: .orphanedImages)
         }
-        if !transcriptions.isEmpty {
-            try container.encode(transcriptions, forKey: .transcriptions)
-        }
 
         var dynamic = encoder.container(keyedBy: DynamicCodingKey.self)
         try dynamic.encodeUnknownFields(unknownFields, skipping: Self.modelledKeys)
-    }
-}
-
-package extension AppState {
-    /// Durable content clock; selection and sync bookkeeping never advance it.
-    package var snapshotDataUpdatedAt: Date? {
-        get {
-            guard case .number(let value) = unknownFields["_snapshotDataUpdatedAt"], value.isFinite else { return nil }
-            return Date(timeIntervalSinceReferenceDate: value)
-        }
-        set { unknownFields["_snapshotDataUpdatedAt"] = newValue.map { .number($0.timeIntervalSinceReferenceDate) } }
-    }
-
-    package mutating func markSnapshotDataChanged(at now: Date = Date()) {
-        snapshotDataUpdatedAt = max(now, (snapshotDataUpdatedAt ?? .distantPast).addingTimeInterval(0.001))
     }
 }

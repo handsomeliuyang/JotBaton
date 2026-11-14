@@ -21,9 +21,8 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
     /// Time this Mac first observed a continuously empty, active session.
     public var emptySince: Date?
     public var origin: SessionOrigin
-    /// Legacy pairing ID; no integration is started or tracked from it.
-    public var claudeCodeSessionId: String?
-    /// Session keys written by a newer build, carried through untouched.
+    /// Session keys this build does not model (newer builds, or the retired
+    /// `claudeCodeSessionId` pairing), carried through untouched.
     public var unknownFields: [String: JSONValue]
     /// The `origin` string exactly as it was read, kept when this build does
     /// not recognise it. Without this, an older app reading a session created
@@ -38,7 +37,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, name, createdAt, isDeleted, deletedAt
         case isAutoDismissed, autoDismissedAt, emptySince, isPinned
-        case origin, claudeCodeSessionId
+        case origin
     }
 
     public init(
@@ -50,7 +49,6 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         isAutoDismissed: Bool = false,
         autoDismissedAt: Date? = nil,
         origin: SessionOrigin = .manual,
-        claudeCodeSessionId: String? = nil,
         unknownFields: [String: JSONValue] = [:],
         emptySince: Date? = nil,
         isPinned: Bool = false
@@ -65,7 +63,6 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         self.emptySince = emptySince
         self.isPinned = isPinned
         self.origin = origin
-        self.claudeCodeSessionId = claudeCodeSessionId
         self.unknownFields = unknownFields
         self.rawOrigin = origin.rawValue
     }
@@ -89,7 +86,6 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         // routinely the one reading a newer harness's sessions.
         rawOrigin = try container.decodeIfPresent(String.self, forKey: .origin)
         origin = rawOrigin.flatMap(SessionOrigin.init(rawValue:)) ?? .manual
-        claudeCodeSessionId = try container.decodeIfPresent(String.self, forKey: .claudeCodeSessionId)
 
         let dynamic = try decoder.container(keyedBy: DynamicCodingKey.self)
         unknownFields = dynamic.unknownFields(besides: Self.modelledKeys)
@@ -97,7 +93,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
 
     private static let modelledKeys: Set<String> = [
         "id", "name", "createdAt", "isDeleted", "deletedAt",
-        "isAutoDismissed", "autoDismissedAt", "emptySince", "isPinned", "origin", "claudeCodeSessionId",
+        "isAutoDismissed", "autoDismissedAt", "emptySince", "isPinned", "origin",
     ]
 
     public func encode(to encoder: Encoder) throws {
@@ -118,7 +114,6 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
         } else {
             try container.encode(origin, forKey: .origin)
         }
-        try container.encodeIfPresent(claudeCodeSessionId, forKey: .claudeCodeSessionId)
 
         var dynamic = encoder.container(keyedBy: DynamicCodingKey.self)
         try dynamic.encodeUnknownFields(unknownFields, skipping: Self.modelledKeys)

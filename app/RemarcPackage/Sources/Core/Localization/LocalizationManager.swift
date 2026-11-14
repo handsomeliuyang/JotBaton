@@ -175,7 +175,7 @@ package extension Date {
 
 package extension Date {
     /// Format before constructing Text so SwiftUI's environment cannot override the app language.
-    package func snapshotInterfaceFormatted(language: AppLanguage = L10n.language) -> String {
+    package func syncInterfaceFormatted(language: AppLanguage = L10n.language) -> String {
         let locale = Locale(identifier: language.resolved() == .simplifiedChinese ? "zh_CN" : "en_US")
         return Date.FormatStyle.dateTime.month(.abbreviated).day().hour().minute()
             .locale(locale).format(self)

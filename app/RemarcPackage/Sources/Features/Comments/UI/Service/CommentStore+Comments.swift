@@ -76,7 +76,6 @@ extension CommentStore {
         appState.comments.append(comment)
         appState.totalCommentsCreated += 1
 
-        appState.markSnapshotDataChanged()
         scheduleSave()
         debugLog("CommentStore: Created comment \(comment.shortID) (total: \(appState.totalCommentsCreated))")
         onCommentChange(.commentCreated,  comment)
@@ -310,10 +309,9 @@ extension CommentStore {
             for id in receipt.commentIDs { completionUndoDeadlines[id] = deadline }
             for comment in receipt.completedComments { onCommentChange(.commentResolved, comment) }
             if receipt.count > 0 {
-                let generation = snapshotGeneration
                 Task { @MainActor [weak self] in
                     try? await Task.sleep(for: .milliseconds(5200))
-                    guard let self, self.snapshotGeneration == generation else { return }
+                    guard let self else { return }
                     for id in receipt.commentIDs where self.completionUndoDeadlines[id] == deadline {
                         self.completionUndoDeadlines.removeValue(forKey: id)
                     }

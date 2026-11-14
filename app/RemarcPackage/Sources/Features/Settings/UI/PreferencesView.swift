@@ -108,7 +108,7 @@ struct PreferencesView: View {
             Group {
                 switch selectedSection {
                 case .general: generalSection
-                case .iCloudSync: SnapshotSyncView()
+                case .iCloudSync: CloudSyncView()
                 case .shortcuts: shortcutsSection
                 case .export: exportSection
                 case .chromeExtension: chromeExtensionSection

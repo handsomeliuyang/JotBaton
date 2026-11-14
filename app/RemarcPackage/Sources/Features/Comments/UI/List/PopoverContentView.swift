@@ -212,6 +212,7 @@ struct PopoverContentView: View {
                     normalHeader(counts: model.counts)
                 }
                 Divider()
+                CloudSyncBanner()
 
                 if model.scopeIsEmpty && !isSearching {
                     emptyState
@@ -565,6 +566,10 @@ struct PopoverContentView: View {
                 .allowsHitTesting(false)
                 .animation(.easeOut(duration: 0.8), value: restoredCommentID)
         )
+        .overlay(alignment: .topTrailing) {
+            SyncConflictBadge(commentID: comment.id)
+                .offset(x: 5, y: -5)
+        }
     }
 
     // MARK: - Footer
@@ -605,7 +610,7 @@ struct PopoverContentView: View {
 
             moreMenu
 
-            SnapshotSyncToolbarButton()
+            CloudSyncToolbarButton()
 
             iconFooterButton(icon: "gearshape") {
                 PreferencesWindowController.shared.show()

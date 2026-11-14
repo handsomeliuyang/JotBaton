@@ -23,7 +23,6 @@ public final class CommentStore: ObservableObject {
     /// A mutation arrived while a save was in flight; that save's snapshot is
     /// stale, so another must follow it.
     var backgroundSaveRequested = false
-    var snapshotGeneration = 0
     var saveCancellable: AnyCancellable?
     let saveSubject = PassthroughSubject<Void, Never>()
     var resolvedDeletionTimer: Timer?

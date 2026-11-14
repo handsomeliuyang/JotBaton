@@ -25,14 +25,8 @@ extension PreferencesView {
                     describedRow(L10n.tr("When enabled, JotBaton always shows in the Dock. Otherwise, it only appears while Settings or Permissions are open.")) {
                         toggleRow(L10n.tr("Show in Dock"), isOn: $settings.showInDock)
                     }
-                    describedRow(L10n.tr("Dot shows only whether you have unresolved comments. Dot and Off keep the icon at a fixed width, which helps in crowded menu bars.")) {
+                    describedRow(L10n.tr("Count shows how many tasks are unresolved; Dot only shows that some are. Nothing appears at zero, and the icon keeps a fixed width. An orange mark means iCloud sync needs attention.")) {
                         pickerRow(L10n.tr("Menu bar indicator"), selection: $settings.menuBarIndicatorStyle) { $0.label }
-                    }
-                    if settings.menuBarIndicatorStyle == .count {
-                        describedRow(L10n.tr("Hides the badge when you have no unresolved comments, instead of showing a 0.")) {
-                            toggleRow(L10n.tr("Hide the count at 0"), isOn: $settings.hidesMenuBarCountAtZero)
-                        }
-                        .nestedSetting()
                     }
                     describedRow(L10n.tr("Auto-detect shows the JotBaton popup as soon as you select text. Hotkey only hides the popup and waits for your shortcut.")) {
                         pickerRow(L10n.tr("Detection mode"), selection: $settings.selectionDetectionMode) { $0.label }

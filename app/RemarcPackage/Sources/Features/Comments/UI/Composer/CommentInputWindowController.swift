@@ -529,8 +529,8 @@ public final class CommentInputController: NSObject, ObservableObject {
             nil
         }
 
-        // Suppress Combine badge updates until bounce plays the new count
-        AppController.shared.prepareBadgeBounce()
+        // Hold the menu bar icon until the envelope lands
+        AppController.shared.prepareIndicatorLanding()
 
         let comment = AppServices.shared.comments.createComment(
             type: type,
@@ -544,7 +544,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         )
 
         guard let comment else {
-            AppController.shared.cancelPreparedBadgeBounce()
+            AppController.shared.cancelIndicatorLanding()
             debugLog("CommentInputController: Comment save FAILED - no active session?")
             ToastManager.shared.show(L10n.tr("Comment could not be saved"))
             triggerSaveFeedback(announcement: L10n.tr("Comment could not be saved"))
@@ -611,7 +611,7 @@ public final class CommentInputController: NSObject, ObservableObject {
                     panel?.orderOut(nil)
                     panel?.alphaValue = 1  // Reset for next show
                 }
-                AppController.shared.animateBadgeBounce()
+                AppController.shared.landIndicator()
             }
         }
     }
@@ -771,7 +771,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         retainedWebContext = webContext
         retainedRegionElements = regionElements
 
-        AppController.shared.prepareBadgeBounce()
+        AppController.shared.prepareIndicatorLanding()
 
         let result = await AppServices.shared.comments.createCommentDurably(
             type: .screenshot(imagePath: prepared.relativePath),
@@ -795,7 +795,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         case .failure(let error):
             debugLog("CommentInputController: Durable save failed - \(error)")
             capture.restore(token: prepared.token, prepared: prepared)
-            AppController.shared.cancelPreparedBadgeBounce()
+            AppController.shared.cancelIndicatorLanding()
             concludeWithRestore(message: error.userMessage)
         }
         captureTransaction = .idle
@@ -907,7 +907,7 @@ public final class CommentInputController: NSObject, ObservableObject {
         panel?.alphaValue = 1
         if let restoreFrame = lastPanelFrameBeforeFly { panel?.setFrame(restoreFrame, display: false) }
         lastPanelFrameBeforeFly = nil
-        AppController.shared.animateBadgeBounce()
+        AppController.shared.landIndicator()
     }
 
     /// Put the capture back: panel frames, alpha, visibility, focus, and the two

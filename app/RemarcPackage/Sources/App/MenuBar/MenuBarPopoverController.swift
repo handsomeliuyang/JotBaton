@@ -77,7 +77,7 @@ public final class MenuBarPopoverController: NSObject, ObservableObject {
         }
 
         isVisible = true
-        Task { await AppServices.shared.snapshots.mainInterfaceDidShow(wasVisible: wasVisible) }
+        AppServices.shared.cloudSync.mainInterfaceDidShow(wasVisible: wasVisible)
         clickOutsideMonitor.install(for: panel, shouldDismiss: { [weak self] in !(self?.preventDismiss ?? false) }, dismiss: { [weak self] in self?.dismiss() })
         // Comment/history lists suppress their own scrollers. Keep navigation
         // scrollers available so long session lists follow system preferences.

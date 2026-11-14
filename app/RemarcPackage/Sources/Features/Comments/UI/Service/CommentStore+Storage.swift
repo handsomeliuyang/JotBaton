@@ -5,8 +5,7 @@ import Combine
 import AppKit
 
 extension CommentStore {
-    func scheduleSave(dataChanged: Bool = true) {
-        if dataChanged { appState.markSnapshotDataChanged() }
+    func scheduleSave() {
         reconcileEmptySessions()
         saveSubject.send()
     }

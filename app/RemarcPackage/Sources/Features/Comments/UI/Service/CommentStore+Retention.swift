@@ -16,11 +16,9 @@ extension CommentStore {
     /// Delays briefly so the resolved state change is visible before the comment disappears.
     func autoDeleteResolvedCommentIfImmediate(_ id: UUID) {
         guard SettingsManager.shared.resolvedCommentDeletion == .immediately else { return }
-        let generation = snapshotGeneration
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(800))
-            guard generation == snapshotGeneration,
-                  !isCompletionUndoProtected(id, now: Date()),
+            guard !isCompletionUndoProtected(id, now: Date()),
                   let index = appState.comments.firstIndex(where: { $0.id == id && !$0.isDeleted && $0.status == .resolved }) else { return }
             let sessionID = appState.comments[index].sessionID
             let now = Date()

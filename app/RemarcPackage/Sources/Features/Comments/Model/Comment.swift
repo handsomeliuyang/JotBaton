@@ -20,8 +20,6 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
     public var attachments: [String]
     public var webContext: WebContext?
     public var regionElements: [WebContext]?
-    /// Legacy delivery timestamp retained only for storage and snapshot compatibility.
-    public var wakeRequestedAt: Date?
 
     public init(
         id: UUID = UUID(),
@@ -41,7 +39,6 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
         attachments: [String] = [],
         webContext: WebContext? = nil,
         regionElements: [WebContext]? = nil,
-        wakeRequestedAt: Date? = nil,
         customTitle: String? = nil
     ) {
         self.id = id
@@ -62,7 +59,6 @@ public struct Comment: Codable, Identifiable, Equatable, Sendable {
         self.attachments = attachments
         self.webContext = webContext
         self.regionElements = regionElements
-        self.wakeRequestedAt = wakeRequestedAt
     }
 
     // MARK: - Short ID

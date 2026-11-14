@@ -7,58 +7,25 @@ final class SettingsManagerTests: XCTestCase {
 
     // MARK: - Menu bar indicator
 
-    func testCountStyleDisappearsAtZeroOnlyWhenHidingIsOn() {
-        let style = MenuBarIndicatorStyle.count
-
-        XCTAssertEqual(style.indicator(forCommentCount: 0, hidesCountAtZero: true), .none)
-        XCTAssertEqual(style.indicator(forCommentCount: 0, hidesCountAtZero: false), .count(0))
-
-        // Above zero the sub-setting is irrelevant.
-        XCTAssertEqual(style.indicator(forCommentCount: 1, hidesCountAtZero: true), .count(1))
-        XCTAssertEqual(style.indicator(forCommentCount: 1, hidesCountAtZero: false), .count(1))
-        XCTAssertEqual(style.indicator(forCommentCount: 42, hidesCountAtZero: true), .count(42))
-    }
-
-    func testDotStyleIsBinaryAndIgnoresTheZeroSubSetting() {
-        let style = MenuBarIndicatorStyle.dot
-
-        for hidesCountAtZero in [true, false] {
-            XCTAssertEqual(style.indicator(forCommentCount: 0, hidesCountAtZero: hidesCountAtZero), .none)
-            XCTAssertEqual(style.indicator(forCommentCount: 1, hidesCountAtZero: hidesCountAtZero), .dot)
-            XCTAssertEqual(style.indicator(forCommentCount: 42, hidesCountAtZero: hidesCountAtZero), .dot)
+    func testNothingIsShownAtZeroInAnyStyle() {
+        for style in MenuBarIndicatorStyle.allCases {
+            XCTAssertEqual(style.indicator(forCommentCount: 0), .none)
         }
     }
 
-    func testOffStyleNeverDrawsAnything() {
-        let style = MenuBarIndicatorStyle.off
-
-        for hidesCountAtZero in [true, false] {
-            for count in [0, 1, 42] {
-                XCTAssertEqual(style.indicator(forCommentCount: count, hidesCountAtZero: hidesCountAtZero), .none)
-            }
-        }
+    func testEachStyleReportsUnresolvedTasksItsOwnWay() {
+        XCTAssertEqual(MenuBarIndicatorStyle.count.indicator(forCommentCount: 42), .count(42))
+        XCTAssertEqual(MenuBarIndicatorStyle.dot.indicator(forCommentCount: 42), .dot)
+        XCTAssertEqual(MenuBarIndicatorStyle.off.indicator(forCommentCount: 42), .none)
     }
 
     func testMenuBarIndicatorDefaultsToTheHistoricalCountBadge() {
         let suiteName = "remarc.settings-tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
-
-        // No stored value: existing installs must keep the badge they have today,
-        // which is a count that disappears at zero. Note that the hide-at-zero
-        // default is true, so it cannot be read straight off `defaults.bool`.
         XCTAssertNil(defaults.string(forKey: "menuBarIndicatorStyle"))
-        XCTAssertNil(defaults.object(forKey: "hidesMenuBarCountAtZero"))
-
         let style = defaults.string(forKey: "menuBarIndicatorStyle")
             .flatMap(MenuBarIndicatorStyle.init(rawValue:)) ?? .count
-        let hidesAtZero = defaults.object(forKey: "hidesMenuBarCountAtZero") != nil
-            ? defaults.bool(forKey: "hidesMenuBarCountAtZero")
-            : true
-
         XCTAssertEqual(style, .count)
-        XCTAssertTrue(hidesAtZero)
-        XCTAssertEqual(style.indicator(forCommentCount: 0, hidesCountAtZero: hidesAtZero), .none)
-        XCTAssertEqual(style.indicator(forCommentCount: 3, hidesCountAtZero: hidesAtZero), .count(3))
     }
 }

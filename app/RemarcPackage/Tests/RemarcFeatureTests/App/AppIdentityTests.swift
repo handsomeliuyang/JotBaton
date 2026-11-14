@@ -1,5 +1,5 @@
 @testable import CorePlatform
-@testable import FeatureSnapshotSync
+@testable import FeatureCloudSync
 @testable import RemarcFeature
 import Foundation
 import Testing
@@ -36,16 +36,16 @@ struct AppIdentityTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let inspect: (URL) throws -> SnapshotCloudLocation.Facts = { url in
-            let facts = try SnapshotCloudLocation.inspect(url)
+        let inspect: (URL) throws -> CloudSyncLocation.Facts = { url in
+            let facts = try CloudSyncLocation.inspect(url)
             return .init(isDirectory: facts.isDirectory, isCloudItem: url == root, isSymbolicLink: facts.isSymbolicLink)
         }
         for channel in AppIdentity.allCases {
-            let folder = try SnapshotCloudLocation.connect(root: root, createIfMissing: true, channel: channel, inspect: inspect)
+            let folder = try CloudSyncLocation.connect(root: root, createIfMissing: true, channel: channel, inspect: inspect)
             #expect(folder == channel.cloudURL(in: root))
-            #expect(SnapshotCloudLocation.isAuthorizationLocation(folder, root: root, channel: channel))
+            #expect(CloudSyncLocation.isAuthorizationLocation(folder, root: root, channel: channel))
             let other: AppIdentity = channel == .production ? .development : .production
-            #expect(!SnapshotCloudLocation.isAuthorizationLocation(folder, root: root, channel: other))
+            #expect(!CloudSyncLocation.isAuthorizationLocation(folder, root: root, channel: other))
         }
     }
 }

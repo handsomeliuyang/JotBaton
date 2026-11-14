@@ -8,8 +8,7 @@ final class AppStateMergeTests: XCTestCase {
         _ id: UUID,
         text: String = "text",
         status: CommentStatus = .open,
-        session: UUID = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!,
-        wakeRequestedAt: Date? = nil
+        session: UUID = UUID(uuidString: "00000000-0000-0000-0000-0000000000AA")!
     ) -> Comment {
         Comment(
             id: id,
@@ -18,8 +17,7 @@ final class AppStateMergeTests: XCTestCase {
             source: "test",
             appBundleID: nil,
             sessionID: session,
-            status: status,
-            wakeRequestedAt: wakeRequestedAt
+            status: status
         )
     }
 
@@ -93,18 +91,16 @@ final class AppStateMergeTests: XCTestCase {
         XCTAssertTrue(merged.comments.contains { $0.commentText == "theirs" })
     }
 
-    func testWakeFlagSurvivesAConcurrentAgentWrite() {
+    func testHandoffSurvivesAConcurrentAgentWrite() {
         let id = UUID()
         let base = state([comment(id)])
         var ours = base
-        ours.comments[0].wakeRequestedAt = Date(timeIntervalSince1970: 1000)
         ours.comments[0].status = .handedOff
         var theirs = base
         theirs.comments[0].commentText = "agent touched this"
 
         let merged = AppStateMerge.merge(base: base, ours: ours, theirs: theirs)
 
-        XCTAssertNotNil(merged.comments[0].wakeRequestedAt)
         XCTAssertEqual(merged.comments[0].status, .handedOff)
         XCTAssertEqual(merged.comments[0].commentText, "agent touched this")
     }
@@ -147,7 +143,7 @@ extension AppStateMergeTests {
             id: id, name: name, createdAt: Date(timeIntervalSince1970: 0),
             isDeleted: deleted, deletedAt: deleted ? Date() : nil,
             isAutoDismissed: false, autoDismissedAt: nil,
-            origin: .manual, claudeCodeSessionId: nil
+            origin: .manual
         )
         return s
     }

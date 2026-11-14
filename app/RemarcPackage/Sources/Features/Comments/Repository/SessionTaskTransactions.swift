@@ -60,7 +60,6 @@ package enum SessionTaskTransactions {
                 let before = state
                 let value = try mutate(&state)
                 EmptySessionCleanupPolicy.reconcile(&state, previous: before, now: now)
-                if state != before { state.markSnapshotDataChanged(at: now) }
                 if state != onDisk {
                     let data: Data
                     do { data = try JSONEncoder().encode(state) }

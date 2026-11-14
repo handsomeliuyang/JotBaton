@@ -18,7 +18,7 @@ extension CommentStore {
 
     public func setActiveSession(_ id: UUID) {
         appState.activeSessionID = id
-        scheduleSave(dataChanged: false)
+        scheduleSave()
     }
 
     @discardableResult

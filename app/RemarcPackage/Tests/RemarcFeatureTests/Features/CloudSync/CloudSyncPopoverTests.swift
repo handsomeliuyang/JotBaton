@@ -5,12 +5,12 @@ import Testing
 
 @Suite("iCloud popover initial sizing", .serialized)
 @MainActor
-struct SnapshotSyncPopoverTests {
+struct CloudSyncPopoverTests {
     init() { _ = NSApplication.shared }
 
     @Test("The native popover has its measured content size before it is shown")
     func measuresBeforeShowing() {
-        let controller = SnapshotSyncPopoverController()
+        let controller = CloudSyncPopoverController()
         controller.prepare(screenSize: CGSize(width: 1440, height: 900), colorScheme: .light) {
             Color.clear.frame(height: 260)
         }
@@ -22,7 +22,7 @@ struct SnapshotSyncPopoverTests {
 
     @Test("A tall panel is scrollable within the display, with no provisional first height")
     func constrainsTallContent() {
-        let controller = SnapshotSyncPopoverController()
+        let controller = CloudSyncPopoverController()
         controller.prepare(screenSize: CGSize(width: 1440, height: 800), colorScheme: .dark) {
             Color.clear.frame(height: 1400)
         }
@@ -35,7 +35,7 @@ struct SnapshotSyncPopoverTests {
 
     @Test("Each reopening is measured afresh, allowing the panel to shrink as well as grow")
     func remeasuresNewContent() {
-        let controller = SnapshotSyncPopoverController()
+        let controller = CloudSyncPopoverController()
         controller.prepare(screenSize: CGSize(width: 280, height: 900), colorScheme: .light) {
             Color.clear.frame(height: 300)
         }
@@ -49,7 +49,7 @@ struct SnapshotSyncPopoverTests {
 
     @Test("Confirmation dialogs keep the popover alive until review ends")
     func protectsConfirmation() {
-        let controller = SnapshotSyncPopoverController()
+        let controller = CloudSyncPopoverController()
         #expect(controller.popoverShouldClose(controller.popover))
         controller.isReviewing = true
         #expect(!controller.popoverShouldClose(controller.popover))

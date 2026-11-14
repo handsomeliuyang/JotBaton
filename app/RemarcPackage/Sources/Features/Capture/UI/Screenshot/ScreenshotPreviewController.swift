@@ -3,6 +3,7 @@ import CorePlatform
 import CoreTheme
 import CoreUI
 import FeatureCapture
+import FeatureCloudSync
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -316,6 +317,8 @@ public final class ScreenshotPreviewController {
         // Bumped only after a successful atomic replacement, so a thumbnail
         // never reloads bytes that were not written.
         AppServices.shared.comments.recordImageContentChange()
+        // New bytes at the same path leave the document unchanged, so ask sync directly.
+        AppServices.shared.cloudSync.requestSync(after: 2)
         StoredImageRevisionCenter.shared.bump(imagePath)
 
         // Identity, not presence. The render suspends, and by now the panel may

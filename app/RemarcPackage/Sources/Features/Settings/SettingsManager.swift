@@ -65,7 +65,7 @@ public final class SettingsManager: ObservableObject {
 
         static let tooltipPosition = "tooltipPosition"
         static let menuBarIndicatorStyle = "menuBarIndicatorStyle"
-        static let hidesMenuBarCountAtZero = "hidesMenuBarCountAtZero"
+        static let retiredHidesMenuBarCountAtZero = "hidesMenuBarCountAtZero"
         static let inactiveSessionCleanupEnabled = "inactiveSessionCleanupEnabled"
         static let inactiveSessionCleanupInterval = "inactiveSessionCleanupInterval"
         static let historyDefaultsVersion = "historyDefaultsVersion"
@@ -102,12 +102,6 @@ public final class SettingsManager: ObservableObject {
 
     @Published public var menuBarIndicatorStyle: MenuBarIndicatorStyle {
         didSet { defaults.set(menuBarIndicatorStyle.rawValue, forKey: Keys.menuBarIndicatorStyle) }
-    }
-
-    /// Only meaningful while `menuBarIndicatorStyle` is `.count`. Defaults to
-    /// true, which is the badge behavior Remarc has always shipped.
-    @Published public var hidesMenuBarCountAtZero: Bool {
-        didSet { defaults.set(hidesMenuBarCountAtZero, forKey: Keys.hidesMenuBarCountAtZero) }
     }
 
     @Published public var includeMetadataInExport: Bool {
@@ -331,11 +325,8 @@ public final class SettingsManager: ObservableObject {
         } else {
             self.menuBarIndicatorStyle = .count
         }
-        if defaults.object(forKey: Keys.hidesMenuBarCountAtZero) != nil {
-            self.hidesMenuBarCountAtZero = defaults.bool(forKey: Keys.hidesMenuBarCountAtZero)
-        } else {
-            self.hidesMenuBarCountAtZero = true
-        }
+        // The indicator now always hides at zero.
+        defaults.removeObject(forKey: Keys.retiredHidesMenuBarCountAtZero)
 
         if defaults.object(forKey: Keys.includeMetadataInExport) != nil {
             self.includeMetadataInExport = defaults.bool(forKey: Keys.includeMetadataInExport)

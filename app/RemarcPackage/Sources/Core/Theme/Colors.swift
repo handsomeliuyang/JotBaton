@@ -93,11 +93,11 @@ package extension Color {
             : Color.white.opacity(hovered ? 0.75 : 0.6)
     }
 
-    public static func remarcSnapshotBorder(for colorScheme: ColorScheme) -> Color {
+    public static func remarcSyncBorder(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.14)
     }
 
-    public static func remarcSnapshotButtonSurface(for colorScheme: ColorScheme) -> Color {
+    public static func remarcSyncButtonSurface(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color(white: 0.22) : Color(white: 0.93)
     }
 

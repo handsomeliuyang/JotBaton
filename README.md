@@ -65,19 +65,19 @@ remove it; deleted records remain available in searchable **History**.
 
 #### Local until you hand it off
 
-Comments and screenshots stay on your Mac unless you publish an iCloud snapshot, hand them to an agent, or send them through a webhook you configured. There are no JotBaton accounts or telemetry. The [data and privacy guide](https://docs.remarc.app/reference/data-and-privacy/) explains what is stored and which features use the network.
+Comments and screenshots stay on your Mac unless you turn on iCloud sync, hand them to an agent, or send them through a webhook you configured. There are no JotBaton accounts or telemetry. The [data and privacy guide](https://docs.remarc.app/reference/data-and-privacy/) explains what is stored and which features use the network.
 
-#### Switch Macs with one current iCloud copy
+#### Keep every Mac in sync through iCloud
 
-In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and enable **iCloud Data**. JotBaton uses `iCloud Drive/Remarc`; development uses the separate `iCloud Drive/Remarc Dev` folder. Publishing and applying remain manual.
+In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and turn on **Sync automatically**. JotBaton uses `iCloud Drive/Remarc`; development uses the separate `iCloud Drive/Remarc Dev` folder.
 
-The cloud toolbar opens the current cloud source, publication time, **Publish**, **Apply**, and **Roll Back**. Publish reads the current local data and generates a temporary package. The payload has a readable filename such as `2026-11-11_18-45-32+0800_Office-Mac_1FD1CBD4.zip`; `current.json` identifies the selected payload. A new payload must finish uploading before the current marker is switched. Both files must confirm upload before the previous payload and obsolete UUID-named history are cleaned up. A concurrent publication is rechecked before switching the marker.
+Sync runs on its own: after local edits, when another Mac's changes arrive, when the main window opens, after waking, and every few minutes. Each Mac writes only its own file under `sync-v3/devices/`, and screenshots are uploaded once as content-addressed files under `sync-v3/blobs/`, so a sync transfers only what changed.
 
-There is no persistent publication outbox or cloud version-history list. A failed publish keeps the existing cloud payload; clicking Publish again reads the latest local data and prepares a fresh package. Upload confirmation metadata survives restarts without retaining a local publication package. Checks never apply cloud data automatically.
+Changes merge task by task and field by field. Tasks added on different Macs never conflict, and edits to different fields of one task are both kept. When the same field changed on two Macs, the newer edit wins on every Mac and the other version is offered on that task. Deleting a task wins over a concurrent edit; the task stays restorable from History.
 
-Applying verifies the complete cloud package, including comments, sessions, deleted records, screenshots, attachments and editable image annotations. Before replacing local data, JotBaton saves one complete local undo package. The replacement and its undo reference are committed together. A failed application keeps the previous undo copy; a successful application replaces it. **Roll Back** restores the complete pre-application data on this Mac, replacing edits made since the application. Undo survives restarts, is consumed after a successful rollback, and does not publish changes to iCloud.
+Every Mac keeps working offline and while iCloud is still downloading. Files macOS has removed from local storage are downloaded again automatically. If iCloud is unavailable, a download is stuck, or changes have not uploaded for a while, a banner in the main window and a badge on the menu bar icon say so. Before a merge changes local data, JotBaton saves a restore point, and **Undo Last Sync** returns to it.
 
-Device permissions, shortcuts, credentials, and other device settings stay local. Production and development never share data or rollback files. iCloud access is restricted to the matching channel's folder; an authorization action is offered when needed. The current-data format replaces the old version-history protocol. Old cloud snapshots and local outbox/backup folders are cleaned up only after the first new current copy has confirmed upload.
+Device permissions, shortcuts, credentials, selection and other device settings stay local. Production and development never share data. The retired manual snapshot files are removed from iCloud after the first automatic sync.
 
 ## Documentation
 
@@ -99,7 +99,7 @@ Download both packages from [this project's GitHub Releases](https://github.com/
 - `Remarc-Apple-Silicon-arm64.dmg`: Apple Silicon, macOS 14+.
 - [Install the companion Chrome extension](https://remarc.app/chrome-extension/) for web context in Chrome and other Chromium browsers.
 
-These builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases. Click **Upgrade and Restart** to download, verify, install and relaunch automatically. Versions with browser-only downloads or the retired iCloud updater need one final manual upgrade to enable this flow. iCloud data snapshot synchronization remains supported.
+These builds use a fixed private signing certificate and are not Apple-notarized. Production checks this repository’s GitHub Releases. Click **Upgrade and Restart** to download, verify, install and relaunch automatically. Versions with browser-only downloads or the retired iCloud updater need one final manual upgrade to enable this flow.
 See [installation and release instructions](RELEASING.md) for verified installation without local re-signing,
 first launch, checksums and permissions. The upstream signed distribution is
 available separately at [remarc.app/download](https://remarc.app/download).
@@ -118,7 +118,7 @@ With supported Xcode selected, the script clean-builds and signs `JotBaton Dev.a
 
 On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 
-Run `./scripts/test-snapshots.sh` for the snapshot suite. With CLT, run the local preview script first; the test script uses the same production sources and pinned dependencies in a separate Swift Testing target without the unavailable XCTest runtime.
+Run `./scripts/test-cloud-sync.sh` for the iCloud sync suite. With CLT, run the local preview script first; the test script uses the same production sources and pinned dependencies in a separate Swift Testing target without the unavailable XCTest runtime.
 
 For a direct Xcode build:
 
