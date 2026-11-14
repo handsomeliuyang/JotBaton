@@ -99,7 +99,7 @@ struct SessionTaskPolicyTests {
         let session = Session(name: "Work"), other = Session(name: "Other")
         var deleted = task(session); deleted.isDeleted = true
         let comments = [task(session, status: .open), task(session, status: .handedOff), task(session),
-                        task(session, status: .resolved), task(other), deleted]
+                        task(session, status: .resolved), task(other), deleted, task(session, status: .deferred)]
         var state = AppState(sessions: [session, other], comments: comments, activeSessionID: session.id)
         let receipt = CommentCompletionPolicy.complete(&state, in: session.id, scope: .inProgress, now: now)
         #expect(receipt.count == 1)
@@ -135,9 +135,9 @@ struct SessionTaskPolicyTests {
         let comments = CommentStatus.allCases.map { task(session, status: $0) }
         var state = AppState(sessions: [session], comments: comments)
         let receipt = CommentCompletionPolicy.complete(&state, in: session.id, scope: .allUnresolved, now: now)
-        #expect(receipt.count == 3)
+        #expect(receipt.count == 4)
         #expect(state.comments.allSatisfy { $0.status == .resolved })
-        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)).count == 3)
+        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)).count == 4)
         #expect(state.comments.map(\.status) == comments.map(\.status))
     }
 

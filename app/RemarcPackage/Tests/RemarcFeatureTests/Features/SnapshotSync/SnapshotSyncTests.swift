@@ -28,6 +28,17 @@ final class SnapshotSyncTests {
         try SnapshotArchive.create(prepared, in: directory, deviceID: UUID(), deviceName: "Office Mac")
     }
 
+    @Test func testOnHoldStatusSurvivesSnapshotArchiveAndRestore() throws {
+        var original = state()
+        original.comments[0].status = .deferred
+        let prepared = try SnapshotArchive.prepare(original, root: directory)
+        let version = try makeVersion(prepared)
+        let restored = try SnapshotArchive.read(version, archive: directory.appendingPathComponent(version.archiveName))
+        #expect(restored.state.comments == original.comments)
+        #expect(restored.state.comments[0].status == .deferred)
+        #expect(restored.hash == prepared.hash)
+    }
+
     private func publishForTest(_ version: SnapshotVersion, from archive: URL, to cloud: URL) throws {
         let previous = try SnapshotDisk.current(in: cloud)
         try SnapshotDisk.stageArchive(version, from: archive, to: cloud)

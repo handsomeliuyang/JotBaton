@@ -33,6 +33,13 @@ package extension Color {
 
     // MARK: - Status
 
+    /// Muted rose-purple for work on hold, distinct from pending indigo and warning orange.
+    public static func remarcDeferred(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.816, green: 0.627, blue: 0.729)   // #D0A0BA
+            : Color(red: 0.588, green: 0.353, blue: 0.486)   // #965A7C
+    }
+
     /// Muted green for completed tasks, so pending work keeps visual priority.
     public static func remarcResolved(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark

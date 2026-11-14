@@ -20,21 +20,25 @@ struct CommentListQueryTests {
         )
     }
 
-    @Test("Status buckets: in progress covers handed off; every status lands in exactly one bucket")
+    @Test("The four unfinished status buckets are separate; completed work has no chip")
     func statusBuckets() {
-        #expect(CommentStatusFilter.inProgress.includes(.handedOff))
+        #expect(CommentStatusFilter.allCases.map(\.rawValue) == ["open", "handedOff", "inProgress", "deferred"])
+        #expect(!CommentStatusFilter.inProgress.includes(.handedOff))
+        #expect(CommentStatusFilter.handedOff.includes(.handedOff))
         #expect(CommentStatusFilter.inProgress.includes(.inProgress))
         #expect(!CommentStatusFilter.open.includes(.handedOff))
         for status in CommentStatus.allCases {
-            #expect(CommentStatusFilter.allCases.filter { $0.includes(status) }.count == 1)
+            #expect(CommentStatusFilter.allCases.filter { $0.includes(status) }.count == (status == .resolved ? 0 : 1))
         }
         let counts = CommentListQuery.counts(of: [
             comment(status: .open), comment(status: .handedOff),
-            comment(status: .inProgress), comment(status: .resolved),
+            comment(status: .inProgress), comment(status: .deferred), comment(status: .resolved),
         ])
         #expect(counts[.open] == 1)
-        #expect(counts[.inProgress] == 2)
-        #expect(counts[.resolved] == 1)
+        #expect(counts[.handedOff] == 1)
+        #expect(counts[.inProgress] == 1)
+        #expect(counts[.deferred] == 1)
+        #expect(counts.values.reduce(0, +) == 4)
     }
 
     @Test("Chips combine; selecting none shows every status")
@@ -43,7 +47,8 @@ struct CommentListQueryTests {
                      comment("p", status: .inProgress), comment("r", status: .resolved)]
         #expect(CommentListQuery.filtered(items, statuses: []).count == 4)
         #expect(CommentListQuery.filtered(items, statuses: [.open]).map(\.commentText) == ["o"])
-        #expect(CommentListQuery.filtered(items, statuses: [.open, .inProgress]).map(\.commentText) == ["o", "h", "p"])
+        #expect(CommentListQuery.filtered(items, statuses: [.handedOff]).map(\.commentText) == ["h"])
+        #expect(CommentListQuery.filtered(items, statuses: [.open, .inProgress]).map(\.commentText) == ["o", "p"])
     }
 
     @Test("Each session count follows the selected chips and excludes deleted comments")
@@ -59,12 +64,12 @@ struct CommentListQueryTests {
         #expect(all[b] == 1)
         #expect(all[empty, default: 0] == 0)
         let progress = CommentListQuery.countsBySession(of: items, statuses: [.inProgress])
-        #expect(progress[a] == 2)
+        #expect(progress[a] == 1)
         #expect(progress[b, default: 0] == 0)
-        #expect(CommentListQuery.countsBySession(of: items, statuses: [.open, .inProgress])[a] == 3)
-        let resolved = CommentListQuery.countsBySession(of: items, statuses: [.resolved])
-        #expect(resolved[a] == 1)
-        #expect(resolved[b] == 1)
+        #expect(CommentListQuery.countsBySession(of: items, statuses: [.open, .inProgress])[a] == 2)
+        let handedOff = CommentListQuery.countsBySession(of: items, statuses: [.handedOff])
+        #expect(handedOff[a] == 1)
+        #expect(handedOff[b, default: 0] == 0)
     }
 
     @Test("Status edits and session moves update counts using the same rule as the header")
@@ -88,9 +93,11 @@ struct CommentListQueryTests {
 
     @Test("Selection round-trips through storage and ignores retired values")
     func selectionStorage() {
-        let value = CommentStatusFilter.storageValue(of: [.resolved, .open])
-        #expect(value == "open,resolved")
-        #expect(CommentStatusFilter.selection(from: value) == [.open, .resolved])
+        let value = CommentStatusFilter.storageValue(of: [.handedOff, .open])
+        #expect(value == "open,handedOff")
+        #expect(CommentStatusFilter.selection(from: value) == [.open, .handedOff])
+        #expect(CommentStatusFilter.selection(from: "resolved").isEmpty)
+        #expect(CommentStatusFilter.selection(from: "resolved,open") == [.open])
         #expect(CommentStatusFilter.selection(from: "outstanding,inProgress") == [.inProgress])
         #expect(CommentStatusFilter.selection(from: "").isEmpty)
     }
@@ -100,6 +107,26 @@ struct CommentListQueryTests {
         let items = [comment("r1", status: .resolved), comment("o1"), comment("r2", status: .resolved),
                      comment("p1", status: .inProgress)]
         #expect(CommentListQuery.unresolvedFirst(items).map(\.commentText) == ["o1", "p1", "r1", "r2"])
+    }
+
+    @Test("On-hold work follows active work and precedes completed work in either time order; reopening restores its place")
+    func deferredOrderingAndRecovery() {
+        var items = [comment("d1", status: .deferred, createdAt: Date(timeIntervalSince1970: 1)),
+                     comment("r1", status: .resolved, createdAt: Date(timeIntervalSince1970: 2)),
+                     comment("o1", createdAt: Date(timeIntervalSince1970: 3)),
+                     comment("d2", status: .deferred, createdAt: Date(timeIntervalSince1970: 4)),
+                     comment("p1", status: .inProgress, createdAt: Date(timeIntervalSince1970: 5))]
+        for newestFirst in [false, true] {
+            let sorted = CommentListQuery.sorted(items, newestFirst: newestFirst)
+            #expect(CommentListQuery.unresolvedFirst(sorted).map(\.commentText) ==
+                    (newestFirst ? ["p1", "o1", "d2", "d1", "r1"] : ["o1", "p1", "d1", "d2", "r1"]))
+        }
+        #expect(CommentListQuery.filtered(items, statuses: [.open]).map(\.commentText) == ["o1"])
+        #expect(CommentListQuery.filtered(items, statuses: [.deferred]).map(\.commentText) == ["d1", "d2"])
+        #expect(CommentStatusFilter.selection(from: CommentStatusFilter.storageValue(of: [.deferred])) == [.deferred])
+        #expect(CommentListQuery.countsBySession(of: items, statuses: [.deferred])[items[0].sessionID] == 1)
+        items[0].status = .open
+        #expect(CommentListQuery.unresolvedFirst(items).map(\.commentText) == ["d1", "o1", "p1", "d2", "r1"])
     }
 
     @Test("Retired titles do not produce invisible search matches")

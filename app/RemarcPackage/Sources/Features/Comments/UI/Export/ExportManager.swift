@@ -683,8 +683,8 @@ public final class ExportManager {
         )
     }
 
-    /// Copy the same session snapshot as Copy All, with pending comments already
-    /// describing their intended status. Completed comments stay completed, and
+    /// Copy only pending and in-progress work, with pending comments already
+    /// describing their intended status. Other statuses are skipped, and
     /// no persistent status changes happen unless the clipboard write succeeds.
     func copySessionAndStartDevelopment(
         _ session: Session,
@@ -692,9 +692,9 @@ public final class ExportManager {
         copy: ([Comment]) -> ExportReceipt?,
         startDevelopment: ([UUID]) -> Void
     ) -> ExportReceipt? {
-        let comments = exportSnapshot(for: session, comments: comments)
+        let comments = exportSnapshot(for: session, comments: comments).filter { $0.status.canStartDevelopment }
         guard !comments.isEmpty else { return nil }
-        let pendingIDs = comments.filter { $0.status == .open || $0.status == .handedOff }.map(\.id)
+        let pendingIDs = comments.filter { $0.status == .open }.map(\.id)
         let pending = Set(pendingIDs)
         let snapshot = comments.map { comment in
             var comment = comment
@@ -717,13 +717,16 @@ public final class ExportManager {
         copy: (Comment) -> Bool,
         startDevelopment: (UUID) -> Void
     ) -> Bool {
+        guard comment.status.canStartDevelopment else { return false }
         var snapshot = comment
-        snapshot.status = .inProgress
-        snapshot.resolutionSummary = nil
-        snapshot.resolvedBy = nil
-        snapshot.resolvedAt = nil
+        if comment.status == .open {
+            snapshot.status = .inProgress
+            snapshot.resolutionSummary = nil
+            snapshot.resolvedBy = nil
+            snapshot.resolvedAt = nil
+        }
         guard copy(snapshot) else { return false }
-        startDevelopment(comment.id)
+        if comment.status == .open { startDevelopment(comment.id) }
         return true
     }
 

@@ -18,13 +18,14 @@ struct LocalizationTests {
         #expect(AppLanguage.simplifiedChinese.resolved(preferredLanguages: ["en-US"]) == .simplifiedChinese)
     }
 
-    @Test("The four status names are short and consistent; storage and export remain stable")
+    @Test("Status names are short and consistent; existing storage and export remain stable")
     func statuses() {
         let statuses = CommentStatus.allCases
-        #expect(statuses.map { $0.localizedLabel(language: .simplifiedChinese) } == ["待处理", "已转交", "进行中", "已完成"])
-        #expect(statuses.map { $0.localizedLabel(language: .english) } == ["Open", "Handed Off", "In Progress", "Resolved"])
-        #expect(statuses.map(\.rawValue) == ["open", "handedOff", "inProgress", "resolved"])
-        #expect(statuses.map(\.exportLabel) == ["Open", "Handed Off", "正在开发中", "Resolved"])
+        #expect(statuses.map { $0.localizedLabel(language: .simplifiedChinese) } == ["待处理", "已转交", "进行中", "暂缓", "已完成"])
+        #expect(statuses.map { $0.localizedLabel(language: .english) } == ["Open", "Handed Off", "In Progress", "On Hold", "Resolved"])
+        #expect(statuses.map(\.rawValue) == ["open", "handedOff", "inProgress", "deferred", "resolved"])
+        #expect(statuses.map(\.exportLabel) == ["Open", "Handed Off", "正在开发中", "On Hold", "Resolved"])
+        #expect(CommentStatus.deferred.iconName == "pause.circle")
         #expect(CommentType.quickNote.exportDisplayName == "Quick Note")
     }
 

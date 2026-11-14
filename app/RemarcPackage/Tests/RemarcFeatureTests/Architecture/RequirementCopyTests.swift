@@ -34,7 +34,7 @@ struct RequirementCopyTests {
     func copyThenStart() {
         let item = FeatureComments.Comment(
             type: .quickNote, commentText: "需求正文", source: "test", appBundleID: nil,
-            sessionID: UUID(), status: .resolved, resolutionSummary: "完成说明", resolvedBy: "agent",
+            sessionID: UUID(), status: .open, resolutionSummary: "完成说明", resolvedBy: "agent",
             resolvedAt: Date(), customTitle: "任务名称"
         )
         var events: [String] = []
@@ -50,7 +50,7 @@ struct RequirementCopyTests {
         })
         #expect(success)
         #expect(events == ["copied", "started"])
-        #expect(item.status == .resolved)
+        #expect(item.status == .open)
     }
 
     @Test("A clipboard failure leaves the task status untouched")
@@ -71,7 +71,7 @@ struct RequirementCopyTests {
         #expect(ExportManager.shared.markdownForComment(item) == before)
     }
 
-    @Test("Bulk handoff copies the active session in order, starts only pending comments, and preserves completed work")
+    @Test("Bulk handoff copies only pending and ongoing work in order, and starts only pending comments")
     func sessionCopyThenStart() throws {
         let session = Session(name: "Current")
         func item(_ status: CommentStatus, sessionID: UUID? = nil, deleted: Bool = false) -> FeatureComments.Comment {
@@ -85,24 +85,57 @@ struct RequirementCopyTests {
         }
         let open = item(.open), handedOff = item(.handedOff), inProgress = item(.inProgress)
         let resolved = item(.resolved), other = item(.open, sessionID: UUID()), deleted = item(.open, deleted: true)
-        let comments = [open, other, handedOff, deleted, inProgress, resolved]
+        let deferred = item(.deferred)
+        let comments = [open, other, deferred, handedOff, deleted, inProgress, resolved]
         var events: [String] = []
         let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: comments, copy: { snapshot in
-            #expect(snapshot.map(\.id) == [open.id, handedOff.id, inProgress.id, resolved.id])
-            #expect(snapshot.map(\.status) == [.inProgress, .inProgress, .inProgress, .resolved])
-            #expect(snapshot[2] == inProgress)
-            #expect(snapshot[3] == resolved)
+            #expect(snapshot.map(\.id) == [open.id, inProgress.id])
+            #expect(snapshot.map(\.status) == [.inProgress, .inProgress])
+            #expect(snapshot[1] == inProgress)
             #expect(snapshot.allSatisfy { !$0.isDeleted })
             events.append("copied")
             return ExportReceipt(sessionID: session.id, comments: snapshot)
         }, startDevelopment: { ids in
-            #expect(ids == [open.id, handedOff.id])
+            #expect(ids == [open.id])
             events.append("started")
         })
         let copied = try #require(receipt)
-        #expect(copied.count == 4)
+        #expect(copied.count == 2)
         #expect(events == ["copied", "started"])
-        #expect(open.status == .open && resolved.status == .resolved)
+        #expect(open.status == .open && resolved.status == .resolved && deferred.status == .deferred)
+    }
+
+    @Test("Skipped statuses never overwrite the clipboard or start; ordinary copying and reopening still work",
+          arguments: [CommentStatus.handedOff, .deferred, .resolved])
+    func skippedCopyAndRecovery(status: CommentStatus) throws {
+        #expect(!status.canStartDevelopment)
+        let session = Session(name: "Skipped work")
+        var item = FeatureComments.Comment(type: .quickNote, commentText: "暂缓的需求", source: "test", appBundleID: nil,
+                                          sessionID: session.id, status: status)
+        let clipboard = TestTextClipboard()
+        #expect(ExportManager.shared.copySessionToClipboard(session, comments: [item], format: .markdown, to: clipboard)?.count == 1)
+        #expect(clipboard.content?.contains(item.commentText) == true)
+        #expect(ExportManager.shared.copyCommentToClipboard(item, to: clipboard)?.count == 1)
+
+        let single = ExportManager.shared.copyCommentAndStartDevelopment(item, copy: { _ in
+            Issue.record("A skipped comment must not overwrite the clipboard")
+            return true
+        }, startDevelopment: { _ in Issue.record("A skipped comment must not start") })
+        #expect(!single)
+        let bulk = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { _ in
+            Issue.record("A session with no eligible comments must not overwrite the clipboard")
+            return nil
+        }, startDevelopment: { _ in Issue.record("Skipped comments must not start") })
+        #expect(bulk == nil)
+
+        item.status = .open
+        var startedIDs: [UUID] = []
+        let resumed = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { snapshot in
+            #expect(snapshot.map(\.status) == [.inProgress])
+            return ExportReceipt(sessionID: session.id, comments: snapshot)
+        }, startDevelopment: { startedIDs = $0 })
+        #expect(try #require(resumed).count == 1)
+        #expect(startedIDs == [item.id])
     }
 
     @Test("Bulk copy failure and an empty session never start development")
@@ -122,14 +155,22 @@ struct RequirementCopyTests {
         #expect(empty == nil)
     }
 
-    @Test("Copying an entirely completed session never reopens its comments")
-    func completedSessionCopy() {
-        let session = Session(name: "Done")
-        let item = FeatureComments.Comment(type: .quickNote, commentText: "已完成", source: "test", appBundleID: nil, sessionID: session.id, status: .resolved)
+    @Test("Starting ongoing work copies it without modifying its status or timestamps")
+    func inProgressCopy() {
+        #expect(CommentStatus.inProgress.canStartDevelopment)
+        #expect(CommentStatus.open.canStartDevelopment)
+        let session = Session(name: "Ongoing")
+        let item = FeatureComments.Comment(type: .quickNote, commentText: "进行中", source: "test", appBundleID: nil,
+                                          sessionID: session.id, status: .inProgress)
+        let success = ExportManager.shared.copyCommentAndStartDevelopment(item, copy: { snapshot in
+            #expect(snapshot == item)
+            return true
+        }, startDevelopment: { _ in Issue.record("Ongoing work must remain unchanged") })
+        #expect(success)
         let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { snapshot in
             #expect(snapshot == [item])
             return ExportReceipt(sessionID: session.id, comments: snapshot)
-        }, startDevelopment: { _ in Issue.record("Completed comments must stay completed") })
+        }, startDevelopment: { _ in Issue.record("Ongoing work must remain unchanged") })
         #expect(receipt?.count == 1)
     }
 }

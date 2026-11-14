@@ -320,13 +320,18 @@ struct CommentCardView: View {
                     ToastManager.shared.show(L10n.tr("Couldn’t copy comment"))
                 }
             }
-            cardActionButton(icon: "play.fill", tooltip: L10n.tr("Copy and Start"), tint: Color.remarcPrimary(for: colorScheme)) {
+            cardActionButton(icon: "play.fill", tooltip: !comment.status.canStartDevelopment
+                             ? L10n.tr("Set to Open before starting this comment") : L10n.tr("Copy and Start"),
+                             tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
-                    ToastManager.shared.show(L10n.tr("Copied; set to In Progress"))
+                    ToastManager.shared.show(comment.status == .inProgress
+                                             ? L10n.tr("Copied to clipboard") : L10n.tr("Copied; set to In Progress"))
                 } else {
                     ToastManager.shared.show(L10n.tr("Copy failed; status unchanged"))
                 }
             }
+            .disabled(!comment.status.canStartDevelopment)
+            .opacity(comment.status.canStartDevelopment ? 1 : 0.4)
             cardActionButton(icon: "pencil", tooltip: L10n.tr("Edit"), tint: Color.remarcPrimary(for: colorScheme)) {
                 FloatingEditorController.shared.showForEdit(comment: comment)
             }

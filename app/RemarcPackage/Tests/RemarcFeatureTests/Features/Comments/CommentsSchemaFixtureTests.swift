@@ -10,6 +10,19 @@ import XCTest
 /// Catches the v1 plan bug where I had `c.text` vs `c.commentText`: the
 /// fixture's `commentText` field must round-trip through Swift's strict decoder.
 final class CommentsSchemaFixtureTests: XCTestCase {
+    func testDeferredCommentsRoundTripWithoutLosingContext() throws {
+        let session = Session(name: "On hold")
+        let comment = FeatureComments.Comment(
+            type: .comment(text: "原始引用"), commentText: "之后处理", source: "Safari", appBundleID: "com.apple.Safari",
+            sessionID: session.id, status: .deferred, attachments: ["images/context.png"]
+        )
+        let state = AppState(sessions: [session], comments: [comment], activeSessionID: session.id)
+        let data = try JSONEncoder().encode(state)
+        XCTAssertEqual(try JSONDecoder().decode(AppState.self, from: data), state)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(comment)) as? [String: Any])
+        XCTAssertEqual(object["status"] as? String, "deferred")
+    }
+
     func testCommentsSampleDecodesAgainstAppState() throws {
         let url = try XCTUnwrap(
             Bundle.module.url(forResource: "comments.sample", withExtension: "json", subdirectory: "Fixtures"),

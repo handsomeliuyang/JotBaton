@@ -586,8 +586,8 @@ struct PopoverContentView: View {
             primaryFooterButton(icon: "play.fill", title: L10n.tr("Copy and Start"), prominent: true) {
                 copyAllAndStartDevelopment()
             }
-            .help(L10n.tr("Copy all comments in this session and set pending comments to In Progress; keep comments"))
-            .disabled(sessionActionsDisabled)
+            .help(L10n.tr("Copy only Open and In Progress comments in this session, and set Open comments to In Progress; keep comments"))
+            .disabled(sessionActionsDisabled || !persistence.activeComments.contains { $0.status.canStartDevelopment })
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
             primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks"),
@@ -1083,8 +1083,9 @@ private struct StatusFilterChip: View {
     private var status: CommentStatus {
         switch filter {
         case .open: return .open
+        case .handedOff: return .handedOff
         case .inProgress: return .inProgress
-        case .resolved: return .resolved
+        case .deferred: return .deferred
         }
     }
 
