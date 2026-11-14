@@ -2,6 +2,22 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.39 - 2026-11-14
+
+### 新增
+
+- 新增「暂缓」评论状态，使用玫紫色和暂停图标，自动排在活跃评论之后，并支持筛选及手动恢复待处理。（[提交](https://github.com/handsomeliuyang/JotBaton/commit/e9acb833a56626840756a57af97a5bad655c954e)）
+
+### 优化
+
+- 顶部筛选调整为「待处理、已转交、进行中、暂缓」，已转交独立计数，移除已完成筛选。（[提交](https://github.com/handsomeliuyang/JotBaton/commit/e9acb833a56626840756a57af97a5bad655c954e)）
+- 单条与批量启动统一只复制待处理和进行中的评论；待处理转为进行中，已转交、暂缓、已完成均跳过，无可处理评论时禁用启动。（[提交](https://github.com/handsomeliuyang/JotBaton/commit/e9acb833a56626840756a57af97a5bad655c954e)）
+- 再次启动进行中的评论保留原状态；完成按钮继续仅处理进行中的评论，普通复制仍保留完整内容。（[提交](https://github.com/handsomeliuyang/JotBaton/commit/e9acb833a56626840756a57af97a5bad655c954e)）
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.38...v1.2.39)
+
+<!-- remarc-release: {"base_tag": "v1.2.38", "build": "58", "source_sha": "e9acb833a56626840756a57af97a5bad655c954e"} -->
+
 ## 1.2.38 - 2026-11-13
 
 ### 重大变更
