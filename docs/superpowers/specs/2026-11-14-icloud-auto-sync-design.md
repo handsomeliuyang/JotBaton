@@ -35,7 +35,7 @@ self-heal from eviction rather than prevent it.
 - Storage is per device so no two Macs write the same file:
 
   ```
-  iCloud Drive/<app folder>/sync-v3/
+  iCloud Drive/JotBaton[ Dev]/sync-v3/
     devices/<deviceID>.json    one device's merged entity state plus image manifest
     blobs/<sha256>.blob        content-addressed image files, written once
   ```
@@ -56,11 +56,12 @@ self-heal from eviction rather than prevent it.
   local changes have not synced for 10 minutes, another Mac uses a newer format,
   or a conflict is unresolved. Banners never block editing.
 - A rolling set of local restore points is kept before applying remote merges.
-- No migration from v2: each Mac starts from its own local data. After a Mac's
-  first successful publish, the retired v2 files (`current.json`, timestamped
-  archives, per-UUID files) are deleted from iCloud, and leftover local v2
-  bookkeeping is removed at launch. The v2 code is gone, and the feature module
-  is now `FeatureCloudSync`.
+- Cloud folders are `JotBaton` (production) and `JotBaton Dev` (development).
+  Do not migrate or fall back to the old `Remarc` folders or their backups.
+- No migration from v2: each Mac starts from its own local data. Review correction:
+  retain retired v2 cloud archives and local recovery files. A local v3 write
+  does not establish that all historical data is uploaded or recoverable. The
+  v2 code is gone, and the feature module is now `FeatureCloudSync`.
 - Menu bar icon: one renderer, one fixed-width canvas per style (Count / Dot /
   Off, always hidden at zero; counts above 99 show `99+`). Monochrome template
   rendering, except an orange warning badge when sync needs attention, which

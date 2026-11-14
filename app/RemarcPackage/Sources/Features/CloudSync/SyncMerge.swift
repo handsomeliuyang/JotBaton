@@ -137,13 +137,13 @@ package enum SyncMerge {
     /// Two Macs that each captured into an empty inbox create two inbox sessions.
     /// Every Mac keeps the same one and moves the other's tasks into it.
     private static func foldInboxes(_ state: inout AppState, now: Date) {
-        let inboxes = state.sessions.filter { $0.isInbox && !$0.isDeleted }
-        guard inboxes.count > 1, let keeper = inboxes.min(by: { $0.id.uuidString < $1.id.uuidString }) else { return }
+        let inboxes = state.sessions.filter { $0.isInbox }
+        guard let keeper = inboxes.filter({ !$0.isDeleted }).min(by: { $0.id.uuidString < $1.id.uuidString }) else { return }
         let folded = Set(inboxes.map(\.id)).subtracting([keeper.id])
         for index in state.comments.indices where folded.contains(state.comments[index].sessionID) {
             state.comments[index].sessionID = keeper.id
         }
-        for index in state.sessions.indices where folded.contains(state.sessions[index].id) {
+        for index in state.sessions.indices where folded.contains(state.sessions[index].id) && !state.sessions[index].isDeleted {
             state.sessions[index].isDeleted = true
             state.sessions[index].deletedAt = now
         }

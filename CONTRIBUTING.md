@@ -26,7 +26,7 @@ GitHub Release workflow with full tests and both native packages; see
 
 Development has a DEV app icon and distinct menu icon, Bundle ID
 `com.metepolat.Remarc.dev`, local data in `Application Support/Remarc Dev`, and
-snapshots in `iCloud Drive/Remarc Dev`. It can coexist with production `JotBaton`.
+automatic sync in `iCloud Drive/JotBaton Dev`. It can coexist with production `JotBaton`.
 Their settings, permissions, callbacks, sockets and integration registrations are
 separate. See [RELEASING.md](RELEASING.md) for the full channel contract.
 

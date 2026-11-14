@@ -1,7 +1,10 @@
 @testable import FeatureComments
 @testable import FeatureCloudSync
 import Foundation
+import Combine
 import Testing
+
+private typealias Comment = FeatureComments.Comment
 
 /// Two Macs merge each other's files independently. Every scenario checks both
 /// directions: sync is only correct if both Macs end up with the same document.
@@ -179,6 +182,24 @@ struct SyncMergeTests {
         #expect(kept.commentText == "Other")
         #expect(kept.updatedAt > t0.addingTimeInterval(20))
     }
+
+    @Test func anOfflineMacCanKeepCapturingIntoAnAlreadyFoldedInbox() {
+        let keeper = Session(id: macA, name: CommentConstants.inboxSessionName)
+        let obsolete = Session(id: macB, name: CommentConstants.inboxSessionName)
+        let remoteBase = state([], sessions: [obsolete])
+        let first = SyncMerge.merge(base: nil, local: state([], sessions: [keeper]), remote: remoteBase,
+                                    localWinsTie: true, remoteName: "B", now: t0).state
+        var capturedOffline = comment("Captured while offline")
+        capturedOffline.sessionID = obsolete.id
+        let remote = state([capturedOffline], sessions: [obsolete])
+        let merged = SyncMerge.merge(base: remoteBase, local: first, remote: remote,
+                                     localWinsTie: true, remoteName: "B", now: t0.addingTimeInterval(10)).state
+        #expect(merged.comments.first?.sessionID == keeper.id)
+        #expect(merged.sessions.first { $0.id == obsolete.id }?.deletedAt == t0)
+        let repeated = SyncMerge.merge(base: remote, local: merged, remote: remote,
+                                       localWinsTie: true, remoteName: "B", now: t0.addingTimeInterval(20)).state
+        #expect(repeated == merged)
+    }
 }
 
 @Suite("Sync image files")
@@ -291,6 +312,20 @@ final class SyncFileTests {
         #expect(SyncCloud.load(newer, layout: layout) == .newerFormat(deviceName: "Office"))
     }
 
+    @Test func syncSubdirectoriesCannotRedirectToAnotherChannel() throws {
+        let fm = FileManager.default
+        let outside = directory.appendingPathComponent("outside")
+        try fm.createDirectory(at: outside, withIntermediateDirectories: false)
+        for target in [layout.devices, layout.blobs, layout.root] {
+            try fm.removeItem(at: target)
+            try fm.createSymbolicLink(at: target, withDestinationURL: outside)
+            #expect(throws: (any Error).self) { try layout.prepare() }
+            #expect(try fm.contentsOfDirectory(atPath: outside.path).isEmpty)
+            try fm.removeItem(at: target)
+            try layout.prepare()
+        }
+    }
+
     @Test func contentDigestIgnoresWriteTimeButNotContent() {
         let original = file(UUID())
         var rewritten = original
@@ -299,18 +334,6 @@ final class SyncFileTests {
         var edited = original
         edited.state.comments[0].commentText = "Edited"
         #expect(edited.contentDigest != original.contentDigest)
-    }
-
-    @Test func onlyRetiredSnapshotFilesAreRemovedFromICloud() throws {
-        let fm = FileManager.default
-        let legacy = ["current.json", "2026-01-02_03-04-05+0800_Office_ABCDEF12.zip", "\(UUID().uuidString).zip",
-                      ".2026-01-02_03-04-05+0800_Home_12345678.zip.icloud"]
-        for name in legacy + ["notes.txt"] { try Data("x".utf8).write(to: directory.appendingPathComponent(name)) }
-        try SyncCloud.write(file(UUID()), layout: layout)
-        try SyncCloud.removeLegacySnapshots(in: directory)
-        let remaining = Set(try fm.contentsOfDirectory(atPath: directory.path))
-        #expect(remaining == ["notes.txt", "sync-v3"])
-        #expect(try fm.contentsOfDirectory(atPath: layout.devices.path).count == 1)
     }
 
     @Test func retiredSnapshotBookkeepingIsDroppedFromTheDocument() throws {
@@ -323,15 +346,6 @@ final class SyncFileTests {
         #expect(Set(state.unknownFields.keys) == ["transcriptions", "futureKey"])
         let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) as? [String: Any]
         #expect(saved?["_snapshotReceipt"] == nil && saved?["transcriptions"] != nil)
-    }
-
-    @Test func leftoverLocalSnapshotFilesAreRemoved() throws {
-        let root = directory.appendingPathComponent("support")
-        try FileManager.default.createDirectory(at: root.appendingPathComponent("snapshot-rollback"), withIntermediateDirectories: true)
-        try Data().write(to: root.appendingPathComponent("snapshot-sync-v2.json"))
-        try Data().write(to: root.appendingPathComponent("comments.json"))
-        SyncLocalStore.removeLegacySnapshotFiles(in: root)
-        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path) == ["comments.json"])
     }
 
     @Test func recordToleratesMissingFieldsAndRestorePointsAreBounded() throws {
@@ -378,29 +392,35 @@ final class CloudSyncLocationTests {
         #expect(throws: (any Error).self) { try CloudSyncLocation.connect(root: absent, createIfMissing: true) }
         #expect(!FileManager.default.fileExists(atPath: absent.deletingLastPathComponent().path))
         #expect(throws: (any Error).self) { try CloudSyncLocation.connect(root: directory, createIfMissing: true) }
-        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("Remarc").path))
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("JotBaton").path))
     }
 
     @Test func theFolderIsCreatedOnlyWithConsentAndTheProbeIsCleanedUp() throws {
         #expect(throws: (any Error).self) { try CloudSyncLocation.connect(root: directory, inspect: cloudFacts(root: directory)) }
         let folder = try CloudSyncLocation.connect(root: directory, createIfMissing: true, inspect: cloudFacts(root: directory))
-        #expect(folder.path == directory.appendingPathComponent("Remarc").path)
+        #expect(folder.path == directory.appendingPathComponent("JotBaton").path)
         #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
     }
 
     @Test func theFolderCannotRedirectThroughASymlink() throws {
         let outside = directory.appendingPathComponent("outside")
         try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: false)
-        try FileManager.default.createSymbolicLink(at: directory.appendingPathComponent("Remarc"), withDestinationURL: outside)
+        try FileManager.default.createSymbolicLink(at: directory.appendingPathComponent("JotBaton"), withDestinationURL: outside)
         #expect(throws: (any Error).self) {
             try CloudSyncLocation.connect(root: directory, createIfMissing: true, inspect: cloudFacts(root: directory))
         }
         #expect(try FileManager.default.contentsOfDirectory(atPath: outside.path).isEmpty)
     }
 
+    @Test func authorizationRejectsSymlinkAliases() throws {
+        let alias = directory.appendingPathComponent("alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: directory)
+        #expect(!CloudSyncLocation.isAuthorizationLocation(alias, root: directory))
+    }
+
     @Test func authorizationCannotSelectAnotherLocation() {
         #expect(CloudSyncLocation.isAuthorizationLocation(directory, root: directory))
-        #expect(CloudSyncLocation.isAuthorizationLocation(directory.appendingPathComponent("Remarc"), root: directory))
+        #expect(CloudSyncLocation.isAuthorizationLocation(directory.appendingPathComponent("JotBaton"), root: directory))
         #expect(!CloudSyncLocation.isAuthorizationLocation(directory.appendingPathComponent("Other"), root: directory))
     }
 }
@@ -432,5 +452,172 @@ struct CloudSyncIssueTests {
         #expect(!diagnostic.contains("private@example.com") && !diagnostic.contains("PRIVATE_TASK_BODY"))
         #expect(!diagnostic.contains("/private/user/path"))
         #expect(diagnostic.contains("NSCocoaErrorDomain (513)"))
+    }
+}
+
+@Suite("Automatic sync coordinator", .serialized)
+@MainActor
+struct CloudSyncManagerTests {
+    private final class Documents: CloudSyncDocumentStore {
+        @Published var appState: AppState
+        var beforeRead: (() -> Void)?
+        var beforeCommit: (() -> Void)?
+        var statePublisher: AnyPublisher<AppState, Never> { $appState.eraseToAnyPublisher() }
+        init(_ state: AppState) { appState = state }
+        func stateForSync() async throws -> AppState {
+            beforeRead?()
+            return appState
+        }
+        func commitSyncedState(_ transform: (AppState) -> AppState) async throws -> AppState {
+            beforeCommit?()
+            appState = transform(appState)
+            return appState
+        }
+    }
+
+    private func withManager(_ body: (CloudSyncManager, Documents, URL, SyncLayout) async throws -> Void) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("SyncCoordinator-\(UUID())")
+        let cloud = root.appendingPathComponent("cloud")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
+        let domain = "SyncCoordinatorTests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        let session = Session(name: "Project")
+        let comment = Comment(type: .quickNote, commentText: "Original", source: "test", appBundleID: nil,
+                              createdAt: Date(timeIntervalSince1970: 100), updatedAt: Date(timeIntervalSince1970: 100),
+                              sessionID: session.id)
+        let documents = Documents(AppState(sessions: [session], comments: [comment]))
+        let manager = CloudSyncManager(documents: documents, root: root, defaults: defaults, connect: { _ in cloud })
+        defer {
+            manager.disable()
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let layout = SyncLayout(folder: cloud)
+        try layout.prepare()
+        try await body(manager, documents, root, layout)
+    }
+
+    @Test func aLocallyWinningConflictStillRetainsTheOtherVersion() async throws {
+        try await withManager { manager, documents, root, layout in
+            let remoteID = UUID()
+            let original = SyncDeviceFile(deviceID: remoteID, deviceName: "Other Mac", writtenAt: Date(),
+                                          state: documents.appState, assets: [:])
+            try SyncLocalStore.saveBase(original, in: root)
+            var remote = original
+            remote.state.comments[0].commentText = "Remote alternative"
+            remote.state.comments[0].updatedAt = Date(timeIntervalSince1970: 110)
+            try SyncCloud.write(remote, layout: layout)
+            documents.appState.comments[0].commentText = "Local winner"
+            documents.appState.comments[0].updatedAt = Date(timeIntervalSince1970: 120)
+            manager.enable()
+            await manager.syncNow()
+            #expect(documents.appState.comments[0].commentText == "Local winner")
+            #expect(manager.conflicts.count == 1)
+            #expect(manager.conflicts.first?.alternative.commentText == "Remote alternative")
+            #expect(manager.health.needsAttention)
+            #expect(try SyncLocalStore.loadRecord(in: root).conflicts.count == 1)
+        }
+    }
+
+    @Test func disablingWhileReadingTheDocumentPreventsPublishing() async throws {
+        try await withManager { manager, documents, _, layout in
+            documents.beforeRead = { manager.disable() }
+            manager.enable()
+            await manager.syncNow()
+            #expect(!SyncCloud.exists(layout.deviceFile(manager.deviceID)))
+            #expect(manager.folder == nil && manager.issue == nil)
+            #expect(manager.health == .off)
+        }
+    }
+
+    @Test func disablingBeforeTheDocumentTransactionPreventsApplyingRemoteEdits() async throws {
+        try await withManager { manager, documents, _, layout in
+            var remote = SyncDeviceFile(deviceID: UUID(), deviceName: "Other Mac", writtenAt: Date(),
+                                        state: documents.appState, assets: [:])
+            remote.state.comments[0].commentText = "Remote edit"
+            remote.state.comments[0].updatedAt = Date(timeIntervalSince1970: 120)
+            try SyncCloud.write(remote, layout: layout)
+            documents.beforeCommit = { manager.disable() }
+            manager.enable()
+            await manager.syncNow()
+            #expect(documents.appState.comments[0].commentText == "Original")
+            #expect(!SyncCloud.exists(layout.deviceFile(manager.deviceID)))
+            #expect(manager.folder == nil && manager.issue == nil)
+        }
+    }
+
+    @Test func startupAndSuccessfulSyncPreserveLegacyRecoveryFiles() async throws {
+        try await withManager { manager, _, root, layout in
+            let local = root.appendingPathComponent("snapshot-backups")
+            try FileManager.default.createDirectory(at: local, withIntermediateDirectories: false)
+            let backup = local.appendingPathComponent("recover.zip")
+            let archive = layout.root.deletingLastPathComponent().appendingPathComponent("current.json")
+            let bytes = Data("historical recovery data".utf8)
+            try bytes.write(to: backup)
+            try bytes.write(to: archive)
+            manager.enable()
+            await manager.syncNow()
+            #expect(manager.lastSuccessAt != nil)
+            #expect(try Data(contentsOf: backup) == bytes)
+            #expect(try Data(contentsOf: archive) == bytes)
+        }
+    }
+
+    @Test func anEnabledInstallationSetsUpTheNewCloudFolderOnStartup() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("SyncStartup-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let domain = "SyncStartupTests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defaults.set(true, forKey: "snapshotICloudEnabled")
+        let cloud = root.appendingPathComponent("JotBaton")
+        let documents = Documents(AppState())
+        let manager = CloudSyncManager(documents: documents, root: root, defaults: defaults, connect: { setup in
+            if setup { try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: false) }
+            guard FileManager.default.fileExists(atPath: cloud.path) else {
+                throw CloudSyncError.message("The new cloud folder has not been set up.")
+            }
+            return cloud
+        })
+        defer {
+            manager.disable()
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+        }
+        await manager.syncNow()
+        #expect(manager.lastSuccessAt != nil)
+        #expect(manager.issue == nil)
+        #expect(SyncCloud.exists(SyncLayout(folder: cloud).deviceFile(manager.deviceID)))
+    }
+
+    @Test func downloadedImagesNotifyTheApplication() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("SyncImageNotification-\(UUID())")
+        let cloud = root.appendingPathComponent("cloud")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
+        let domain = "SyncImageNotification.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        let session = Session(name: "Project")
+        let path = "images/\(UUID()).png"
+        let comment = Comment(type: .screenshot(imagePath: path), commentText: "Image", source: "test",
+                              appBundleID: nil, sessionID: session.id)
+        let documents = Documents(AppState(sessions: [session], comments: [comment]))
+        var notified = Set<String>()
+        let manager = CloudSyncManager(documents: documents, root: root, defaults: defaults,
+                                       connect: { _ in cloud }, imagesDidChange: { notified.formUnion($0) })
+        defer {
+            manager.disable()
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+        }
+        let layout = SyncLayout(folder: cloud)
+        try layout.prepare()
+        let bytes = Data("downloaded image bytes".utf8)
+        let digest = SyncIO.digest(bytes)
+        try bytes.write(to: layout.blob(digest))
+        try SyncCloud.write(SyncDeviceFile(deviceID: UUID(), deviceName: "Other Mac", writtenAt: Date(),
+                                          state: documents.appState, assets: [path: digest]), layout: layout)
+        manager.enable()
+        await manager.syncNow()
+        #expect(try Data(contentsOf: root.appendingPathComponent(path)) == bytes)
+        #expect(notified == [path])
     }
 }

@@ -15,13 +15,14 @@ public enum AppIdentity: String, Sendable, CaseIterable {
     public var isDevelopment: Bool { self == .development }
     public var bundleIdentifier: String { isDevelopment ? "com.metepolat.Remarc.dev" : "com.metepolat.Remarc" }
     public var displayName: String { isDevelopment ? "JotBaton Dev" : "JotBaton" }
-    // Storage names are a compatibility contract, independent of the product brand.
+    // Local storage retains its existing location; cloud folders use the current brand.
     public var directoryName: String { isDevelopment ? "Remarc Dev" : "Remarc" }
+    public var cloudDirectoryName: String { isDevelopment ? "JotBaton Dev" : "JotBaton" }
     public var urlScheme: String { isDevelopment ? "remarc-dev" : "remarc" }
     public var webSocketPort: UInt16 { isDevelopment ? 9275 : 9274 }
     public var appIconName: String { isDevelopment ? "AppIconDev" : "AppIcon" }
     public var menuBarIconName: String { isDevelopment ? "MenuBarIconDev" : "MenuBarIcon" }
-    public var cloudDisplayPath: String { "iCloud Drive/" + directoryName }
+    public var cloudDisplayPath: String { "iCloud Drive/" + cloudDirectoryName }
 
     public func appSupportURL(in home: URL) -> URL {
         home.appendingPathComponent("Library/Application Support", isDirectory: true)
@@ -29,6 +30,6 @@ public enum AppIdentity: String, Sendable, CaseIterable {
     }
 
     public func cloudURL(in drive: URL) -> URL {
-        drive.appendingPathComponent(directoryName, isDirectory: true)
+        drive.appendingPathComponent(cloudDirectoryName, isDirectory: true)
     }
 }

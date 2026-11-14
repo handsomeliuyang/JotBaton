@@ -34,11 +34,15 @@ package final class CloudSyncManager: ObservableObject {
 
     private let documents: any CloudSyncDocumentStore
     private let root: URL
+    private let defaults: UserDefaults
+    private let connect: @Sendable (Bool) throws -> URL
+    private let imagesDidChange: @MainActor (Set<String>) -> Void
+    private var generation = 0
     package let deviceID: UUID
     @Published package private(set) var isEnabled: Bool
     @Published package var deviceName: String {
         didSet {
-            UserDefaults.standard.set(deviceName, forKey: Keys.deviceName)
+            defaults.set(deviceName, forKey: Keys.deviceName)
             if oldValue != deviceName { requestSync(after: 2) }
         }
     }
@@ -76,10 +80,17 @@ package final class CloudSyncManager: ObservableObject {
                             conflictCount: conflicts.count, now: clock)
     }
 
-    package init(documents: any CloudSyncDocumentStore, root: URL = remarcAppSupportURL) {
+    package init(documents: any CloudSyncDocumentStore, root: URL = remarcAppSupportURL,
+                 defaults: UserDefaults = .standard,
+                 connect: @escaping @Sendable (Bool) throws -> URL = {
+                     try CloudSyncLocation.connect(createIfMissing: $0, verifyWriteAccess: $0)
+                 },
+                 imagesDidChange: @escaping @MainActor (Set<String>) -> Void = { _ in }) {
         self.documents = documents
         self.root = root
-        let defaults = UserDefaults.standard
+        self.defaults = defaults
+        self.connect = connect
+        self.imagesDidChange = imagesDidChange
         isEnabled = defaults.bool(forKey: Keys.enabled)
         deviceName = defaults.string(forKey: Keys.deviceName) ?? Host.current().localizedName ?? "This Mac"
         let id: UUID
@@ -91,7 +102,7 @@ package final class CloudSyncManager: ObservableObject {
         conflicts = record.conflicts
         lastSuccessAt = record.lastSuccessAt
         canUndoLastSync = SyncLocalStore.hasRestorePoint(in: root)
-        Task.detached(priority: .utility) { SyncLocalStore.removeLegacySnapshotFiles(in: root) }
+        needsSetup = isEnabled
         if let bookmark = defaults.data(forKey: Keys.bookmark) {
             var stale = false
             if let url = try? URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI], bookmarkDataIsStale: &stale),
@@ -126,14 +137,15 @@ package final class CloudSyncManager: ObservableObject {
 
     package func enable() {
         isEnabled = true
-        UserDefaults.standard.set(true, forKey: Keys.enabled)
+        defaults.set(true, forKey: Keys.enabled)
         needsSetup = true
         requestSync()
     }
 
     package func disable() {
         isEnabled = false
-        UserDefaults.standard.set(false, forKey: Keys.enabled)
+        generation += 1
+        defaults.set(false, forKey: Keys.enabled)
         scheduled?.cancel()
         followUp?.cancel()
         watcher?.cancel()
@@ -141,7 +153,7 @@ package final class CloudSyncManager: ObservableObject {
         watchedPath = nil
         scopedFolder?.stopAccessingSecurityScopedResource()
         scopedFolder = nil
-        UserDefaults.standard.removeObject(forKey: Keys.bookmark)
+        defaults.removeObject(forKey: Keys.bookmark)
         folder = nil
         issue = nil
         devices = []
@@ -188,18 +200,18 @@ package final class CloudSyncManager: ObservableObject {
         panel.canCreateDirectories = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = CloudSyncLocation.driveRoot
-        panel.message = L10n.tr("Allow access to iCloud Drive, or its \(AppIdentity.current.directoryName) folder. Sync always uses \(AppIdentity.current.cloudDisplayPath).")
+        panel.message = L10n.tr("Allow access to iCloud Drive, or its \(AppIdentity.current.cloudDirectoryName) folder. Sync always uses \(AppIdentity.current.cloudDisplayPath).")
         panel.prompt = L10n.tr("Allow Access")
         guard await panel.begin() == .OK, let url = panel.url else { return }
         guard CloudSyncLocation.isAuthorizationLocation(url) else {
-            issue = .make(CloudSyncError.message(L10n.tr("Authorize iCloud Drive or its \(AppIdentity.current.directoryName) folder. Other folders cannot be used.")), stage: .connection)
+            issue = .make(CloudSyncError.message(L10n.tr("Authorize iCloud Drive or its \(AppIdentity.current.cloudDirectoryName) folder. Other folders cannot be used.")), stage: .connection)
             return
         }
         do {
             let bookmark = try url.bookmarkData(options: .withSecurityScope)
             scopedFolder?.stopAccessingSecurityScopedResource()
             scopedFolder = url.startAccessingSecurityScopedResource() ? url : nil
-            UserDefaults.standard.set(bookmark, forKey: Keys.bookmark)
+            defaults.set(bookmark, forKey: Keys.bookmark)
             needsSetup = true
             requestSync()
         } catch { issue = .make(error, stage: .connection) }
@@ -264,36 +276,36 @@ package final class CloudSyncManager: ObservableObject {
     // MARK: - Pass
 
     private func runPass() async {
+        let generation = self.generation
         lastAttemptAt = Date()
         restorePointSaved = false
         var stage = CloudSyncIssue.Stage.connection
         do {
             let setup = needsSetup
+            let connect = self.connect
             let folder = try await Task.detached(priority: .utility) {
-                let folder = try CloudSyncLocation.connect(createIfMissing: setup, verifyWriteAccess: setup)
+                let folder = try connect(setup)
                 try SyncLayout(folder: folder).prepare()
                 return folder
             }.value
+            try checkActive(generation)
             needsSetup = false
             self.folder = folder
             let layout = SyncLayout(folder: folder)
             watch(layout.devices)
 
             stage = .preparing
-            try await localizeLegacyImages()
+            try await localizeLegacyImages(generation: generation)
 
             stage = .applying
-            let pulled = try await pullDevices(layout)
+            let pulled = try await pullDevices(layout, generation: generation)
+            try checkActive(generation)
             let waiting = pulled.waiting
             devices = pulled.summaries
 
             stage = .publishing
-            try await publish(layout)
-            if !record.removedLegacySnapshots {
-                // This Mac's data is in iCloud now; the retired snapshots are not used.
-                try await Task.detached(priority: .utility) { try SyncCloud.removeLegacySnapshots(in: folder) }.value
-                record.removedLegacySnapshots = true
-            }
+            try await publish(layout, generation: generation)
+            try checkActive(generation)
 
             let live = Set(documents.appState.comments.filter { !$0.isDeleted }.map(\.id))
             conflicts.removeAll { !live.contains($0.commentID) }
@@ -304,11 +316,19 @@ package final class CloudSyncManager: ObservableObject {
             waitingSince = waiting > 0 ? (waitingSince ?? Date()) : nil
             persist()
             scheduleFollowUp(needed: waiting > 0 || unsyncedSince != nil)
+        } catch is CancellationError {
+            // Turning sync off also invalidates a pass suspended in file IO.
         } catch {
+            guard isEnabled, generation == self.generation else { return }
             issue = .make(error, stage: stage)
             persist()
             scheduleFollowUp(needed: true)
         }
+    }
+
+    private func checkActive(_ generation: Int) throws {
+        try Task.checkCancellation()
+        guard isEnabled, generation == self.generation else { throw CancellationError() }
     }
 
     /// iCloud delivers downloads and confirms uploads on its own schedule. Look
@@ -324,7 +344,7 @@ package final class CloudSyncManager: ObservableObject {
         }
     }
 
-    private func localizeLegacyImages() async throws {
+    private func localizeLegacyImages(generation: Int) async throws {
         let state = documents.appState
         let hasLegacy = state.comments.contains { comment in
             (comment.attachments + [comment.type.imagePath].compactMap { $0 }).contains { $0.hasPrefix("/") }
@@ -333,7 +353,11 @@ package final class CloudSyncManager: ObservableObject {
         let root = self.root
         let mapping = try await Task.detached(priority: .utility) { try SyncAssets.localizeLegacyPaths(in: state, root: root) }.value
         guard !mapping.isEmpty else { return }
-        _ = try await documents.commitSyncedState { SyncAssets.applying(mapping, to: $0) }
+        try checkActive(generation)
+        _ = try await documents.commitSyncedState {
+            guard self.isEnabled, generation == self.generation else { return $0 }
+            return SyncAssets.applying(mapping, to: $0)
+        }
     }
 
     private struct PullResult {
@@ -341,7 +365,7 @@ package final class CloudSyncManager: ObservableObject {
         var summaries: [SyncDeviceSummary] = []
     }
 
-    private func pullDevices(_ layout: SyncLayout) async throws -> PullResult {
+    private func pullDevices(_ layout: SyncLayout, generation: Int) async throws -> PullResult {
         let id = deviceID
         let ids = try await Task.detached(priority: .utility) { try SyncCloud.listDevices(layout) }.value.filter { $0 != id }
         // Request every download first, then give iCloud a short grace period.
@@ -351,6 +375,7 @@ package final class CloudSyncManager: ObservableObject {
         let clock = ContinuousClock()
         let deadline = clock.now + Self.downloadGrace
         while !pending.isEmpty {
+            try checkActive(generation)
             let batch = pending
             let loaded = await Task.detached(priority: .utility) { batch.map { ($0, SyncCloud.load($0, layout: layout)) } }.value
             for (key, value) in loaded { results[key] = value }
@@ -361,6 +386,7 @@ package final class CloudSyncManager: ObservableObject {
 
         var result = PullResult()
         for remoteID in ids.sorted(by: { $0.uuidString < $1.uuidString }) {
+            try checkActive(generation)
             let known = devices.first { $0.id == remoteID }
             switch results[remoteID] ?? .waiting {
             case .waiting:
@@ -373,7 +399,7 @@ package final class CloudSyncManager: ObservableObject {
             case .invalid:
                 continue
             case .file(let remote):
-                let waitingImages = try await merge(remote, layout: layout)
+                let waitingImages = try await merge(remote, layout: layout, generation: generation)
                 result.waiting += waitingImages
                 result.summaries.append(SyncDeviceSummary(id: remoteID, name: remote.deviceName, updatedAt: remote.writtenAt,
                                                           isWaiting: waitingImages > 0, needsNewerApp: false))
@@ -384,24 +410,29 @@ package final class CloudSyncManager: ObservableObject {
 
     /// Merges one device's file and installs the image files it brought.
     /// Returns how many image files are still downloading.
-    private func merge(_ remote: SyncDeviceFile, layout: SyncLayout) async throws -> Int {
+    private func merge(_ remote: SyncDeviceFile, layout: SyncLayout, generation: Int) async throws -> Int {
         let root = self.root
         let remoteID = remote.deviceID
         let base = await Task.detached(priority: .utility) { SyncLocalStore.loadBase(remoteID, in: root) }.value
+        try checkActive(generation)
         guard base != remote else { return 0 }
         let localWinsTie = deviceID.uuidString > remote.deviceID.uuidString
         let merged = try await commitMerge(base: base?.state, remote: remote.state, localWinsTie: localWinsTie,
-                                           remoteName: remote.deviceName)
+                                           remoteName: remote.deviceName, generation: generation)
+        try checkActive(generation)
 
         let startingCache = digestCache
-        let outcome = try await Task.detached(priority: .utility) { () -> (Set<String>, [String: SyncAssets.CachedDigest]) in
+        let outcome = try await Task.detached(priority: .utility) { () -> (Set<String>, [String: SyncAssets.CachedDigest], Set<String>) in
             var cache = startingCache
             let local = SyncAssets.manifest(for: merged, root: root, cache: &cache)
             let plan = SyncAssets.plan(local: local, remote: remote.assets, base: base?.assets,
                                        referenced: SyncAssets.files(referencedBy: merged), localWinsTie: localWinsTie)
-            return (try SyncAssets.install(plan, root: root, layout: layout), cache)
+            let waiting = try SyncAssets.install(plan, root: root, layout: layout)
+            return (waiting, cache, Set(plan.keys).subtracting(waiting))
         }.value
+        try checkActive(generation)
         digestCache = outcome.1
+        imagesDidChange(outcome.2)
 
         // Remember files still downloading as unchanged, so the next pass plans them again.
         var saved = remote
@@ -414,22 +445,25 @@ package final class CloudSyncManager: ObservableObject {
     /// Commits a merge only when it changes something, after saving one restore
     /// point per pass. Returns the resulting document.
     @discardableResult
-    private func commitMerge(base: AppState?, remote: AppState, localWinsTie: Bool, remoteName: String) async throws -> AppState {
+    private func commitMerge(base: AppState?, remote: AppState, localWinsTie: Bool, remoteName: String, generation: Int) async throws -> AppState {
         let current = documents.appState
         let preview = SyncMerge.merge(base: base, local: current, remote: remote, localWinsTie: localWinsTie, remoteName: remoteName)
-        guard preview.state != current else { return current }
-        if !restorePointSaved {
+        guard preview.state != current || !preview.conflicts.isEmpty else { return current }
+        if preview.state != current, !restorePointSaved {
             let root = self.root
             try await Task.detached(priority: .utility) { try SyncLocalStore.saveRestorePoint(current, in: root) }.value
             restorePointSaved = true
             canUndoLastSync = true
         }
         var found: [SyncConflict] = []
+        try checkActive(generation)
         let merged = try await documents.commitSyncedState { state in
+            guard self.isEnabled, generation == self.generation else { return state }
             let result = SyncMerge.merge(base: base, local: state, remote: remote, localWinsTie: localWinsTie, remoteName: remoteName)
             found = result.conflicts
             return result.state
         }
+        try checkActive(generation)
         if !found.isEmpty {
             let ids = Set(found.map(\.id))
             conflicts = Array((conflicts.filter { !ids.contains($0.id) } + found).suffix(50))
@@ -437,8 +471,9 @@ package final class CloudSyncManager: ObservableObject {
         return merged
     }
 
-    private func publish(_ layout: SyncLayout) async throws {
+    private func publish(_ layout: SyncLayout, generation: Int) async throws {
         let state = try await documents.stateForSync()
+        try checkActive(generation)
         let projection = SyncProjection.make(state)
         let root = self.root
         let id = deviceID
@@ -461,6 +496,7 @@ package final class CloudSyncManager: ObservableObject {
             let uploaded = try SyncCloud.uploadState(layout.deviceFile(id))
             return (written, uploaded, cache)
         }.value
+        try checkActive(generation)
         digestCache = outcome.cache
         if let written = outcome.written {
             record.publishedDigest = written

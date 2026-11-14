@@ -1,5 +1,6 @@
 import FeatureComments
 import FeatureIntegrations
+import FeatureCapture
 import FeatureCloudSync
 import AppKit
 import Combine
@@ -10,7 +11,11 @@ import Combine
 final class AppServices {
     static let shared = AppServices()
     let comments: CommentStore
-    lazy var cloudSync = CloudSyncManager(documents: comments)
+    lazy var cloudSync = CloudSyncManager(documents: comments, imagesDidChange: { paths in
+        for path in paths where path.hasSuffix(".png") && !path.hasSuffix(".base.png") {
+            StoredImageRevisionCenter.shared.bump(path)
+        }
+    })
     lazy var capture = ScreenCaptureCoordinator(composer: { CommentInputController.shared })
 
     private init() {

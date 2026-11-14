@@ -165,6 +165,14 @@ struct CloudSyncControls: View {
                 }
                 .frame(width: 26, height: 26)
                 if compact {
+                    CloudSyncIconButton(symbol: "folder", help: L10n.tr("Show iCloud Folder"),
+                                           identifier: "sync.openFolder") {
+                        if let folder = sync.folder {
+                            onDismiss()
+                            NSWorkspace.shared.open(folder)
+                        }
+                    }
+                    .disabled(sync.folder == nil)
                     CloudSyncIconButton(symbol: "gearshape", help: L10n.tr("iCloud Sync Settings"),
                                            identifier: "sync.settings") {
                         onDismiss()

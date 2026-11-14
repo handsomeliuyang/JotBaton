@@ -9,7 +9,7 @@ Independently maintained macOS menu bar app (SwiftUI + AppKit): a lightweight in
 - Development debug log: `/tmp/remarc_dev_debug.log`. Production Release writes no file unless `defaults write com.metepolat.Remarc debugFileLoggingEnabled -bool YES`; then it uses `~/Library/Logs/Remarc/remarc_debug.log`.
 - Production data: `~/Library/Application Support/Remarc/comments.json` (legacy fallback: `data.json`)
 - Development data: `~/Library/Application Support/Remarc Dev/comments.json`; never copy production data or defaults into it automatically
-- iCloud snapshots: production `iCloud Drive/Remarc`; development `iCloud Drive/Remarc Dev`
+- iCloud sync folders: production `iCloud Drive/JotBaton`; development `iCloud Drive/JotBaton Dev`
 
 **MANDATORY: After a successful native app build/install, relaunch that exact channel.** The user must be able to verify changes:
 1. Use the checkout's deterministic `app/DerivedData` output. Existing Xcode builders use `-derivedDataPath "$(pwd)/DerivedData"` from `app/` and clean-build UI changes.

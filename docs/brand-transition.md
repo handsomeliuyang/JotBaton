@@ -52,7 +52,7 @@ not a claim of trademark, domain, or marketplace availability. See
 ## Application identity and existing installations
 
 Display names and application filenames use the new brand. Persistent identity
-and storage keep their existing values:
+and local storage keep their existing values; iCloud sync folders use the new brand:
 
 | Setting | Production | Development |
 | --- | --- | --- |
@@ -60,12 +60,15 @@ and storage keep their existing values:
 | Executable | Remarc | RemarcDev |
 | Bundle identifier | com.metepolat.Remarc | com.metepolat.Remarc.dev |
 | Local data directory | Application Support/Remarc | Application Support/Remarc Dev |
-| iCloud directory | Remarc | Remarc Dev |
+| iCloud directory | JotBaton | JotBaton Dev |
 | URL scheme | remarc | remarc-dev |
 | Browser port | 9274 | 9275 |
 
 `AppIdentity.directoryName` is independent of `displayName`, keeping existing
-production and development data paths unchanged. Bundle identifiers, executables,
+production and development local data paths unchanged. `AppIdentity.cloudDirectoryName`
+selects `JotBaton` or `JotBaton Dev` for iCloud sync independently. The maintainer
+confirmed this cloud-folder change on 2026-11-14; old cloud folders and backups
+are not imported, migrated or used as fallbacks. Bundle identifiers, executables,
 URL schemes, browser ports, defaults, signing identities, and the EdDSA key remain
 stable. Changing a bundle identifier is outside this branding change because
 settings, permissions, keychain access, and routing depend on it. See

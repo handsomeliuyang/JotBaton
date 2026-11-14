@@ -103,8 +103,14 @@ package struct SyncLayout: Sendable {
 
     /// Only these children of the app's own iCloud folder are ever created.
     package func prepare() throws {
-        for directory in [root, devices, blobs] where !FileManager.default.fileExists(atPath: directory.path) {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        for directory in [root, devices, blobs] {
+            if !FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+            }
+            let attributes = try FileManager.default.attributesOfItem(atPath: directory.path)
+            guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+                throw CloudSyncError.message(L10n.tr("The sync folder must not contain symbolic links."))
+            }
         }
     }
 }
@@ -190,28 +196,6 @@ package enum SyncCloud {
         }
     }
 
-    /// Snapshot files from the retired manual flow (`current.json`, timestamped
-    /// archives, and the older per-UUID layout). Only direct children of the
-    /// app's own folder are considered; `sync-v3` is never touched.
-    package static func removeLegacySnapshots(in folder: URL) throws {
-        let archive = #"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}[+-]\d{4}_[\p{L}\p{N}_-]{1,40}_[A-F0-9]{8}\.zip$"#
-        for entry in try FileManager.default.contentsOfDirectory(atPath: folder.path) {
-            var name = entry
-            if name.hasPrefix("."), name.hasSuffix(".icloud") { name = String(name.dropFirst().dropLast(7)) }
-            let stem = (name as NSString).deletingPathExtension
-            let ext = (name as NSString).pathExtension
-            let legacy = name == "current.json"
-                || name.range(of: archive, options: .regularExpression) != nil
-                || (["json", "zip"].contains(ext) && UUID(uuidString: stem) != nil)
-            guard legacy else { continue }
-            try SyncIO.coordinate(folder.appendingPathComponent(name), writing: true, deleting: true) { target in
-                if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
-            }
-            let placeholder = folder.appendingPathComponent(".\(name).icloud")
-            if FileManager.default.fileExists(atPath: placeholder.path) { try? FileManager.default.removeItem(at: placeholder) }
-        }
-    }
-
     /// nil when the provider does not report upload state. A reported upload
     /// failure (quota, server) is thrown so it can be shown, not waited on.
     package static func uploadState(_ url: URL) throws -> Bool? {
@@ -230,10 +214,6 @@ package struct SyncRecord: Codable, Sendable {
     package var publishedAt: Date?
     package var lastSuccessAt: Date?
     package var conflicts: [SyncConflict] = []
-    /// Retired manual-snapshot files were removed from iCloud after this Mac's
-    /// first successful publish.
-    package var removedLegacySnapshots = false
-
     package init() {}
 
     package init(from decoder: Decoder) throws {
@@ -242,7 +222,6 @@ package struct SyncRecord: Codable, Sendable {
         publishedAt = try container.decodeIfPresent(Date.self, forKey: .publishedAt)
         lastSuccessAt = try container.decodeIfPresent(Date.self, forKey: .lastSuccessAt)
         conflicts = try container.decodeIfPresent([SyncConflict].self, forKey: .conflicts) ?? []
-        removedLegacySnapshots = try container.decodeIfPresent(Bool.self, forKey: .removedLegacySnapshots) ?? false
     }
 }
 
@@ -263,15 +242,6 @@ package enum SyncLocalStore {
     private static func load<T: Decodable>(_ type: T.Type, from url: URL) throws -> T? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }
         return try JSONDecoder().decode(type, from: Data(contentsOf: url))
-    }
-
-    /// Bookkeeping left by the retired manual snapshot flow. Everything lives in
-    /// this app's own Application Support folder.
-    package static func removeLegacySnapshotFiles(in root: URL) {
-        for name in ["snapshot-sync-v2.json", "snapshot-sync-state.json", "snapshot-rollback", "snapshot-outbox", "snapshot-backups"] {
-            let url = root.appendingPathComponent(name)
-            if FileManager.default.fileExists(atPath: url.path) { try? FileManager.default.removeItem(at: url) }
-        }
     }
 
     package static func loadRecord(in root: URL) throws -> SyncRecord { try load(SyncRecord.self, from: record(in: root)) ?? SyncRecord() }

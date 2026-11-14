@@ -69,7 +69,7 @@ Comments and screenshots stay on your Mac unless you turn on iCloud sync, hand t
 
 #### Keep every Mac in sync through iCloud
 
-In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and turn on **Sync automatically**. JotBaton uses `iCloud Drive/Remarc`; development uses the separate `iCloud Drive/Remarc Dev` folder.
+In **Settings → iCloud Sync**, name each Mac (for example, Office Mac and Home Mac) and turn on **Sync automatically**. JotBaton uses `iCloud Drive/JotBaton`; development uses the separate `iCloud Drive/JotBaton Dev` folder.
 
 Sync runs on its own: after local edits, when another Mac's changes arrive, when the main window opens, after waking, and every few minutes. Each Mac writes only its own file under `sync-v3/devices/`, and screenshots are uploaded once as content-addressed files under `sync-v3/blobs/`, so a sync transfers only what changed.
 
@@ -77,7 +77,7 @@ Changes merge task by task and field by field. Tasks added on different Macs nev
 
 Every Mac keeps working offline and while iCloud is still downloading. Files macOS has removed from local storage are downloaded again automatically. If iCloud is unavailable, a download is stuck, or changes have not uploaded for a while, a banner in the main window and a badge on the menu bar icon say so. Before a merge changes local data, JotBaton saves a restore point, and **Undo Last Sync** returns to it.
 
-Device permissions, shortcuts, credentials, selection and other device settings stay local. Production and development never share data. The retired manual snapshot files are removed from iCloud after the first automatic sync.
+Device permissions, shortcuts, credentials, selection and other device settings stay local. Production and development never share data. Sync uses the new branded folders directly, without importing backups or falling back to the old Remarc cloud folders.
 
 ## Documentation
 
@@ -114,7 +114,7 @@ To build the current checkout and immediately launch its Debug app, without a co
 ./scripts/run-local.sh
 ```
 
-With supported Xcode selected, the script clean-builds and signs `JotBaton Dev.app` with the shared test identity, installs it at `/Applications/JotBaton Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/Remarc Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the Intel production package from GitHub Releases; previews never fall back to GitHub automatically.
+With supported Xcode selected, the script clean-builds and signs `JotBaton Dev.app` with the shared test identity, installs it at `/Applications/JotBaton Dev.app`, and relaunches it. It preserves the production app. The DEV app icon and floating-window badges, Bundle ID, local data (`Application Support/Remarc Dev`), settings, and iCloud folder (`iCloud Drive/JotBaton Dev`) are independent. Each Mac grants permissions to each app once. On Ventura with Xcode 14, download the Intel production package from GitHub Releases; previews never fall back to GitHub automatically.
 
 On a Mac with only Command Line Tools and the macOS 26.5 SDK, the script also supports a local preview: it compiles the actual application sources using SwiftPM, expands the shortcut dependency's SwiftUI environment entry in an isolated copy under DerivedData, and omits Xcode canvas previews. Installed visual assets are reused if available; the app and menu bar icons always use the separate development assets. This preview uses its local SwiftPM resource bundles; keep the worktree/build directory while running it. Full Xcode remains the supported path for release builds and the complete XCTest suite.
 

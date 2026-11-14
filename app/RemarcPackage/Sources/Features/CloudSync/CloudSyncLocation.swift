@@ -35,7 +35,7 @@ package enum CloudSyncLocation {
         catch {
             throw CloudSyncError.underlying(L10n.tr("iCloud Drive is unavailable. Enable it in System Settings, or authorize access and retry."), error as NSError)
         }
-        guard rootFacts.isDirectory, rootFacts.isCloudItem else {
+        guard rootFacts.isDirectory, rootFacts.isCloudItem, !rootFacts.isSymbolicLink else {
             throw CloudSyncError.message(L10n.tr("An active iCloud Drive could not be verified. Enable iCloud Drive in System Settings and retry."))
         }
         let folder = channel.cloudURL(in: root)
@@ -61,6 +61,7 @@ package enum CloudSyncLocation {
     }
 
     package static func isAuthorizationLocation(_ url: URL, root: URL = driveRoot, channel: AppIdentity = .current) -> Bool {
+        guard (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { return false }
         let selected = url.standardizedFileURL.resolvingSymlinksInPath()
         let drive = root.standardizedFileURL.resolvingSymlinksInPath()
         return selected.path == drive.path || selected.path == channel.cloudURL(in: drive).path

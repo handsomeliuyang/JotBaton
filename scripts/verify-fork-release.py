@@ -81,7 +81,7 @@ Apple Silicon (macOS 14+):
 
 JotBaton Dev 使用独立测试证书、com.metepolat.Remarc.dev 和 DEV 图标，可与正式版同时安装。
 本地数据：正式版 Application Support/Remarc；测试版 Application Support/Remarc Dev。
-iCloud：正式版 iCloud Drive/Remarc；测试版 iCloud Drive/Remarc Dev。两版不会自动迁移或共用同步数据。
+iCloud：正式版 iCloud Drive/JotBaton；测试版 iCloud Drive/JotBaton Dev。两版不会自动迁移或共用同步数据。
 两台 Mac 需要分别授权；签名一致不会跨电脑同步 macOS 权限。
 接入应用内升级的正式版可点击“升级并重启”，自动下载、校验、安装并重启；旧版需最后手动升级一次。测试版保持独立；均未经过 Apple 公证。
 首次打开被拦截时，前往“系统设置 → 隐私与安全性 → 仍要打开”。
