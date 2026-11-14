@@ -2,6 +2,27 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.40 - 2026-11-14
+
+### 新增
+
+- iCloud 改为自动增量同步任务、会话和图片，支持离线编辑、逐字段合并、冲突提示及合并前恢复点。([5e79731](https://github.com/handsomeliuyang/JotBaton/commit/5e7973115571fa6668ea76c671bcc9aadb831d3f))
+- 重绘菜单栏图标：支持数量、圆点和关闭指示，新增橙色同步异常标记，并遵循系统减少动态效果设置。([5e79731](https://github.com/handsomeliuyang/JotBaton/commit/5e7973115571fa6668ea76c671bcc9aadb831d3f))
+- 同步浮层新增文件夹按钮，可直接在 Finder 中打开当前版本的 iCloud 同步目录。([d58a646](https://github.com/handsomeliuyang/JotBaton/commit/d58a64671e1812835dbe43d424f54e2b55eb570c))
+
+### 修复
+
+- 补全本机版本胜出时的冲突备选内容，阻止关闭同步后的后续合并与发布，并修复离线新增任务进入隐藏收件箱的问题。([d58a646](https://github.com/handsomeliuyang/JotBaton/commit/d58a64671e1812835dbe43d424f54e2b55eb570c))
+- 云端图片下载完成后刷新缩略图，阻止同步目录通过符号链接重定向，并保留已有恢复资料。([d58a646](https://github.com/handsomeliuyang/JotBaton/commit/d58a64671e1812835dbe43d424f54e2b55eb570c))
+
+### 使用变化
+
+- 正式版同步目录改为 iCloud Drive/JotBaton，Dev 改为 iCloud Drive/JotBaton Dev；直接同步当前本机数据，不导入或回退到旧 Remarc 云端目录及备份。原手动快照流程由自动同步替代。([5e79731](https://github.com/handsomeliuyang/JotBaton/commit/5e7973115571fa6668ea76c671bcc9aadb831d3f), [d58a646](https://github.com/handsomeliuyang/JotBaton/commit/d58a64671e1812835dbe43d424f54e2b55eb570c))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.39...v1.2.40)
+
+<!-- remarc-release: {"base_tag": "v1.2.39", "build": "59", "source_sha": "d58a64671e1812835dbe43d424f54e2b55eb570c"} -->
+
 ## 1.2.39 - 2026-11-14
 
 ### 新增
