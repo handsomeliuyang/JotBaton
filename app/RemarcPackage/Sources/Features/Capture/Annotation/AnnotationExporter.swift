@@ -84,10 +84,8 @@ public enum AnnotationExporter {
 
 /// Runtime-only monotonic revision per stored image path.
 ///
-/// Thumbnails call `loadScreenshotImage` straight from `body` and there is no
-/// revision state anywhere, so an applied annotation would keep showing the old
-/// bytes until the view happened to be rebuilt from scratch. Not serialized: it
-/// means nothing across launches.
+/// Invalidates thumbnail pixels after annotations or cloud updates replace an
+/// image at the same path. Not serialized: it means nothing across launches.
 @MainActor
 public final class StoredImageRevisionCenter: ObservableObject {
     public static let shared = StoredImageRevisionCenter()

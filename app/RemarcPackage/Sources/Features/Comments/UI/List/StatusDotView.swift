@@ -47,9 +47,7 @@ struct StatusDotView: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                isHovered = hovering
-            }
+            isHovered = hovering
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: comment.status)
         .accessibilityLabel(L10n.tr("Change status"))
@@ -151,9 +149,7 @@ private struct StatusOptionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isHovered = hovering
-            }
+            isHovered = hovering
         }
     }
 

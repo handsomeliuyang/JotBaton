@@ -10,26 +10,26 @@ struct ScreenshotThumbnailView: View {
     var maxHeight: CGFloat = 200
 
     @Environment(\.colorScheme) private var colorScheme
-    /// Runtime-only revision signal. Applying annotations replaces the PNG at the
-    /// same path, and `NSImage(contentsOf:)` is lazy and caches by URL, so without
-    /// this the thumbnail keeps showing the pre-annotation bytes.
+    @Environment(\.displayScale) private var displayScale
+    @State private var thumbnail: ScreenshotThumbnailCache.Thumbnail?
+    @State private var loadedURL: URL?
+    /// Annotation and cloud updates replace bytes at the same path. Including
+    /// their revision in the cache key ensures the new pixels are decoded.
     @ObservedObject private var revisions = StoredImageRevisionCenter.shared
 
-    /// Reloads BYTES rather than handing the URL to NSImage, so the revision bump
-    /// actually produces new pixels.
-    private func loadCurrentImage() -> NSImage? {
-        guard let data = try? Data(contentsOf: resolveImagePath(imagePath)) else { return nil }
-        return NSImage(data: data)
-    }
-
     var body: some View {
+        let url = resolveImagePath(imagePath)
+        let request = ScreenshotThumbnailCache.Request(
+            url: url, revision: revisions.revision(for: imagePath),
+            maxPixelSize: Int(ceil(max(maxWidth, maxHeight) * displayScale))
+        )
         Group {
-            if let nsImage = loadCurrentImage() {
-                let imageSize = nsImage.size
+            if loadedURL == url, let thumbnail {
+                let imageSize = thumbnail.sourceSize
                 let scale = imageSize.width > 0 && imageSize.height > 0
                     ? min(maxWidth / imageSize.width, maxHeight / imageSize.height, 1.0)
                     : 1.0
-                Image(nsImage: nsImage)
+                Image(decorative: thumbnail.image, scale: displayScale)
                     .resizable()
                     .frame(width: imageSize.width * scale, height: imageSize.height * scale)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -65,7 +65,14 @@ struct ScreenshotThumbnailView: View {
                     )
             }
         }
-        // Reading the revision inside `body` is what subscribes this view to it.
-        .id(revisions.revision(for: imagePath))
+        .task(id: request) {
+            let result = await ScreenshotThumbnailCache.shared.thumbnail(for: request)
+            guard !Task.isCancelled else { return }
+            // Retain the previous thumbnail while reloading an annotated image;
+            // replacing pixels should not collapse the card to a placeholder.
+            thumbnail = result
+            loadedURL = url
+        }
+        .transaction { $0.animation = nil }
     }
 }

@@ -376,6 +376,10 @@ public final class ExportManager {
                 output += textLines(divider, highlights: [.divider])
             }
         }
+        if !output.isEmpty, let suffix = layout?.exportSuffix, !suffix.isEmpty {
+            output += textLines("", highlights: [.suffix])
+            output += textLines(suffix, highlights: [.suffix])
+        }
         return output.enumerated().map { PreviewLine(id: $0.offset, segments: $0.element) }
     }
 

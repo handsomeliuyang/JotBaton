@@ -13,13 +13,16 @@ struct ClipboardLayoutTests {
         layout: ClipboardLayout = ClipboardLayout(),
         referenceStyle: ReferenceStyle = .plain,
         numbering: NumberingStyle = .none,
-        includeSource: Bool = false
+        includeSource: Bool = false,
+        includeSuffix: Bool = false
     ) -> String {
-        ExportManager.shared.markdownForComments(
+        var composition = layout
+        if !includeSuffix { composition.suffixEnabled = false }
+        return ExportManager.shared.markdownForComments(
             comments, referenceStyle: referenceStyle, numberingStyle: numbering,
             dividerStyle: .horizontalRule, dateFormat: .iso,
             includeRemarkID: false, includeSource: includeSource, includeDate: false,
-            includeStatus: false, includeType: false, layout: layout
+            includeStatus: false, includeType: false, layout: composition
         )
     }
 
@@ -164,6 +167,8 @@ struct ClipboardLayoutTests {
         layout.commentPrefix = "想法："
         layout.fieldOrder = [.metadata, .attachments, .comment, .reference]
         layout.fieldSpacing = .blankLine
+        layout.suffixText = "自定义提醒\n确认后再执行"
+        layout.suffixEnabled = false
         layout.save(to: defaults)
         #expect(ClipboardLayout.load(from: defaults) == layout)
         #expect(ClipboardLayout.load(from: other) == ClipboardLayout())
@@ -185,5 +190,51 @@ struct ClipboardLayoutTests {
         #expect(render([comment()], layout: layout) == "Reference: Selected text\nComment: My comment")
         #expect(ClipboardLayout.prefixText(" \n").isEmpty)
         #expect(ClipboardLayout.prefixText("截图：\n") == "截图： ")
+    }
+
+    @Test("Overall suffix defaults on and appears once after the entire batch")
+    func overallSuffix() {
+        let layout = ClipboardLayout()
+        #expect(layout.suffixEnabled)
+        #expect(layout.suffixText == "先对齐方案再执行")
+        let text = render([comment(), comment()], numbering: .numbered, includeSuffix: true)
+        #expect(text.hasSuffix("\n\n先对齐方案再执行"))
+        #expect(text.components(separatedBy: "先对齐方案再执行").count == 2)
+        #expect(render([comment()], includeSuffix: true).hasSuffix("\n\n先对齐方案再执行"))
+        #expect(render([], includeSuffix: true).isEmpty)
+    }
+
+    @Test("Custom multiline suffix can be disabled or cleared without a dangling separator")
+    func customSuffix() {
+        var layout = ClipboardLayout()
+        let content = "Reference: Selected text\nComment: My comment"
+        layout.suffixText = "\n先确认范围\n再执行\n"
+        #expect(render([comment()], layout: layout, includeSuffix: true) == content + "\n\n先确认范围\n再执行")
+        layout.suffixEnabled = false
+        #expect(render([comment()], layout: layout, includeSuffix: true) == content)
+        #expect(layout.suffixText.contains("先确认范围"))
+        layout.suffixEnabled = true
+        layout.suffixText = " \n\t"
+        #expect(render([comment()], layout: layout, includeSuffix: true) == content)
+    }
+
+    @Test("Upgrading a saved composition adds suffix defaults without losing existing choices")
+    func oldCompositionMigration() throws {
+        var layout = ClipboardLayout()
+        layout.referencePrefix = "引用："
+        layout.commentPrefix = ""
+        layout.fieldOrder = [.metadata, .comment, .reference, .attachments]
+        layout.fieldSpacing = .blankLine
+        var old = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(layout)) as? [String: Any])
+        old.removeValue(forKey: "suffixEnabled")
+        old.removeValue(forKey: "suffixText")
+        let decoded = try JSONDecoder().decode(ClipboardLayout.self, from: JSONSerialization.data(withJSONObject: old))
+        #expect(decoded == layout)
+
+        for text in ["", "自定义\n保留换行"] {
+            layout.suffixEnabled = false
+            layout.suffixText = text
+            #expect(try JSONDecoder().decode(ClipboardLayout.self, from: JSONEncoder().encode(layout)) == layout)
+        }
     }
 }

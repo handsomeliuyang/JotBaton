@@ -33,8 +33,32 @@ public struct ClipboardLayout: Codable, Equatable, Sendable {
     public var commentPrefix = "Comment:"
     public var fieldOrder: [Field] = Field.allCases
     public var fieldSpacing: FieldSpacing = .newLine
+    public var suffixEnabled = true
+    public var suffixText = "先对齐方案再执行"
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case referencePrefix, screenshotPrefix, attachmentPrefix, commentPrefix
+        case fieldOrder, fieldSpacing, suffixEnabled, suffixText
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        referencePrefix = try values.decodeIfPresent(String.self, forKey: .referencePrefix) ?? referencePrefix
+        screenshotPrefix = try values.decodeIfPresent(String.self, forKey: .screenshotPrefix) ?? screenshotPrefix
+        attachmentPrefix = try values.decodeIfPresent(String.self, forKey: .attachmentPrefix) ?? attachmentPrefix
+        commentPrefix = try values.decodeIfPresent(String.self, forKey: .commentPrefix) ?? commentPrefix
+        fieldOrder = try values.decodeIfPresent([Field].self, forKey: .fieldOrder) ?? fieldOrder
+        fieldSpacing = try values.decodeIfPresent(FieldSpacing.self, forKey: .fieldSpacing) ?? fieldSpacing
+        suffixEnabled = try values.decodeIfPresent(Bool.self, forKey: .suffixEnabled) ?? suffixEnabled
+        suffixText = try values.decodeIfPresent(String.self, forKey: .suffixText) ?? suffixText
+    }
+
+    public var exportSuffix: String {
+        suffixEnabled ? suffixText.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+    }
 
     /// Repair partial or duplicate orders so no content can be silently omitted.
     public var orderedFields: [Field] {

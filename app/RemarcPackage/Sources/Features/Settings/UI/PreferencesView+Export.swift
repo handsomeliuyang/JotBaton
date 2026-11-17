@@ -81,6 +81,28 @@ extension PreferencesView {
 
                     Divider()
 
+                    VStack(alignment: .leading, spacing: Self.itemSpacing) {
+                        sectionHeader(
+                            L10n.tr("Overall suffix"),
+                            description: L10n.tr("Append once after all comments when copying or exporting Markdown.")
+                        )
+                        toggleRow(L10n.tr("Append suffix"), isOn: $settings.clipboardLayout.suffixEnabled, highlight: .suffix)
+                        TextEditor(text: $settings.clipboardLayout.suffixText)
+                            .font(.system(size: 13))
+                            .scrollContentBackground(.hidden)
+                            .padding(6)
+                            .frame(height: 76)
+                            .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.primary.opacity(0.12)))
+                            .disabled(!settings.clipboardLayout.suffixEnabled)
+                            .opacity(settings.clipboardLayout.suffixEnabled ? 1 : 0.5)
+                            .accessibilityLabel(L10n.tr("Suffix text"))
+                            .onHover { hoveredHighlight = $0 ? .suffix : nil }
+                        settingDescription(L10n.tr("Turn off or leave empty to omit the suffix. Your text is kept when turned off."))
+                    }
+
+                    Divider()
+
                     // Metadata toggles
                     VStack(alignment: .leading, spacing: Self.itemSpacing) {
                         sectionHeader(

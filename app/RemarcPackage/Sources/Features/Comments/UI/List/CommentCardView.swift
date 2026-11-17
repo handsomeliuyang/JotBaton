@@ -28,7 +28,6 @@ struct CommentCardView: View {
     var isFocused: Bool = false
     /// Active search terms; matches are highlighted in the reference and body.
     var searchTerms: [String] = []
-    var onFocusChange: ((Bool) -> Void)?
 
     @ObservedObject private var persistence = AppServices.shared.comments
     @ObservedObject private var settings = SettingsManager.shared
@@ -96,7 +95,6 @@ struct CommentCardView: View {
         .modifier(CardSurfaceModifier(isHovered: isHovered))
         .onHover { hovering in
             isHovered = hovering
-            onFocusChange?(hovering)
         }
         .onRemarcChange(of: comment.status) { _ in
             // Newly resolved cards collapse; reopening always reveals the body.
@@ -104,8 +102,6 @@ struct CommentCardView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: isCollapsed)
         .animation(.easeInOut(duration: 0.2), value: comment.status)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
-        .animation(.easeInOut(duration: 0.15), value: showActions)
     }
 
     // MARK: - Header
@@ -478,17 +474,15 @@ struct CardSurfaceModifier: ViewModifier {
                     .fill(Color.remarcCardSurface(for: colorScheme, hovered: isHovered))
                     .shadow(
                         color: .black.opacity(colorScheme == .dark
-                            ? (isHovered ? 0.4 : 0.25)
-                            : (isHovered ? 0.10 : 0.05)),
-                        radius: isHovered ? 10 : 4,
-                        y: isHovered ? 4 : 2
+                            ? 0.25 : 0.05),
+                        radius: 4,
+                        y: 2
                     )
                     .shadow(
                         color: .black.opacity(colorScheme == .dark
-                            ? (isHovered ? 0.2 : 0.15)
-                            : (isHovered ? 0.05 : 0.03)),
-                        radius: isHovered ? 2 : 1,
-                        y: isHovered ? 2 : 1
+                            ? 0.15 : 0.03),
+                        radius: 1,
+                        y: 1
                     )
             )
             .overlay(
@@ -574,7 +568,6 @@ struct CardActionButton: View {
         .onHover { hovering in
             isHovered = hovering
         }
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
     }
 }
 
@@ -1046,9 +1039,7 @@ private struct MoveSessionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isHovered = hovering
-            }
+            isHovered = hovering
         }
     }
 }

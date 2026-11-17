@@ -835,5 +835,10 @@
   "{0} is unavailable. Retry after iCloud finishes loading, or turn sync off and on again to set up the folder.": "{0} 不可用。请等待 iCloud 加载完成后重试，或关闭再开启同步以重新创建文件夹。",
   "{0} must be a regular folder. A file or symbolic link cannot be used for sync.": "{0} 必须是普通文件夹，文件或符号链接不能用于同步。",
   "{0} unresolved tasks": "{0} 个未完成任务",
-  "Count shows how many tasks are unresolved; Dot only shows that some are. Nothing appears at zero, and the icon keeps a fixed width. An orange mark means iCloud sync needs attention.": "“数量”显示未完成任务的个数；“圆点”只提示有未完成任务。数量为 0 时不显示，图标宽度保持不变。橙色标记表示 iCloud 同步需要处理。"
+  "Count shows how many tasks are unresolved; Dot only shows that some are. Nothing appears at zero, and the icon keeps a fixed width. An orange mark means iCloud sync needs attention.": "“数量”显示未完成任务的个数；“圆点”只提示有未完成任务。数量为 0 时不显示，图标宽度保持不变。橙色标记表示 iCloud 同步需要处理。",
+  "Overall suffix": "整体后缀",
+  "Append once after all comments when copying or exporting Markdown.": "复制或导出 Markdown 时，在全部评论末尾追加一次。",
+  "Append suffix": "添加后缀",
+  "Suffix text": "后缀文案",
+  "Turn off or leave empty to omit the suffix. Your text is kept when turned off.": "关闭或留空则不添加后缀；关闭时保留已填写的文案。"
 }

@@ -56,7 +56,7 @@ public final class DetachedWindowController: NSObject, ObservableObject, NSWindo
 
     private func createWindow() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: WorkspaceMetrics.popoverWidth, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: WorkspaceMetrics.popoverWidth, height: WorkspaceMetrics.popoverHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false

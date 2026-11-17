@@ -555,10 +555,7 @@ struct PopoverContentView: View {
         CommentCardView(
             comment: comment,
             isFocused: focusedCommentID == comment.id,
-            searchTerms: searchTerms,
-            onFocusChange: { focused in
-                focusedCommentID = focused ? comment.id : nil
-            }
+            searchTerms: searchTerms
         )
         .overlay(
             RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous)
@@ -1273,6 +1270,7 @@ private struct TertiaryLinkView<Label: View>: View {
 /// Custom NSView that disables the enclosing NSScrollView's scrollers during
 /// `viewDidMoveToWindow()` and `layout()` — before the first display pass.
 /// This prevents the scroller from reserving width on the initial tile().
+/// Hiding indicators must preserve native momentum and vertical edge bounce.
 struct ScrollerHider: NSViewRepresentable {
     final class ScrollerKillerView: NSView {
         private var didDisable = false
@@ -1295,6 +1293,9 @@ struct ScrollerHider: NSViewRepresentable {
                     scrollView.hasVerticalScroller = false
                     scrollView.hasHorizontalScroller = false
                     scrollView.scrollerStyle = .overlay
+                    scrollView.verticalScrollElasticity = .allowed
+                    scrollView.horizontalScrollElasticity = .none
+                    scrollView.usesPredominantAxisScrolling = true
                     scrollView.automaticallyAdjustsContentInsets = false
                     scrollView.contentInsets = NSEdgeInsetsZero
                     scrollView.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
