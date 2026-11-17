@@ -18,6 +18,21 @@ struct MenuBarIconState: Equatable {
     }
 }
 
+/// AppKit may report effectiveAppearance again while drawing a status item.
+/// Compare its named variant, not NSAppearance object identity, so those
+/// notifications cannot keep replacing the same image.
+struct MenuBarIconRenderState: Equatable {
+    let icon: MenuBarIconState
+    let appearance: NSAppearance.Name
+    let increasedContrast: Bool
+
+    init(icon: MenuBarIconState, appearance: NSAppearance, increasedContrast: Bool = false) {
+        self.icon = icon
+        self.appearance = appearance.name
+        self.increasedContrast = increasedContrast
+    }
+}
+
 /// Draws the status item as a single image on a canvas whose width depends only
 /// on the chosen style, so tasks coming and going never reflow the menu bar
 /// (a count only widens past 99).

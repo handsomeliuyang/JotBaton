@@ -31,6 +31,38 @@ struct MenuBarIconRendererTests {
         #expect(!warning.isTemplate)
     }
 
+    @Test func repeatedAppearanceNotificationsDoNotInvalidateTheIcon() throws {
+        let icon = MenuBarIconState(style: .count, unresolvedCount: 3, needsSyncAttention: false)
+        let first = try #require(NSAppearance(named: .aqua))
+        let repeated = try #require(NSAppearance(named: .aqua))
+        let painted = MenuBarIconRenderState(icon: icon, appearance: first)
+        #expect(painted == MenuBarIconRenderState(icon: icon, appearance: repeated))
+
+        var changed = icon
+        changed.unresolvedCount += 1
+        #expect(painted != MenuBarIconRenderState(icon: changed, appearance: first))
+        changed = icon
+        changed.needsSyncAttention = true
+        #expect(painted != MenuBarIconRenderState(icon: changed, appearance: first))
+    }
+
+    @Test func lightDarkAndHighContrastChangesInvalidateTheIcon() throws {
+        let icon = MenuBarIconState(style: .count, unresolvedCount: 3, needsSyncAttention: true)
+        let names: [NSAppearance.Name] = [.aqua, .darkAqua, .vibrantLight, .vibrantDark]
+        for name in names {
+            let appearance = try #require(NSAppearance(named: name))
+            let state = MenuBarIconRenderState(icon: icon, appearance: appearance)
+            #expect(state.appearance == name)
+            // Some macOS versions resolve the high-contrast appearance to
+            // the ordinary name. Track the accessibility setting separately.
+            #expect(state != MenuBarIconRenderState(icon: icon, appearance: appearance, increasedContrast: true))
+            for other in names where other != name {
+                let otherAppearance = try #require(NSAppearance(named: other))
+                #expect(state != MenuBarIconRenderState(icon: icon, appearance: otherAppearance))
+            }
+        }
+    }
+
     @Test func onlyArrivalsPopTheBadge() {
         let base = MenuBarIconState(style: .count, unresolvedCount: 2, needsSyncAttention: false)
         var added = base

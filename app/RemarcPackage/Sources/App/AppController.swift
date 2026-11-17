@@ -133,12 +133,17 @@ public final class AppController: NSObject, ObservableObject {
             .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.refreshMenuBarIcon() }
             .store(in: &cancellables)
+
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshMenuBarIcon(animated: false) }
+            .store(in: &cancellables)
     }
 
     // MARK: - Menu Bar Icon
 
     private lazy var menuBarGlyph: NSImage? = NSImage(named: AppIdentity.current.menuBarIconName)
-    private var paintedIconState: MenuBarIconState?
+    private var paintedIconState: MenuBarIconRenderState?
     private var indicatorLandingPending = false
     private var popTimer: DispatchSourceTimer?
     private var appearanceObservation: NSKeyValueObservation?
@@ -153,15 +158,20 @@ public final class AppController: NSObject, ObservableObject {
     /// pops its badge once, unless the user asked for reduced motion.
     private func refreshMenuBarIcon(animated: Bool = true, force: Bool = false) {
         guard let button = statusItem?.button, let glyph = menuBarGlyph, !indicatorLandingPending else { return }
-        button.appearsDisabled = SettingsManager.shared.isPaused
+        if button.appearsDisabled != SettingsManager.shared.isPaused {
+            button.appearsDisabled = SettingsManager.shared.isPaused
+        }
         let state = currentIconState
-        button.toolTip = menuBarToolTip(for: state)
+        let toolTip = menuBarToolTip(for: state)
+        if button.toolTip != toolTip { button.toolTip = toolTip }
+        let renderState = MenuBarIconRenderState(icon: state, appearance: button.effectiveAppearance,
+                                                increasedContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast)
         let previous = paintedIconState
-        guard force || state != previous else { return }
-        paintedIconState = state
+        guard force || renderState != previous else { return }
+        paintedIconState = renderState
         popTimer?.cancel()
         popTimer = nil
-        let announces = previous.map { state.announcesChange(since: $0) } ?? false
+        let announces = previous.map { state.announcesChange(since: $0.icon) } ?? false
         guard animated, announces, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             button.image = MenuBarIconRenderer.image(glyph: glyph, state: state)
             return
@@ -219,7 +229,7 @@ public final class AppController: NSObject, ObservableObject {
             // The sync warning is drawn in color, not as a template, so it must
             // be redrawn when the menu bar switches between light and dark.
             appearanceObservation = button.observe(\.effectiveAppearance) { [weak self] _, _ in
-                Task { @MainActor [weak self] in self?.refreshMenuBarIcon(animated: false, force: true) }
+                Task { @MainActor [weak self] in self?.refreshMenuBarIcon(animated: false) }
             }
         }
         refreshMenuBarIcon(animated: false, force: true)
