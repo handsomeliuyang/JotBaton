@@ -20,7 +20,7 @@ struct SessionPickerPill: View {
     @FocusState private var isTextFieldFocused: Bool
 
     enum Mode {
-        /// Creating a new comment — pill selects target session
+        /// Creating a new comment — pill selects the draft target and the active session
         case create
         /// Editing an existing comment — pill moves comment immediately
         case edit
@@ -152,21 +152,24 @@ struct SessionPickerPill: View {
     // MARK: - Actions
 
     private func selectSession(_ sessionID: UUID) {
-        guard sessionID != selectedSessionID else { return }
-
-        if mode == .edit, let comment {
-            let previousSessionID = comment.sessionID
-            let targetName = persistence.activeSessions.first { $0.id == sessionID }?.name ?? "Inbox"
-
-            AppServices.shared.comments.moveComment(comment.id, to: sessionID)
+        if mode == .create {
+            // Remember explicit choices immediately, even if the draft is cancelled.
+            // Keep the draft's own target so later sidebar changes cannot redirect it.
             selectedSessionID = sessionID
-
-            ToastManager.shared.show(L10n.tr("Moved to \(targetName)"), undo: {
-                AppServices.shared.comments.moveComment(comment.id, to: previousSessionID)
-            })
-        } else {
-            selectedSessionID = sessionID
+            persistence.setActiveSession(sessionID)
+            return
         }
+
+        guard sessionID != selectedSessionID, let comment else { return }
+        let previousSessionID = comment.sessionID
+        let targetName = persistence.activeSessions.first { $0.id == sessionID }?.name ?? "Inbox"
+
+        AppServices.shared.comments.moveComment(comment.id, to: sessionID)
+        selectedSessionID = sessionID
+
+        ToastManager.shared.show(L10n.tr("Moved to \(targetName)"), undo: {
+            AppServices.shared.comments.moveComment(comment.id, to: previousSessionID)
+        })
     }
 
     private func startCreatingNewSession() {
@@ -183,7 +186,6 @@ struct SessionPickerPill: View {
 
         if let session = AppServices.shared.comments.createSession(name: name) {
             selectSession(session.id)
-            AppServices.shared.comments.setActiveSession(session.id)
         }
         isCreatingNew = false
         newSessionName = ""
