@@ -33,6 +33,7 @@ public final class FloatingEditorController: ObservableObject {
     private var panel: NSPanel?
     private var editorHostingView: NSHostingView<FloatingEditorWrapper>?
     private var dimOverlay: NSPanel?
+    private let referenceWindowController = ReferenceTextWindowController()
     private let clickOutsideMonitor = ClickOutsideMonitor()
     private var contentCancellable: AnyCancellable?
     private var initialText: String = ""
@@ -127,6 +128,11 @@ public final class FloatingEditorController: ObservableObject {
         presentationGeneration == generation
     }
 
+    func showFullReference(_ text: String, presentationGeneration generation: UInt64) {
+        guard isCurrentPresentation(generation), isVisible, let panel else { return }
+        referenceWindowController.show(reference: text, over: panel)
+    }
+
     private func attemptSave(text: String, attachments: [String]) {
         // Button and Command-Return saves converge here.
 
@@ -190,6 +196,7 @@ public final class FloatingEditorController: ObservableObject {
     }
 
     public func dismiss() {
+        referenceWindowController.dismiss()
         presentationGeneration &+= 1
         clickOutsideMonitor.remove()
         contentCancellable?.cancel()
@@ -333,6 +340,7 @@ public final class FloatingEditorController: ObservableObject {
             shouldDismiss: { [weak self] in
                 guard let self, self.presentationGeneration == generation else { return false }
                 return !self.suppressClickOutside && !self.hasUnsavedChanges
+                    && !self.referenceWindowController.isVisible
             },
             dismiss: { [weak self] in
                 guard let self, self.presentationGeneration == generation else { return }
@@ -386,6 +394,7 @@ public final class FloatingEditorController: ObservableObject {
             Task { @MainActor in
                 guard let self,
                       self.presentationGeneration == generation,
+                      !self.referenceWindowController.isVisible,
                       !self.hasUnsavedChanges
                 else { return }
                 self.dismiss()

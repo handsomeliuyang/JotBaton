@@ -42,15 +42,31 @@ struct CommentEditorView: View {
                         }
                 } else if let ref = referenceText {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\u{201C}\(ref)\u{201D}")
-                            .font(.system(size: 11))
-                            .italic()
-                            .foregroundStyle(Color.remarcAccent(for: colorScheme))
-                            .lineLimit(10)
-                            .padding(.leading, 8)
-                            .padding(.trailing, 16)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .quoteBorder()
+                        Button(action: {
+                            floatingController.showFullReference(ref, presentationGeneration: presentationGeneration)
+                        }) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\u{201C}\(ref)\u{201D}")
+                                    .font(.system(size: 11))
+                                    .italic()
+                                    .foregroundStyle(Color.remarcAccent(for: colorScheme))
+                                    .lineLimit(10)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.leading, 8)
+                                    .padding(.trailing, 16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .quoteBorder()
+                                Label(L10n.tr("Show full quote"), systemImage: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                                    .padding(.leading, 8)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(ref)
+                        .accessibilityLabel(L10n.tr("Show full quote"))
+                        .accessibilityIdentifier("remarc.commentEditor.showFullQuote")
                         if let comment {
                             HStack(spacing: 4) {
                                 Text({
