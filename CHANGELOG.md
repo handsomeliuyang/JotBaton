@@ -2,6 +2,27 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.41 - 2026-11-17
+
+### 新增
+
+- 复制和导出 Markdown 支持可自定义的整体后缀，默认追加“先对齐方案再执行”；可在设置中关闭或修改。([2735580](https://github.com/handsomeliuyang/JotBaton/commit/273558091dc6623d8783819171d80e609508a5c6))
+
+### 修复
+
+- 新建任务时选择会话会同步更新主窗口的当前会话，并保留草稿选择的目标会话。([73b50ca](https://github.com/handsomeliuyang/JotBaton/commit/73b50caac9593d9384601b75152b6f7a0d58d920))
+- 编辑器支持在可调整大小的独立窗口中查看完整引用，并可选中文本或复制全文。([f8b33ff](https://github.com/handsomeliuyang/JotBaton/commit/f8b33ff361fc73de9c7b24c7fa147fdb5429429a))
+- 修复菜单栏外观通知触发重复重绘、导致 CPU 占用过高的问题。([c27a0a9](https://github.com/handsomeliuyang/JotBaton/commit/c27a0a9ff019cc51a26e93644be4685b41e3a60e))
+
+### 性能与体验
+
+- 增大任务面板默认高度，保留原生滚动惯性和边缘回弹，减少卡片悬停引发的刷新与动画。([2735580](https://github.com/handsomeliuyang/JotBaton/commit/273558091dc6623d8783819171d80e609508a5c6))
+- 截图缩略图改为后台降采样并缓存，减少滚动时主线程的图片读取与解码开销。([2735580](https://github.com/handsomeliuyang/JotBaton/commit/273558091dc6623d8783819171d80e609508a5c6))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.40...v1.2.41)
+
+<!-- remarc-release: {"base_tag": "v1.2.40", "build": "60", "source_sha": "273558091dc6623d8783819171d80e609508a5c6"} -->
+
 ## 1.2.40 - 2026-11-14
 
 ### 新增
