@@ -46,6 +46,11 @@ struct HistoryCardView: View {
                 .font(.system(size: 11))
                 .lineLimit(1)
                 .labelStyle(TypeLabelStyle(colorScheme: colorScheme))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    FloatingEditorController.shared.showForEdit(comment: comment)
+                }
+                .help(L10n.tr("Open details"))
             if comment.webContext != nil {
                 WebContextBadge(webContext: comment.webContext!, regionElements: comment.regionElements, colorScheme: colorScheme)
             }
@@ -65,6 +70,11 @@ struct HistoryCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 8)
                 .quoteBorder()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    FloatingEditorController.shared.showForEdit(comment: comment)
+                }
+                .help(L10n.tr("Open details"))
 
         case .screenshot(let imagePath):
             ScreenshotThumbnailView(imagePath: imagePath, maxWidth: 140, maxHeight: 80)
@@ -87,6 +97,11 @@ struct HistoryCardView: View {
                 elementName: comment.webContext?.elementName
             )
             WebElementReferenceView(name: displayName, path: path, colorScheme: colorScheme)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    FloatingEditorController.shared.showForEdit(comment: comment)
+                }
+                .help(L10n.tr("Open details"))
 
         case .quickNote, .critMode:
             EmptyView()
@@ -101,6 +116,11 @@ struct HistoryCardView: View {
             .foregroundStyle(.primary)
             .lineLimit(3)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                FloatingEditorController.shared.showForEdit(comment: comment)
+            }
+            .help(L10n.tr("Open details"))
     }
 
     // MARK: - Metadata + Restore
