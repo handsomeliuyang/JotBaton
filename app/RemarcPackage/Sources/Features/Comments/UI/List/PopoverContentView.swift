@@ -516,6 +516,9 @@ struct PopoverContentView: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 6)
                 .padding(.bottom, 8)
+                // Attach inside the document so the bridge finds this exact
+                // scroll view, including when the pointer is over a thumbnail.
+                .background(MouseWheelScrolling(commentIDs: model.comments.map(\.id)))
             }
             .scrollIndicators(.never)
             .background(ScrollerHider())
