@@ -6,6 +6,8 @@ import Combine
 @MainActor
 package protocol CloudSyncDocumentStore: AnyObject {
     var appState: AppState { get }
+    /// May publish unchanged values or device-local metadata. The coordinator
+    /// compares the shared projection before treating a notification as an edit.
     var statePublisher: AnyPublisher<AppState, Never> { get }
     /// Flushes pending edits and returns the saved document.
     func stateForSync() async throws -> AppState

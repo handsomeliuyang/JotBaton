@@ -74,7 +74,12 @@ extension CommentStore {
 
     @discardableResult
     func reconcileEmptySessions() -> Bool {
-        EmptySessionCleanupPolicy.reconcile(&appState, previous: lastPersisted, now: Date())
+        // Passing @Published state as inout publishes even when the policy is a
+        // no-op. Work on a copy so a routine save cannot look like a new edit.
+        var reconciled = appState
+        guard EmptySessionCleanupPolicy.reconcile(&reconciled, previous: lastPersisted, now: Date()) else { return false }
+        appState = reconciled
+        return true
     }
 
     func autoDeleteInactiveSessions() {

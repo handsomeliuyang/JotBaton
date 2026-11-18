@@ -462,12 +462,17 @@ struct CloudSyncManagerTests {
         @Published var appState: AppState
         var beforeRead: (() -> Void)?
         var beforeCommit: (() -> Void)?
+        var publishUnchangedOnRead = false
+        var readCount = 0
         var statePublisher: AnyPublisher<AppState, Never> { $appState.eraseToAnyPublisher() }
         init(_ state: AppState) { appState = state }
         func stateForSync() async throws -> AppState {
+            readCount += 1
+            if publishUnchangedOnRead { reconcileWithoutChanges(&appState) }
             beforeRead?()
             return appState
         }
+        private func reconcileWithoutChanges(_ state: inout AppState) {}
         func commitSyncedState(_ transform: (AppState) -> AppState) async throws -> AppState {
             beforeCommit?()
             appState = transform(appState)
@@ -495,6 +500,79 @@ struct CloudSyncManagerTests {
         let layout = SyncLayout(folder: cloud)
         try layout.prepare()
         try await body(manager, documents, root, layout)
+    }
+
+    @Test func unchangedPublicationsDuringSyncDoNotScheduleAnotherPass() async throws {
+        try await withManager { manager, documents, _, _ in
+            // Reproduce a save passing @Published state through a no-op inout helper.
+            documents.publishUnchangedOnRead = true
+            manager.enable()
+            await manager.syncNow()
+            // Allow the initial cloud-file directory event to settle as well.
+            try await Task.sleep(for: .milliseconds(2300))
+            let completed = documents.readCount
+            try await Task.sleep(for: .milliseconds(3400))
+            #expect(manager.lastSuccessAt != nil && manager.issue == nil)
+            #expect(documents.readCount == completed)
+        }
+    }
+
+    @Test func localOnlyChangesStayQuietAndRealEditsStillSync() async throws {
+        try await withManager { manager, documents, _, layout in
+            manager.enable()
+            await manager.syncNow()
+            try await Task.sleep(for: .milliseconds(2300))
+            let completed = documents.readCount
+            documents.appState.activeSessionID = UUID()
+            documents.appState.sessions[0].emptySince = Date()
+            documents.appState.unknownFields["localOnly"] = .string("ignored")
+            try await Task.sleep(for: .milliseconds(3400))
+            #expect(documents.readCount == completed)
+
+            documents.appState.comments[0].commentText = "A real edit"
+            documents.appState.comments[0].updatedAt = Date()
+            let edited = documents.appState
+            // Repeated no-op publications must not postpone a real edit's debounce.
+            for _ in 0..<4 {
+                try await Task.sleep(for: .milliseconds(800))
+                documents.appState = edited
+            }
+            try await Task.sleep(for: .milliseconds(200))
+            let data = try Data(contentsOf: layout.deviceFile(manager.deviceID))
+            let published = try JSONDecoder().decode(SyncDeviceFile.self, from: data)
+            #expect(published.state.comments[0].commentText == "A real edit")
+            #expect(documents.readCount > completed)
+        }
+    }
+
+    @Test func anExplicitRequestSyncsNewImageBytesAtAnUnchangedPath() async throws {
+        try await withManager { manager, documents, root, layout in
+            let path = "images/\(UUID()).png"
+            try FileManager.default.createDirectory(at: root.appendingPathComponent("images"), withIntermediateDirectories: true)
+            let image = root.appendingPathComponent(path)
+            try Data("original image".utf8).write(to: image)
+            documents.appState.comments[0].type = .screenshot(imagePath: path)
+            manager.enable()
+            await manager.syncNow()
+            try await Task.sleep(for: .milliseconds(2300))
+            let unchanged = documents.appState
+            let replacement = Data("annotated replacement image".utf8)
+            try replacement.write(to: image, options: .atomic)
+            // The annotation workflow requests sync explicitly: no document edit.
+            let previousSuccess = manager.lastSuccessAt
+            manager.requestSync()
+            for _ in 0..<50 {
+                if manager.lastSuccessAt != previousSuccess { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            #expect(manager.lastSuccessAt != previousSuccess)
+            let data = try Data(contentsOf: layout.deviceFile(manager.deviceID))
+            let published = try JSONDecoder().decode(SyncDeviceFile.self, from: data)
+            let digest = SyncIO.digest(replacement)
+            #expect(documents.appState == unchanged)
+            #expect(published.assets[path] == digest)
+            #expect(try Data(contentsOf: layout.blob(digest)) == replacement)
+        }
     }
 
     @Test func aLocallyWinningConflictStillRetainsTheOtherVersion() async throws {

@@ -113,6 +113,12 @@ package final class CloudSyncManager: ObservableObject {
         }
 
         documents.statePublisher
+            // Notifications are not necessarily edits. Seed deduplication with
+            // the initial shared state before dropping it; otherwise the first
+            // unchanged save would still start another pass. Local selection
+            // and housekeeping metadata must not reset the debounce either.
+            .map { SyncProjection.make($0) }
+            .removeDuplicates()
             .dropFirst()
             .debounce(for: .seconds(3), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in Task { @MainActor [weak self] in self?.requestSync() } }
