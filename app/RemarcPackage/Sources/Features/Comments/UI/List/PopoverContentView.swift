@@ -600,7 +600,6 @@ struct PopoverContentView: View {
                   ? L10n.tr("Updating tasks...")
                   : L10n.tr("Mark in-progress tasks as complete (\(inProgressTaskCount))"))
             .disabled(sessionActionsDisabled || inProgressTaskCount == 0)
-            .opacity(!persistence.taskCompletionInFlight && (sessionActionsDisabled || inProgressTaskCount == 0) ? 0.4 : 1)
             .accessibilityIdentifier("remarc.footer.completeInProgress")
 
             Spacer()
@@ -613,6 +612,8 @@ struct PopoverContentView: View {
                 PreferencesWindowController.shared.show()
             }
             .help(L10n.tr("Settings"))
+            .accessibilityLabel(L10n.tr("Settings"))
+            .accessibilityIdentifier("remarc.footer.settings")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -656,16 +657,14 @@ struct PopoverContentView: View {
             .disabled(sessionActionsDisabled)
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.remarcIconRest(for: colorScheme))
-                .frame(width: 26, height: 26)
-                .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .tint(Color.remarcIconRest(for: colorScheme))
+        .menuStyle(.button)
+        .buttonStyle(RemarcToolbarButtonStyle())
         .menuIndicator(.hidden)
         .fixedSize()
         .help(L10n.tr("More"))
+        .accessibilityLabel(L10n.tr("More"))
+        .accessibilityIdentifier("remarc.footer.more")
         .popover(isPresented: $showResolveAllConfirmation, arrowEdge: .top) {
             resolveAllConfirmation
         }
@@ -1039,34 +1038,18 @@ struct PopoverContentView: View {
                 } else {
                     Label(title, systemImage: icon)
                         .labelStyle(.iconOnly)
-                        .font(.system(size: 13, weight: .medium))
                 }
             }
-            .foregroundStyle(prominent ? Color.white : Color.remarcIconRest(for: colorScheme))
-            .frame(width: 30, height: 28)
         }
-        .buttonStyle(FooterButtonStyle(restOpacity: 0.08, hoverOpacity: 0.14, prominent: prominent))
+        .buttonStyle(RemarcToolbarButtonStyle(prominent: prominent, isWorking: isWorking))
         .accessibilityLabel(title)
     }
 
-    private func footerButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(.primary.opacity(0.5))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-        }
-        .buttonStyle(FooterButtonStyle(restOpacity: 0, hoverOpacity: 0.08))
-    }
-
     private func iconFooterButton(icon: String, action: @escaping () -> Void) -> some View {
-        HoverTintButton(
-            icon: icon, iconSize: 13, frameSize: 26,
-            defaultColor: Color.remarcIconRest(for: colorScheme),
-            hoverColor: Color.remarcPrimary(for: colorScheme),
-            action: action
-        )
+        Button(action: action) {
+            Image(systemName: icon)
+        }
+        .buttonStyle(RemarcToolbarButtonStyle())
     }
 }
 
@@ -1091,9 +1074,13 @@ private struct StatusFilterChip: View {
         }
     }
 
-    /// Selected segment: a raised neutral tab carrying a faint status tint.
-    private func segmentFill(_ statusColor: Color) -> Color {
-        colorScheme == .dark ? statusColor.opacity(0.22) : statusColor.opacity(0.14)
+    private var selectedFill: Color {
+        switch filter {
+        case .open: return Color.remarcButtonBase(for: colorScheme)
+        case .handedOff: return Color.remarcInfoButtonFill(for: colorScheme)
+        case .inProgress: return Color.remarcWarningButtonFill(for: colorScheme)
+        case .deferred: return Color.remarcDeferredButtonFill(for: colorScheme)
+        }
     }
 
     var body: some View {
@@ -1103,11 +1090,11 @@ private struct StatusFilterChip: View {
             HStack(spacing: 4) {
                 Image(systemName: status.iconName)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(statusColor.opacity(isSelected || count > 0 ? 1 : 0.55))
+                    .foregroundStyle(isSelected ? Color.white : statusColor)
                 Text("\(count)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(isSelected ? AnyShapeStyle(statusColor) : AnyShapeStyle(.primary.opacity(count > 0 ? 0.7 : 0.35)))
+                    .foregroundStyle(isSelected ? Color.white : Color.remarcIconRest(for: colorScheme))
             }
             .lineLimit(1)
             .fixedSize()
@@ -1115,8 +1102,11 @@ private struct StatusFilterChip: View {
             .frame(minWidth: 40, minHeight: 24)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? segmentFill(statusColor) : Color.primary.opacity(isHovered ? 0.05 : 0))
-                    .shadow(color: .black.opacity(isSelected && colorScheme == .light ? 0.06 : 0), radius: 1, y: 0.5)
+                    .fill(isSelected ? selectedFill : (isHovered ? Color.remarcNeutralFill(for: colorScheme) : Color.clear))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.white.opacity(isSelected && isHovered ? 0.04 : 0))
+                    }
             )
             .contentShape(Rectangle())
         }
@@ -1185,55 +1175,6 @@ private struct HoverTintButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: 0.15), value: isHovered)
-    }
-}
-
-// MARK: - Footer Button Style
-
-private struct FooterHoverView<Label: View>: View {
-    @ObservedObject private var localization = LocalizationManager.shared
-    let restOpacity: Double
-    let hoverOpacity: Double
-    var prominent = false
-    let isPressed: Bool
-    let label: Label
-    @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        let fill: Color = prominent
-            ? Color.remarcButtonBase(for: colorScheme).opacity(isHovered && isEnabled ? 0.88 : 1)
-            : colorScheme == .dark
-                ? .white.opacity(isHovered ? hoverOpacity : restOpacity * 0.75)
-                : .black.opacity(isHovered ? 0.08 : (restOpacity > 0 ? 0.045 : 0))
-        label
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(fill)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .opacity(isPressed ? 0.7 : (prominent && !isEnabled ? 0.4 : 1.0))
-            .onHover { hovering in
-                isHovered = hovering
-            }
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
-    }
-}
-
-private struct FooterButtonStyle: ButtonStyle {
-    let restOpacity: Double
-    let hoverOpacity: Double
-    var prominent = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        FooterHoverView(
-            restOpacity: restOpacity,
-            hoverOpacity: hoverOpacity,
-            prominent: prominent,
-            isPressed: configuration.isPressed,
-            label: configuration.label
-        )
     }
 }
 

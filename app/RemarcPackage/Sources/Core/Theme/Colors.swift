@@ -71,6 +71,25 @@ package extension Color {
             : Color(red: 0.008, green: 0.518, blue: 0.780)   // #0284C7
     }
 
+    // Opaque status button fills keep white labels readable in both appearances,
+    // including the subtle white overlay used for selected-button hover feedback.
+    public static func remarcInfoButtonFill(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.031, green: 0.455, blue: 0.678)   // #0874AD
+            : Color(red: 0.012, green: 0.412, blue: 0.631)   // #0369A1
+    }
+
+    public static func remarcWarningButtonFill(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark
+            ? Color(red: 0.616, green: 0.373, blue: 0.082)   // #9D5F15
+            : Color(red: 0.600, green: 0.361, blue: 0.078)   // #995C14
+    }
+
+    /// Appearance-invariant so the on-hold button also supports white labels.
+    public static func remarcDeferredButtonFill(for colorScheme: ColorScheme) -> Color {
+        Color(red: 0.588, green: 0.353, blue: 0.486)           // #965A7C
+    }
+
     // MARK: - Raw Brand Tints (for animated effects, gradients, etc.)
 
     /// Raw brand indigo — use `remarcPrimary` for standard UI elements.
@@ -119,6 +138,18 @@ package extension Color {
     /// Neutral resting fill for icon buttons and inactive badges.
     public static func remarcNeutralFill(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark ? Color.white.opacity(0.07) : Color.black.opacity(0.05)
+    }
+
+    /// Toolbar secondary actions: neutral at rest/hover, tinted only while pressed.
+    public static func remarcToolbarButtonSurface(for colorScheme: ColorScheme,
+                                                 highlighted: Bool = false,
+                                                 pressed: Bool = false) -> Color {
+        if pressed {
+            return remarcPrimary(for: colorScheme).opacity(colorScheme == .dark ? 0.22 : 0.18)
+        }
+        return colorScheme == .dark
+            ? Color.white.opacity(highlighted ? 0.12 : 0.06)
+            : Color.black.opacity(highlighted ? 0.09 : 0.045)
     }
 
     /// Resting icon color for toolbar buttons that only tint on hover.

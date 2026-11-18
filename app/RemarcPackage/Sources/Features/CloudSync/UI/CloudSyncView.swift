@@ -416,39 +416,27 @@ struct CloudSyncToolbarButton: View {
     @ObservedObject private var panel = MenuBarPopoverController.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var showing = false
-    @State private var isHovered = false
-
-    private var tint: Color {
-        if sync.health.needsAttention { return .remarcWarning(for: colorScheme) }
-        if isHovered || showing { return .remarcPrimary(for: colorScheme) }
-        return .remarcIconRest(for: colorScheme)
-    }
 
     var body: some View {
         Button { showing.toggle() } label: {
             Group {
                 if sync.isSyncing { ProgressView().controlSize(.mini) }
-                else { Image(systemName: sync.isEnabled ? "icloud" : "icloud.slash").font(.system(size: 13)) }
+                else { Image(systemName: sync.isEnabled ? "icloud" : "icloud.slash") }
             }
-            .foregroundStyle(tint)
-            .frame(width: 26, height: 26)
-            .background(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(isHovered || showing ? Color.remarcNeutralFill(for: colorScheme) : .clear)
-            )
-            .overlay(alignment: .topTrailing) {
-                if sync.health.needsAttention {
-                    Circle()
-                        .fill(Color.remarcWarning(for: colorScheme))
-                        .frame(width: 6, height: 6)
-                        .offset(x: -3, y: 4)
-                }
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .buttonStyle(RemarcToolbarButtonStyle(
+            isActive: showing,
+            attentionTint: sync.health.needsAttention ? .remarcWarning(for: colorScheme) : nil
+        ))
+        .overlay(alignment: .topTrailing) {
+            if sync.health.needsAttention {
+                Circle()
+                    .fill(Color.remarcWarning(for: colorScheme))
+                    .frame(width: 6, height: 6)
+                    .offset(x: -3, y: 4)
+                    .allowsHitTesting(false)
+            }
+        }
         .background(CloudSyncPopoverAnchor(isPresented: $showing, colorScheme: colorScheme))
         .help(L10n.tr("iCloud · \(sync.health.title)"))
         .accessibilityLabel(L10n.tr("iCloud · \(sync.health.title)"))
