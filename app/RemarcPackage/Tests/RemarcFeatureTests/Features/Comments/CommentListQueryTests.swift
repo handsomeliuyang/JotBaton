@@ -147,6 +147,17 @@ struct CommentListQueryTests {
         #expect(CommentListQuery.matches(item, terms: [item.shortID], sessionName: nil))
     }
 
+    @Test("Session search uses the same multi-term and Unicode matching as content")
+    func sessionSearchTerms() {
+        let session = Session(name: "Café ＪｏｔBaton 项目")
+        let terms = CommentListQuery.searchTerms(from: "  CAFE\tJotBaton\n项目 ")
+        #expect(CommentListQuery.matches(session, terms: terms))
+        #expect(!CommentListQuery.matches(session, terms: terms + ["不存在"]))
+        #expect(CommentListQuery.matches(session, terms: CommentListQuery.searchTerms(from: " \t\n ")))
+        #expect(CommentListQuery.matches(session, terms: ["项目", String(session.id.uuidString.prefix(8)).lowercased()]))
+        #expect(!CommentListQuery.matches(Session(name: "Other"), terms: terms))
+    }
+
     @Test("Highlight ranges find every case-insensitive occurrence")
     func highlightRanges() {
         let text = "Git 仓库和 git 分支"

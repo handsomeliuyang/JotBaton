@@ -33,14 +33,12 @@ struct CommentCardView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var isHovered: Bool = false
     @State private var showDeleteConfirmation: Bool = false
-    @State private var isMoveDropdownOpen: Bool = false
-    @State private var moveAnchorRef = AnchorViewRef()
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
     @State private var isResolvedExpanded = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen }
+    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isWebhookDropdownOpen }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
@@ -93,6 +91,16 @@ struct CommentCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
+        .contextMenu {
+            Button {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(comment.shortID, forType: .string)
+                ToastManager.shared.show(L10n.tr("ID copied"))
+            } label: {
+                Label(L10n.tr("Copy ID"), systemImage: "number")
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
         }
@@ -272,22 +280,19 @@ struct CommentCardView: View {
 
     private var metadataView: some View {
         HStack(spacing: 4) {
-            Text(comment.shortID)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.primary.opacity(0.4))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-                .onTapGesture {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(comment.shortID, forType: .string)
-                    ToastManager.shared.show(L10n.tr("ID copied"))
-                }
+            // Edit mode persists the move; the next store update supplies
+            // the current session, including moves undone outside this card.
+            SessionPickerPill(
+                selectedSessionID: .constant(comment.sessionID),
+                mode: .edit,
+                comment: comment
+            )
+            .accessibilityIdentifier("remarc.comment.session.\(comment.id)")
 
             Spacer(minLength: 0)
 
             cardActions
+                .fixedSize()
                 .opacity(showActions ? 1 : 0)
                 .allowsHitTesting(showActions)
                 .accessibilityHidden(!showActions)
@@ -343,58 +348,11 @@ struct CommentCardView: View {
                 }
                 .overlay(DropdownAnchor(ref: webhookAnchorRef).allowsHitTesting(false))
             }
-            cardActionButton(icon: RemarcSymbols.moveToSession, tooltip: L10n.tr("Move to session"), tint: Color.remarcPrimary(for: colorScheme)) {
-                if isMoveDropdownOpen {
-                    DropdownPanelController.shared.dismiss()
-                } else {
-                    showMoveDropdown()
-                }
-            }
-            .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             cardActionButton(icon: "trash", tooltip: L10n.tr("Delete"), tint: Color.remarcError(for: colorScheme)) {
                 showDeleteConfirmation = true
             }
             .popover(isPresented: $showDeleteConfirmation, arrowEdge: .bottom) {
                 deleteConfirmationPopover
-            }
-        }
-    }
-
-    private func showMoveDropdown() {
-        guard let screenFrame = moveAnchorRef.screenFrame() else { return }
-        isMoveDropdownOpen = true
-        let cs = colorScheme
-        let commentID = comment.id
-        let oldSessionID = comment.sessionID
-
-        let sessions = persistence.activeSessions
-        let otherSessions = sessions.filter { $0.id != oldSessionID }
-
-        DropdownPanelController.shared.show(
-            below: screenFrame,
-            width: 180,
-            colorScheme: cs,
-            anchorWindowLevel: moveAnchorRef.windowLevel(),
-            onDismiss: { isMoveDropdownOpen = false }
-        ) {
-            MoveDropdownPanel(
-                sessions: otherSessions,
-                colorScheme: cs
-            ) { targetSessionID, targetSessionName in
-                AppServices.shared.comments.moveComment(commentID, to: targetSessionID)
-                DropdownPanelController.shared.dismiss()
-                ToastManager.shared.show(L10n.tr("Moved to \(targetSessionName)"), undo: {
-                    AppServices.shared.comments.moveComment(commentID, to: oldSessionID)
-                })
-            } onNewSession: {
-                let name = SessionNaming.nextName()
-                if let newSession = AppServices.shared.comments.createSession(name: name) {
-                    AppServices.shared.comments.moveComment(commentID, to: newSession.id)
-                    DropdownPanelController.shared.dismiss()
-                    ToastManager.shared.show(L10n.tr("Moved to \(newSession.name)"), undo: {
-                        AppServices.shared.comments.moveComment(commentID, to: oldSessionID)
-                    })
-                }
             }
         }
     }

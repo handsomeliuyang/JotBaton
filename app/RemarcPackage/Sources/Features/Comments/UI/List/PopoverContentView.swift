@@ -49,6 +49,8 @@ struct PopoverContentView: View {
 
     /// Reopening the panel within this window resumes the previous search.
     private static let searchRetention: TimeInterval = 60
+    /// Keep the content boundary stable when switching header modes.
+    private static let headerHeight: CGFloat = 44
 
     private var statusFilters: Set<CommentStatusFilter> {
         CommentStatusFilter.selection(from: statusFilterStorage)
@@ -234,6 +236,7 @@ struct PopoverContentView: View {
             Divider()
             footer
         }
+        .background(searchShortcut)
     }
 
     // MARK: - Normal Header
@@ -263,12 +266,16 @@ struct PopoverContentView: View {
 
             Spacer(minLength: 0)
 
+            headerButton(icon: "magnifyingglass", action: startSearch)
+                .help(L10n.tr("Search this session") + " (⌘F)")
+                .accessibilityLabel(L10n.tr("Search this session"))
+                .accessibilityIdentifier("remarc.comments.search.open")
+
             creationButtons
         }
         .padding(.leading, 10)
         .padding(.trailing, popoverController.isDetached ? 46 : 14)
-        .padding(.vertical, 8)
-        .background(searchShortcut)
+        .frame(height: Self.headerHeight)
     }
 
     @ViewBuilder
@@ -293,7 +300,7 @@ struct PopoverContentView: View {
 
     }
 
-    /// Invisible button that owns ⌘F now that search has no header icon.
+    /// Keep ⌘F available in every header, including History and active searches.
     private var searchShortcut: some View {
         Button(action: startSearch) { EmptyView() }
             .keyboardShortcut("f", modifiers: .command)
@@ -305,8 +312,13 @@ struct PopoverContentView: View {
 
     private func startSearch() {
         withAnimation(.easeInOut(duration: 0.15)) {
-            isSearching = true
+            if showingHistory {
+                isHistorySearching = true
+            } else {
+                isSearching = true
+            }
         }
+        focusSearchField()
     }
 
     private func showHistory() {
@@ -369,14 +381,12 @@ struct PopoverContentView: View {
             // Right: search + sort
             HStack {
                 Spacer()
-                if hasHistoryContent {
-                    headerButton(icon: "magnifyingglass") {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            isHistorySearching = true
-                        }
-                    }
-                    .help(L10n.tr("Search history"))
+                headerButton(icon: "magnifyingglass", action: startSearch)
+                    .help(L10n.tr("Search history") + " (⌘F)")
+                    .accessibilityLabel(L10n.tr("Search history"))
+                    .accessibilityIdentifier("remarc.history.search.open")
 
+                if hasHistoryContent {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             historySortNewestFirst.toggle()
@@ -395,7 +405,8 @@ struct PopoverContentView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .frame(height: Self.headerHeight)
+        .padding(.trailing, popoverController.isDetached ? 32 : 0)
     }
 
     private var hasHistoryContent: Bool {
@@ -410,66 +421,79 @@ struct PopoverContentView: View {
             }
             .help(L10n.tr("Back to comments"))
 
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 12))
-                .foregroundStyle(.primary.opacity(0.6))
-
-            TextField(L10n.tr("Search history..."), text: $historySearchText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-
-            Button(action: {
-                historySearchText = ""
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isHistorySearching = false
-                }
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary.opacity(0.6))
-            }
-            .buttonStyle(.plain)
+            contentSearchControls(
+                text: $historySearchText,
+                prompt: historyTab == .comments ? L10n.tr("Search history comments") : L10n.tr("Search history sessions"),
+                onClose: closeHistorySearch
+            )
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .frame(height: Self.headerHeight)
+        .padding(.trailing, popoverController.isDetached ? 32 : 0)
+    }
+
+    private func closeHistorySearch() {
+        historySearchText = ""
+        withAnimation(.easeInOut(duration: 0.15)) {
+            isHistorySearching = false
+        }
     }
 
     // MARK: - Search Header
 
     private func searchHeader(model: ListModel) -> some View {
         HStack(spacing: 8) {
+            contentSearchControls(
+                text: $searchText,
+                prompt: L10n.tr("Search this session"),
+                onClose: closeSearch,
+                onSubmit: { openSelectedComment(in: model) }
+            )
+                .modifier(SearchFieldArrowKeys(onMove: moveFocus(direction:)))
+
+            creationButtons
+        }
+        .padding(.horizontal, 14)
+        .frame(height: Self.headerHeight)
+        .padding(.trailing, popoverController.isDetached ? 32 : 0)
+    }
+
+    private func contentSearchControls(
+        text: Binding<String>, prompt: String,
+        onClose: @escaping () -> Void, onSubmit: @escaping () -> Void = {}
+    ) -> some View {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
 
-            TextField(L10n.tr("Search this session"), text: $searchText)
+            TextField(prompt, text: text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($isSearchFieldFocused)
-                .onSubmit { openSelectedComment(in: model) }
-                .onExitCommand(perform: closeSearch)
-                .modifier(SearchFieldArrowKeys(onMove: moveFocus(direction:)))
+                .onSubmit(onSubmit)
+                .onExitCommand(perform: onClose)
+                .accessibilityLabel(prompt)
+                .accessibilityIdentifier("remarc.content.search")
 
-            Button(action: closeSearch) {
+            Button(action: onClose) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(.primary.opacity(0.6))
             }
             .buttonStyle(.plain)
             .help(L10n.tr("Close search (Esc)"))
-
-            creationButtons
+            .accessibilityLabel(L10n.tr("Close search (Esc)"))
+            .accessibilityIdentifier("remarc.content.search.close")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .padding(.trailing, popoverController.isDetached ? 32 : 0)
-        .onAppear {
-            // Non-activating panels don't become key on their own, and the
-            // field editor needs a key window to take focus.
-            MenuBarPopoverController.shared.makeKey()
-            DispatchQueue.main.async {
-                isSearchFieldFocused = true
-            }
+        .onAppear(perform: focusSearchField)
+    }
+
+    private func focusSearchField() {
+        // The field editor needs a key window in the non-activating panel.
+        MenuBarPopoverController.shared.makeKey()
+        DispatchQueue.main.async {
+            isSearchFieldFocused = true
         }
     }
 

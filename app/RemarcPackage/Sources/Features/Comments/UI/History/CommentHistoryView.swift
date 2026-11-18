@@ -12,34 +12,20 @@ struct CommentHistoryView: View {
     @ObservedObject private var persistence = AppServices.shared.comments
     @Environment(\.colorScheme) private var colorScheme
 
+    private var searchTerms: [String] { CommentListQuery.searchTerms(from: searchText) }
+
     private var deletedComments: [Comment] {
-        var result = persistence.deletedComments.sorted {
+        let terms = searchTerms
+        let sessionNames = Dictionary(uniqueKeysWithValues: persistence.appState.sessions.map { ($0.id, $0.name) })
+        return persistence.deletedComments.filter {
+            CommentListQuery.matches($0, terms: terms, sessionName: sessionNames[$0.sessionID])
+        }.sorted {
             if sortNewestFirst {
                 return ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast)
             } else {
                 return ($0.deletedAt ?? .distantPast) < ($1.deletedAt ?? .distantPast)
             }
         }
-        if !searchText.isEmpty {
-            let query = searchText.lowercased()
-            result = result.filter { comment in
-                if comment.id.uuidString.localizedStandardContains(query) {
-                    return true
-                }
-                if let displayText = comment.type.displayText,
-                   displayText.lowercased().contains(query) {
-                    return true
-                }
-                if comment.commentText.lowercased().contains(query) {
-                    return true
-                }
-                if comment.source.lowercased().contains(query) {
-                    return true
-                }
-                return false
-            }
-        }
-        return result
     }
 
     var body: some View {
@@ -49,7 +35,7 @@ struct CommentHistoryView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(deletedComments) { comment in
-                        HistoryCardView(comment: comment, onRestore: {
+                        HistoryCardView(comment: comment, searchTerms: searchTerms, onRestore: {
                             restoreComment(comment)
                         }, onPermanentDelete: {
                             permanentlyDelete(comment)
@@ -66,11 +52,11 @@ struct CommentHistoryView: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: searchText.isEmpty ? "clock" : "magnifyingglass")
+            Image(systemName: searchTerms.isEmpty ? "clock" : "magnifyingglass")
                 .font(.system(size: 32))
                 .foregroundStyle(.primary.opacity(0.25))
 
-            Text(searchText.isEmpty ? L10n.tr("No comments in History") : L10n.tr("No results"))
+            Text(searchTerms.isEmpty ? L10n.tr("No comments in History") : L10n.tr("No results"))
                 .font(.system(size: 12))
                 .foregroundStyle(.primary.opacity(0.6))
         }

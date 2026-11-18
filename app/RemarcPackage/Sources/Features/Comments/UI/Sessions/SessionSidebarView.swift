@@ -325,20 +325,26 @@ private struct SessionSidebarRow<MenuContent: View>: View {
     var body: some View {
         let brandColor = Color.remarcPrimary(for: colorScheme)
         Button(action: handleClick) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 leadingIcon(brandColor: brandColor)
 
-                Text(title)
-                    .font(.system(size: 11.5, weight: isActive ? .semibold : .regular))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Let the title draw at its natural width, then clip inside
+                // the space left by the icon and count without an ellipsis.
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .overlay(alignment: .leading) {
+                        Text(title)
+                            .font(.system(size: 11.5, weight: isActive ? .semibold : .regular))
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .clipped()
+                    .accessibilityHidden(true)
 
                 countBadge
             }
             .foregroundStyle(isActive ? brandColor : .primary.opacity(0.82))
             .padding(.leading, 8)
-            .padding(.trailing, 6)
+            .padding(.trailing, 4)
             .frame(height: 28)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -409,8 +415,8 @@ private struct SessionSidebarRow<MenuContent: View>: View {
             .foregroundStyle(commentCount == 0
                 ? AnyShapeStyle(.primary.opacity(0.28))
                 : isActive ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary.opacity(0.6)))
-            .padding(.horizontal, 5)
-            .frame(minWidth: 18, minHeight: 15)
+            .padding(.horizontal, 4)
+            .frame(minWidth: 16, minHeight: 15)
             .background(
                 Capsule().fill(commentCount == 0
                     ? Color.clear

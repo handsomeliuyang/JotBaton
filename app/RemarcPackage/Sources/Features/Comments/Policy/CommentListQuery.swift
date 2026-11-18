@@ -70,7 +70,17 @@ public enum CommentListQuery {
 
     public static func matches(_ comment: Comment, terms: [String], sessionName: String?) -> Bool {
         guard !terms.isEmpty else { return true }
-        let fields = searchableFields(of: comment, sessionName: sessionName)
+        return matches(fields: searchableFields(of: comment, sessionName: sessionName), terms: terms)
+    }
+
+    public static func matches(_ session: Session, terms: [String]) -> Bool {
+        guard !terms.isEmpty else { return true }
+        var fields = [session.name, session.id.uuidString]
+        if session.isInbox { fields.append(L10n.tr("Inbox")) }
+        return matches(fields: fields, terms: terms)
+    }
+
+    private static func matches(fields: [String], terms: [String]) -> Bool {
         return terms.allSatisfy { term in
             fields.contains { $0.range(of: term, options: searchOptions) != nil }
         }

@@ -11,10 +11,12 @@ struct SessionHistoryView: View {
     @Binding var searchText: String
     @Binding var sortNewestFirst: Bool
 
+    private var searchTerms: [String] { CommentListQuery.searchTerms(from: searchText) }
+
     private var sessions: [Session] {
-        persistence.deletedSessions.filter { session in
-            searchText.isEmpty || session.name.localizedStandardContains(searchText)
-                || session.id.uuidString.localizedStandardContains(searchText)
+        let terms = searchTerms
+        return persistence.deletedSessions.filter { session in
+            CommentListQuery.matches(session, terms: terms)
         }.sorted { lhs, rhs in
             let left = lhs.deletedAt ?? lhs.autoDismissedAt ?? lhs.createdAt
             let right = rhs.deletedAt ?? rhs.autoDismissedAt ?? rhs.createdAt
@@ -25,9 +27,9 @@ struct SessionHistoryView: View {
     var body: some View {
         if sessions.isEmpty {
             VStack(spacing: 10) {
-                Image(systemName: searchText.isEmpty ? "clock" : "magnifyingglass")
+                Image(systemName: searchTerms.isEmpty ? "clock" : "magnifyingglass")
                     .font(.system(size: 32)).foregroundStyle(.primary.opacity(0.25))
-                Text(searchText.isEmpty ? L10n.tr("No sessions in History") : L10n.tr("No results"))
+                Text(searchTerms.isEmpty ? L10n.tr("No sessions in History") : L10n.tr("No results"))
                     .font(.system(size: 12)).foregroundStyle(.primary.opacity(0.6))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

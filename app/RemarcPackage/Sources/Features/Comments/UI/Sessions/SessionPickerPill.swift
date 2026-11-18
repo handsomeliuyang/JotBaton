@@ -31,7 +31,8 @@ struct SessionPickerPill: View {
     }
 
     private var displayName: String {
-        selectedSession?.name ?? "Inbox"
+        guard let session = selectedSession, !session.isInbox else { return L10n.tr("Inbox") }
+        return session.name
     }
 
     var body: some View {
@@ -56,6 +57,7 @@ struct SessionPickerPill: View {
                 Text(displayName)
                     .font(.system(size: 11))
                     .lineLimit(1)
+                    .truncationMode(.tail)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 8, weight: .medium))
                     .foregroundStyle(chevronColor)
@@ -74,6 +76,9 @@ struct SessionPickerPill: View {
             .overlay(DropdownAnchor(ref: anchorRef))
         }
         .buttonStyle(.plain)
+        .help(displayName)
+        .accessibilityLabel(displayName)
+        .accessibilityHint(L10n.tr("Move to session"))
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
@@ -173,6 +178,7 @@ struct SessionPickerPill: View {
     }
 
     private func startCreatingNewSession() {
+        MenuBarPopoverController.shared.makeKey()
         newSessionName = ""
         isCreatingNew = true
     }

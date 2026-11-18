@@ -7,6 +7,7 @@ import SwiftUI
 struct HistoryCardView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let comment: Comment
+    var searchTerms: [String] = []
     let onRestore: () -> Void
     let onPermanentDelete: () -> Void
 
@@ -62,7 +63,7 @@ struct HistoryCardView: View {
         // Type-specific content below the label
         switch comment.type {
         case .comment(let text):
-            Text("\u{201C}\(text)\u{201D}")
+            Text(highlighted("\u{201C}\(text)\u{201D}"))
                 .font(.system(size: 11))
                 .italic()
                 .foregroundStyle(Color.remarcAccent(for: colorScheme))
@@ -111,7 +112,7 @@ struct HistoryCardView: View {
     // MARK: - Comment Text
 
     private func commentTextView(_ commentText: String) -> some View {
-        Text(commentText)
+        Text(highlighted(commentText))
             .font(.system(size: 13))
             .foregroundStyle(.primary)
             .lineLimit(3)
@@ -124,6 +125,10 @@ struct HistoryCardView: View {
     }
 
     // MARK: - Metadata + Restore
+
+    private func highlighted(_ text: String) -> AttributedString {
+        SearchHighlight.attributed(text, terms: searchTerms, color: Color.remarcWarning(for: colorScheme).opacity(0.35))
+    }
 
     private var metadataView: some View {
         HStack(spacing: 4) {
