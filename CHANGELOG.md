@@ -2,6 +2,24 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.42 - 2026-11-18
+
+### 新增
+
+- 内容区新增搜索按钮，统一当前会话与历史页的搜索样式、快捷键和多关键词匹配，切换搜索时保持顶栏高度一致。([f2b79a1](https://github.com/handsomeliuyang/JotBaton/commit/f2b79a1643c3173b807b327dab9e659c9bb6399c))
+- 卡片底部显示所属会话，点击即可移动或新建会话并支持撤销；左侧长会话名直接裁切，优化数量徽标和文字空间。([f2b79a1](https://github.com/handsomeliuyang/JotBaton/commit/f2b79a1643c3173b807b327dab9e659c9bb6399c))
+
+### 修复
+
+- 改善状态筛选的选中提示，统一列表底栏与同步界面的按钮样式。([73f6667](https://github.com/handsomeliuyang/JotBaton/commit/73f66671ffaa406816e96a1f049cd0c6b5de7a8b))
+- 支持从历史卡片打开、编辑内容及预览截图。([b39d9f4](https://github.com/handsomeliuyang/JotBaton/commit/b39d9f422046d5e59f990f80a0e436d68b4946a0))
+- 改善评论列表使用鼠标滚轮时的滚动流畅度。([2338b4e](https://github.com/handsomeliuyang/JotBaton/commit/2338b4e75fc2b5e79c82b8aa1a9d7e405fb20e4c))
+- 避免未发生内容变化的保存与本机状态更新反复触发 iCloud 同步。([7954ff6](https://github.com/handsomeliuyang/JotBaton/commit/7954ff6c06f1bb93a1e94160688df84502d3ce7b))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.41...v1.2.42)
+
+<!-- remarc-release: {"base_tag": "v1.2.41", "build": "61", "source_sha": "f2b79a1643c3173b807b327dab9e659c9bb6399c"} -->
+
 ## 1.2.41 - 2026-11-17
 
 ### 新增
