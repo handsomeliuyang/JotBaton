@@ -3,10 +3,10 @@ import Foundation
 public enum CommentCompletionScope: Sendable {
     case inProgress, allUnresolved
 
-    package func includes(_ status: CommentStatus) -> Bool {
+    public func includes(_ status: CommentStatus) -> Bool {
         switch self {
         case .inProgress: return status == .inProgress
-        case .allUnresolved: return status != .resolved
+        case .allUnresolved: return status != .resolved && status != .reusable
         }
     }
 }
@@ -24,12 +24,16 @@ public struct CommentCompletionReceipt: Sendable {
 }
 
 package enum CommentCompletionPolicy {
+    /// A nil ID restriction keeps session-wide actions; an empty set completes nothing.
+    /// Recheck status and session membership after the transaction reads fresh state.
     package static func complete(_ state: inout AppState, in sessionID: UUID, scope: CommentCompletionScope,
+                         commentIDs: Set<UUID>? = nil,
                          archiveImmediately: Bool = false, now: Date) -> CommentCompletionReceipt {
         var entries: [CommentCompletionReceipt.Entry] = []
         for index in state.comments.indices {
             let before = state.comments[index]
-            guard before.sessionID == sessionID, !before.isDeleted, scope.includes(before.status) else { continue }
+            guard before.sessionID == sessionID, !before.isDeleted, scope.includes(before.status),
+                  commentIDs.map({ $0.contains(before.id) }) ?? true else { continue }
             state.comments[index].status = .resolved
             state.comments[index].resolvedAt = now
             state.comments[index].resolvedBy = nil

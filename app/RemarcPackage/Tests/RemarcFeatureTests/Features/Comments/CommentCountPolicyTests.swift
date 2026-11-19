@@ -27,7 +27,7 @@ struct CommentCountPolicyTests {
     func countsOnlyOutstandingComments() {
         let comments = [
             comment(status: .open),
-            comment(status: .handedOff),
+            comment(status: .reusable),
             comment(status: .inProgress),
             comment(status: .resolved),
             comment(status: .open, isDeleted: true),
@@ -41,7 +41,7 @@ struct CommentCountPolicyTests {
     func resolvingCommentsClearsTheCounter() {
         var comments = [
             comment(status: .open),
-            comment(status: .handedOff),
+            comment(status: .reusable),
             comment(status: .inProgress),
         ]
         #expect(CommentCountPolicy.unresolvedCount(in: comments) == 3)
@@ -63,7 +63,7 @@ struct CommentCountPolicyTests {
             comment(sessionID: firstSessionID, status: .open),
             comment(sessionID: firstSessionID, status: .inProgress),
             comment(sessionID: firstSessionID, status: .resolved),
-            comment(sessionID: secondSessionID, status: .handedOff),
+            comment(sessionID: secondSessionID, status: .reusable),
             comment(sessionID: secondSessionID, status: .open, isDeleted: true),
             comment(sessionID: resolvedOnlySessionID, status: .resolved),
         ])

@@ -22,7 +22,7 @@ Each comment card records where it came from:
 | Quick Note | A standalone note, no selection needed |
 | Web Element | The Chrome extension, with CSS selectors, React component info, and page context |
 
-Comments are grouped into [sessions](/basics/sessions/) and carry a [status](/basics/statuses-and-history/) (Open, Handed Off, In-Progress, Resolved). Everything is [stored locally on your Mac](/reference/data-and-privacy/).
+Comments are grouped into [sessions](/basics/sessions/) and carry a [status](/basics/statuses-and-history/) (Open, Reusable, In-Progress, On Hold, Resolved). Everything is [stored locally on your Mac](/reference/data-and-privacy/).
 
 ## System requirements
 

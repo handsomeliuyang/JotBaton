@@ -282,7 +282,8 @@ extension CommentStore {
     }
 
     /// The receipt pins the exact completed versions and original states for Undo.
-    public func completeComments(in sessionID: UUID, scope: CommentCompletionScope = .inProgress) async -> Result<CommentCompletionReceipt, PersistenceError> {
+    public func completeComments(in sessionID: UUID, scope: CommentCompletionScope = .inProgress,
+                                 commentIDs: Set<UUID>? = nil) async -> Result<CommentCompletionReceipt, PersistenceError> {
         guard !taskCompletionInFlight else { return .failure(.lockTimeout) }
         taskCompletionInFlight = true
         defer { taskCompletionInFlight = false }
@@ -297,7 +298,7 @@ extension CommentStore {
             defer { pinnedSessionIDs.remove(sessionID) }
             let commit = try await sessionTaskWriter.complete(
                 fileURL: fileURL, candidate: launchState, baseline: lastPersisted,
-                sessionID: sessionID, scope: scope,
+                sessionID: sessionID, scope: scope, commentIDs: commentIDs,
                 archiveImmediately: SettingsManager.shared.resolvedCommentDeletion == .immediately,
                 now: Date()
             )

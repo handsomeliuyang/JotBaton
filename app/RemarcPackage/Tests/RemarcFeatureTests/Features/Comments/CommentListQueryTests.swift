@@ -23,19 +23,19 @@ struct CommentListQueryTests {
     @Test("The four unfinished status buckets are separate; completed work has no chip")
     func statusBuckets() {
         #expect(CommentStatusFilter.allCases.map(\.rawValue) == ["open", "handedOff", "inProgress", "deferred"])
-        #expect(!CommentStatusFilter.inProgress.includes(.handedOff))
-        #expect(CommentStatusFilter.handedOff.includes(.handedOff))
+        #expect(!CommentStatusFilter.inProgress.includes(.reusable))
+        #expect(CommentStatusFilter.reusable.includes(.reusable))
         #expect(CommentStatusFilter.inProgress.includes(.inProgress))
-        #expect(!CommentStatusFilter.open.includes(.handedOff))
+        #expect(!CommentStatusFilter.open.includes(.reusable))
         for status in CommentStatus.allCases {
             #expect(CommentStatusFilter.allCases.filter { $0.includes(status) }.count == (status == .resolved ? 0 : 1))
         }
         let counts = CommentListQuery.counts(of: [
-            comment(status: .open), comment(status: .handedOff),
+            comment(status: .open), comment(status: .reusable),
             comment(status: .inProgress), comment(status: .deferred), comment(status: .resolved),
         ])
         #expect(counts[.open] == 1)
-        #expect(counts[.handedOff] == 1)
+        #expect(counts[.reusable] == 1)
         #expect(counts[.inProgress] == 1)
         #expect(counts[.deferred] == 1)
         #expect(counts.values.reduce(0, +) == 4)
@@ -43,12 +43,36 @@ struct CommentListQueryTests {
 
     @Test("Chips combine; selecting none shows every status")
     func multiSelectFilter() {
-        let items = [comment("o", status: .open), comment("h", status: .handedOff),
+        let items = [comment("o", status: .open), comment("h", status: .reusable),
                      comment("p", status: .inProgress), comment("r", status: .resolved)]
         #expect(CommentListQuery.filtered(items, statuses: []).count == 4)
         #expect(CommentListQuery.filtered(items, statuses: [.open]).map(\.commentText) == ["o"])
-        #expect(CommentListQuery.filtered(items, statuses: [.handedOff]).map(\.commentText) == ["h"])
+        #expect(CommentListQuery.filtered(items, statuses: [.reusable]).map(\.commentText) == ["h"])
         #expect(CommentListQuery.filtered(items, statuses: [.open, .inProgress]).map(\.commentText) == ["o", "p"])
+    }
+
+    @Test("Visible scope covers the whole filtered list and preserves search and ordering behavior")
+    func visibleScope() {
+        let session = UUID()
+        let items = (0..<40).map { index in
+            comment("prompt \(index)", status: index.isMultiple(of: 2) ? .open : .reusable,
+                    session: session, createdAt: Date(timeIntervalSince1970: Double(index)))
+        }
+        let visible = CommentListQuery.visibleComments(in: items, statuses: [.open], terms: [],
+            sessionName: nil, newestFirst: true)
+        #expect(visible.count == 20)
+        #expect(visible.first?.commentText == "prompt 38")
+        #expect(visible.last?.commentText == "prompt 0")
+        #expect(visible.allSatisfy { $0.status == .open })
+        #expect(CommentListQuery.visibleComments(in: items, statuses: [.inProgress], terms: [],
+            sessionName: nil, newestFirst: true).isEmpty)
+        // Searching still looks across status chips, and its toolbar stays disabled in the view.
+        let searched = CommentListQuery.visibleComments(in: items, statuses: [.open], terms: ["prompt 39"],
+            sessionName: nil, newestFirst: true)
+        #expect(searched.map(\.commentText) == ["prompt 39"])
+        #expect(searched.first?.status == .reusable)
+        #expect(CommentListQuery.visibleComments(in: items, statuses: [], terms: [],
+            sessionName: nil, newestFirst: false).map(\.id) == items.map(\.id))
     }
 
     @Test("Each session count follows the selected chips and excludes deleted comments")
@@ -56,7 +80,7 @@ struct CommentListQueryTests {
         let a = UUID(), b = UUID(), empty = UUID()
         var deleted = comment(status: .open, session: a)
         deleted.isDeleted = true
-        let items = [comment(status: .open, session: a), comment(status: .handedOff, session: a),
+        let items = [comment(status: .open, session: a), comment(status: .reusable, session: a),
                      comment(status: .inProgress, session: a), comment(status: .resolved, session: a),
                      comment(status: .resolved, session: b), deleted]
         let all = CommentListQuery.countsBySession(of: items, statuses: [])
@@ -67,7 +91,7 @@ struct CommentListQueryTests {
         #expect(progress[a] == 1)
         #expect(progress[b, default: 0] == 0)
         #expect(CommentListQuery.countsBySession(of: items, statuses: [.open, .inProgress])[a] == 2)
-        let handedOff = CommentListQuery.countsBySession(of: items, statuses: [.handedOff])
+        let handedOff = CommentListQuery.countsBySession(of: items, statuses: [.reusable])
         #expect(handedOff[a] == 1)
         #expect(handedOff[b, default: 0] == 0)
     }
@@ -93,9 +117,9 @@ struct CommentListQueryTests {
 
     @Test("Selection round-trips through storage and ignores retired values")
     func selectionStorage() {
-        let value = CommentStatusFilter.storageValue(of: [.handedOff, .open])
+        let value = CommentStatusFilter.storageValue(of: [.reusable, .open])
         #expect(value == "open,handedOff")
-        #expect(CommentStatusFilter.selection(from: value) == [.open, .handedOff])
+        #expect(CommentStatusFilter.selection(from: value) == [.open, .reusable])
         #expect(CommentStatusFilter.selection(from: "resolved").isEmpty)
         #expect(CommentStatusFilter.selection(from: "resolved,open") == [.open])
         #expect(CommentStatusFilter.selection(from: "outstanding,inProgress") == [.inProgress])

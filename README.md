@@ -51,7 +51,7 @@ Group comments into [sessions](https://docs.remarc.app/basics/sessions/) by revi
 
 #### Statuses close the loop
 
-Each comment can move through Open, Handed Off, In-Progress, and Resolved. Update statuses as you work through your review. Deleted comments go to searchable [History](https://docs.remarc.app/basics/statuses-and-history/) instead of disappearing.
+Each comment can be Open, Reusable, In-Progress, On Hold, or Resolved. Reusable prompts join every Copy and Start without changing status and stay in the list when tasks are batch completed or exports are cleared. Change their status manually when you no longer need them. Deleted comments go to searchable [History](https://docs.remarc.app/basics/statuses-and-history/) instead of disappearing.
 
 #### Copy or export the handoff
 

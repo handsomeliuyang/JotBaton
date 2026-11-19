@@ -18,13 +18,14 @@ struct LocalizationTests {
         #expect(AppLanguage.simplifiedChinese.resolved(preferredLanguages: ["en-US"]) == .simplifiedChinese)
     }
 
-    @Test("Status names are short and consistent; existing storage and export remain stable")
+    @Test("Status names are short and consistent; legacy storage stays compatible")
     func statuses() {
         let statuses = CommentStatus.allCases
-        #expect(statuses.map { $0.localizedLabel(language: .simplifiedChinese) } == ["待处理", "已转交", "进行中", "暂缓", "已完成"])
-        #expect(statuses.map { $0.localizedLabel(language: .english) } == ["Open", "Handed Off", "In Progress", "On Hold", "Resolved"])
+        #expect(statuses.map { $0.localizedLabel(language: .simplifiedChinese) } == ["待处理", "常驻", "进行中", "暂缓", "已完成"])
+        #expect(statuses.map { $0.localizedLabel(language: .english) } == ["Open", "Reusable", "In Progress", "On Hold", "Resolved"])
         #expect(statuses.map(\.rawValue) == ["open", "handedOff", "inProgress", "deferred", "resolved"])
-        #expect(statuses.map(\.exportLabel) == ["Open", "Handed Off", "正在开发中", "On Hold", "Resolved"])
+        #expect(statuses.map(\.exportLabel) == ["Open", "Reusable", "In Progress", "On Hold", "Resolved"])
+        #expect(CommentStatus.reusable.iconName == "arrow.triangle.2.circlepath")
         #expect(CommentStatus.deferred.iconName == "pause.circle")
         #expect(CommentType.quickNote.exportDisplayName == "Quick Note")
     }
@@ -44,7 +45,7 @@ struct LocalizationTests {
     @Test("The bundled catalog contains core surfaces and only references arguments supplied by its source key")
     func catalog() throws {
         #expect(!L10n.chinese.isEmpty)
-        for key in ["Follow System", "Language", "General", "Settings…", "Copy All", "Copy and Start", "Comment History", "Screen Recording Permission", "iCloud Sync", "Open", "Handed Off", "In Progress", "Resolved"] {
+        for key in ["Follow System", "Language", "General", "Settings…", "Copy All", "Copy and Start", "Comment History", "Screen Recording Permission", "iCloud Sync", "Open", "Reusable", "In Progress", "Resolved"] {
             #expect(L10n.chinese[key]?.isEmpty == false, "Missing translation: \(key)")
         }
         let expression = try NSRegularExpression(pattern: #"\{([0-9]+)\}"#)

@@ -189,6 +189,54 @@ struct SessionTaskTransactionTests {
         #expect(try read(file) == undo.state)
     }
 
+    @Test("Filtered completion fixes IDs at click time, rechecks disk state, and never completes hidden or new tasks")
+    func filteredCompletionSnapshot() async throws {
+        let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("comments.json")
+        var baseline = fixture()
+        let sessionID = baseline.sessions[1].id
+        baseline.comments = [task(sessionID), task(sessionID), task(sessionID), task(sessionID),
+                             task(sessionID, status: .open)]
+        let selectedIDs = Set(baseline.comments.prefix(3).map(\.id))
+        var disk = baseline
+        disk.comments[1].status = .reusable
+        disk.comments[1].updatedAt = now.addingTimeInterval(1)
+        disk.comments[2].sessionID = baseline.sessions[0].id
+        disk.comments[2].updatedAt = now.addingTimeInterval(1)
+        disk.comments[4].status = .inProgress
+        disk.comments[4].updatedAt = now.addingTimeInterval(1)
+        disk.comments.append(task(sessionID))
+        try write(disk, to: file)
+
+        let writer = SessionTaskWriter()
+        let commit = try await writer.complete(fileURL: file, candidate: baseline, baseline: baseline,
+            sessionID: sessionID, scope: .inProgress, commentIDs: selectedIDs,
+            archiveImmediately: true, now: now.addingTimeInterval(2))
+        #expect(commit.value.commentIDs == [baseline.comments[0].id])
+        #expect(commit.state.comments[0].status == .resolved && commit.state.comments[0].isDeleted)
+        #expect(Array(commit.state.comments.dropFirst()) == Array(disk.comments.dropFirst()))
+        #expect(try read(file) == commit.state)
+
+        let empty = try await writer.complete(fileURL: file, candidate: commit.state, baseline: commit.state,
+            sessionID: sessionID, scope: .inProgress, commentIDs: [],
+            archiveImmediately: true, now: now.addingTimeInterval(3))
+        #expect(empty.value.count == 0)
+        #expect(empty.state.comments == commit.state.comments)
+
+        let undo = try SessionTaskTransactions.undo(fileURL: file, candidate: empty.state, baseline: empty.state,
+            receipt: commit.value, now: now.addingTimeInterval(4))
+        #expect(undo.value == [baseline.comments[0].id])
+        #expect(Array(undo.state.comments.dropFirst()) == Array(disk.comments.dropFirst()))
+        #expect(!undo.state.comments[0].isDeleted && undo.state.comments[0].status == .inProgress)
+
+        // More / Resolve All leaves the optional restriction unset and still covers the session.
+        let all = try SessionTaskTransactions.complete(fileURL: file, candidate: undo.state, baseline: undo.state,
+            sessionID: sessionID, scope: .allUnresolved, now: now.addingTimeInterval(5))
+        #expect(Set(all.value.commentIDs) == Set([disk.comments[0].id, disk.comments[3].id,
+                                                disk.comments[4].id, disk.comments[5].id]))
+        #expect(all.state.comments[1] == disk.comments[1] && all.state.comments[2] == disk.comments[2])
+    }
+
     @Test("A foreign session deletion cannot be undone by clicking a stale completion button")
     func deletedSession() throws {
         let dir = try tempDirectory(); defer { try? FileManager.default.removeItem(at: dir) }

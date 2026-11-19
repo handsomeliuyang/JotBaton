@@ -44,7 +44,7 @@ final class AppStateMergeTests: XCTestCase {
         // rewrite the whole comment from stale memory and roll back the agent's
         // compare-and-set claim.
         let id = UUID()
-        let base = state([comment(id, text: "original", status: .handedOff)])
+        let base = state([comment(id, text: "original", status: .reusable)])
         var ours = base
         ours.comments[0].commentText = "edited while the agent worked"
         var theirs = base
@@ -95,13 +95,13 @@ final class AppStateMergeTests: XCTestCase {
         let id = UUID()
         let base = state([comment(id)])
         var ours = base
-        ours.comments[0].status = .handedOff
+        ours.comments[0].status = .reusable
         var theirs = base
         theirs.comments[0].commentText = "agent touched this"
 
         let merged = AppStateMerge.merge(base: base, ours: ours, theirs: theirs)
 
-        XCTAssertEqual(merged.comments[0].status, .handedOff)
+        XCTAssertEqual(merged.comments[0].status, .reusable)
         XCTAssertEqual(merged.comments[0].commentText, "agent touched this")
     }
 

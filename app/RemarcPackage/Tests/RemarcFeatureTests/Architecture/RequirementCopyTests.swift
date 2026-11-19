@@ -71,7 +71,7 @@ struct RequirementCopyTests {
         #expect(ExportManager.shared.markdownForComment(item) == before)
     }
 
-    @Test("Bulk handoff copies only pending and ongoing work in order, and starts only pending comments")
+    @Test("Bulk handoff includes reusable context in order, and starts only pending comments")
     func sessionCopyThenStart() throws {
         let session = Session(name: "Current")
         func item(_ status: CommentStatus, sessionID: UUID? = nil, deleted: Bool = false) -> FeatureComments.Comment {
@@ -83,15 +83,15 @@ struct RequirementCopyTests {
                 resolvedAt: status == .resolved ? Date() : nil
             )
         }
-        let open = item(.open), handedOff = item(.handedOff), inProgress = item(.inProgress)
+        let open = item(.open), reusable = item(.reusable), inProgress = item(.inProgress)
         let resolved = item(.resolved), other = item(.open, sessionID: UUID()), deleted = item(.open, deleted: true)
         let deferred = item(.deferred)
-        let comments = [open, other, deferred, handedOff, deleted, inProgress, resolved]
+        let comments = [open, other, deferred, reusable, deleted, inProgress, resolved]
         var events: [String] = []
         let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: comments, copy: { snapshot in
-            #expect(snapshot.map(\.id) == [open.id, inProgress.id])
-            #expect(snapshot.map(\.status) == [.inProgress, .inProgress])
-            #expect(snapshot[1] == inProgress)
+            #expect(snapshot.map(\.id) == [open.id, reusable.id, inProgress.id])
+            #expect(snapshot.map(\.status) == [.inProgress, .reusable, .inProgress])
+            #expect(snapshot[1] == reusable && snapshot[2] == inProgress)
             #expect(snapshot.allSatisfy { !$0.isDeleted })
             events.append("copied")
             return ExportReceipt(sessionID: session.id, comments: snapshot)
@@ -100,13 +100,13 @@ struct RequirementCopyTests {
             events.append("started")
         })
         let copied = try #require(receipt)
-        #expect(copied.count == 2)
+        #expect(copied.count == 3)
         #expect(events == ["copied", "started"])
         #expect(open.status == .open && resolved.status == .resolved && deferred.status == .deferred)
     }
 
     @Test("Skipped statuses never overwrite the clipboard or start; ordinary copying and reopening still work",
-          arguments: [CommentStatus.handedOff, .deferred, .resolved])
+          arguments: [CommentStatus.deferred, .resolved])
     func skippedCopyAndRecovery(status: CommentStatus) throws {
         #expect(!status.canStartDevelopment)
         let session = Session(name: "Skipped work")
@@ -136,6 +136,64 @@ struct RequirementCopyTests {
         }, startDevelopment: { startedIDs = $0 })
         #expect(try #require(resumed).count == 1)
         #expect(startedIDs == [item.id])
+    }
+
+    @Test("Reusable prompts can start repeatedly on their own without status changes or export cleanup")
+    func reusablePromptSurvivesRepeatedUse() throws {
+        let session = Session(name: "Release")
+        let item = FeatureComments.Comment(type: .quickNote, commentText: "发布前检查清单", source: "test", appBundleID: nil,
+                                          sessionID: session.id, status: .reusable)
+        #expect(item.status.canStartDevelopment)
+        #expect(try JSONDecoder().decode(CommentStatus.self, from: Data(#""handedOff""#.utf8)) == .reusable)
+        #expect(String(data: try JSONEncoder().encode(item.status), encoding: .utf8) == #""handedOff""#)
+        for _ in 0..<3 {
+            let success = ExportManager.shared.copyCommentAndStartDevelopment(item, copy: { snapshot in
+                #expect(snapshot == item)
+                return true
+            }, startDevelopment: { _ in Issue.record("Reusable context must not change status or timestamps") })
+            #expect(success)
+            let receipt = try #require(ExportManager.shared.copySessionAndStartDevelopment(session, comments: [item], copy: { snapshot in
+                #expect(snapshot == [item])
+                return ExportReceipt(sessionID: session.id, comments: snapshot)
+            }, startDevelopment: { _ in Issue.record("Reusable-only sessions must not change status") }))
+            #expect(receipt.count == 1)
+            #expect(receipt.clearableCommentIDs(in: [item]).isEmpty)
+        }
+        #expect(!ExportManager.shared.copyCommentAndStartDevelopment(item, copy: { _ in false },
+            startDevelopment: { _ in Issue.record("A failed reusable copy must not change status") }))
+    }
+
+    @Test("Status filters limit both clipboard actions without changing their status rules")
+    func filteredClipboardScope() throws {
+        let session = Session(name: "Filtered")
+        let comments = CommentStatus.allCases.enumerated().map { index, status in
+            FeatureComments.Comment(type: .quickNote, commentText: "scope-marker-\(status.rawValue)", source: "test",
+                appBundleID: nil, createdAt: Date(timeIntervalSince1970: Double(index)), sessionID: session.id, status: status)
+        }
+        let selections: [Set<CommentStatusFilter>] = [[.open, .inProgress], [.reusable], [.deferred], []]
+        for selection in selections {
+            let visible = CommentListQuery.visibleComments(in: comments, statuses: selection,
+                terms: [], sessionName: session.name, newestFirst: true)
+            let clipboard = TestTextClipboard()
+            let copied = try #require(ExportManager.shared.copySessionToClipboard(
+                session, comments: visible, format: .markdown, to: clipboard))
+            #expect(Set(copied.commentIDs) == Set(visible.map(\.id)))
+            for comment in comments {
+                #expect(clipboard.content?.contains(comment.commentText) == visible.contains { $0.id == comment.id })
+            }
+
+            var startedIDs: [UUID] = []
+            let eligible = visible.filter { $0.status.canStartDevelopment }
+            let receipt = ExportManager.shared.copySessionAndStartDevelopment(session, comments: visible, copy: { snapshot in
+                #expect(snapshot.map(\.id) == eligible.map(\.id))
+                for (original, exported) in zip(eligible, snapshot) {
+                    #expect(exported.status == (original.status == .open ? .inProgress : original.status))
+                }
+                return ExportReceipt(sessionID: session.id, comments: snapshot)
+            }, startDevelopment: { startedIDs = $0 })
+            #expect((receipt?.count ?? 0) == eligible.count)
+            #expect(startedIDs == visible.filter { $0.status == .open }.map(\.id))
+        }
     }
 
     @Test("Bulk copy failure and an empty session never start development")

@@ -98,7 +98,7 @@ struct SessionTaskPolicyTests {
     func completionScopeAndUndo() {
         let session = Session(name: "Work"), other = Session(name: "Other")
         var deleted = task(session); deleted.isDeleted = true
-        let comments = [task(session, status: .open), task(session, status: .handedOff), task(session),
+        let comments = [task(session, status: .open), task(session, status: .reusable), task(session),
                         task(session, status: .resolved), task(other), deleted, task(session, status: .deferred)]
         var state = AppState(sessions: [session, other], comments: comments, activeSessionID: session.id)
         let receipt = CommentCompletionPolicy.complete(&state, in: session.id, scope: .inProgress, now: now)
@@ -129,16 +129,35 @@ struct SessionTaskPolicyTests {
         #expect(state.comments[5] == later.comments[5])
     }
 
-    @Test("More / Resolve All keeps its broader scope and can restore mixed original statuses")
+    @Test("Resolve All skips reusable context and can restore mixed original statuses")
     func broaderCompletion() {
         let session = Session(name: "Work")
         let comments = CommentStatus.allCases.map { task(session, status: $0) }
         var state = AppState(sessions: [session], comments: comments)
         let receipt = CommentCompletionPolicy.complete(&state, in: session.id, scope: .allUnresolved, now: now)
-        #expect(receipt.count == 4)
-        #expect(state.comments.allSatisfy { $0.status == .resolved })
-        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)).count == 4)
+        #expect(receipt.count == 3)
+        #expect(state.comments.allSatisfy { $0.status == .resolved || $0.status == .reusable })
+        #expect(state.comments[1] == comments[1])
+        #expect(CommentCompletionPolicy.undo(receipt, in: &state, now: now.addingTimeInterval(1)).count == 3)
         #expect(state.comments.map(\.status) == comments.map(\.status))
+    }
+
+    @Test("Reusable prompts survive repeated batch completion, including immediate archival")
+    func reusableSurvivesCompletion() {
+        let session = Session(name: "Release")
+        let reusable = task(session, status: .reusable)
+        for scope in [CommentCompletionScope.inProgress, .allUnresolved] {
+            var state = AppState(sessions: [session], comments: [reusable, task(session)])
+            let receipt = CommentCompletionPolicy.complete(&state, in: session.id, scope: scope,
+                                                         archiveImmediately: true, now: now)
+            #expect(receipt.count == 1)
+            #expect(state.comments[0] == reusable)
+            #expect(state.comments[1].isDeleted && state.comments[1].status == .resolved)
+            let repeated = CommentCompletionPolicy.complete(&state, in: session.id, scope: scope,
+                                                          archiveImmediately: true, now: now.addingTimeInterval(1))
+            #expect(repeated.count == 0)
+            #expect(state.comments[0] == reusable)
+        }
     }
 
     @Test("Retained completions protect the Undo window from later cleanup")

@@ -149,7 +149,7 @@ final class UnknownFieldPreservationTests: XCTestCase {
         XCTAssertEqual(saved.sessions.first?.unknownFields["claudeCodeSessionId"], .string("legacy-conversation"))
         XCTAssertEqual(saved.comments.first?.sessionID, saved.sessions.first?.id)
         XCTAssertEqual(saved.comments.first?.commentText, "Edited feedback")
-        XCTAssertEqual(saved.comments.first?.status, .handedOff)
+        XCTAssertEqual(saved.comments.first?.status, .reusable)
     }
 
     /// A field this build models is the authority for its own key: a preserved

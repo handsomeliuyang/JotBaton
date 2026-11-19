@@ -687,9 +687,10 @@ public final class ExportManager {
         )
     }
 
-    /// Copy only pending and in-progress work, with pending comments already
-    /// describing their intended status. Other statuses are skipped, and
-    /// no persistent status changes happen unless the clipboard write succeeds.
+    /// Copy pending and in-progress work plus reusable context, with pending
+    /// comments describing their intended status and reusable context unchanged.
+    /// Other statuses are skipped. No persistent status changes happen unless
+    /// the clipboard write succeeds.
     func copySessionAndStartDevelopment(
         _ session: Session,
         comments: [Comment],

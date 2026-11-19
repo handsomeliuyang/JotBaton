@@ -509,4 +509,17 @@ struct ExportFormatTests {
         let euroLabel = ExportDateFormat.european.label
         #expect(euroLabel.contains("/")) // European format uses slashes
     }
+
+    @Test("Export cleanup protects a comment switched to Reusable")
+    func exportCleanupPreservesReusableContext() {
+        let sessionID = UUID()
+        let ordinary = AppComment(type: .quickNote, commentText: "Task", source: "Tests", appBundleID: nil, sessionID: sessionID)
+        var reusable = ordinary
+        reusable.status = .reusable
+        // A newly selected reusable status must be protected even if the exported version was ordinary.
+        let receipt = ExportReceipt(sessionID: sessionID, comments: [ordinary])
+        #expect(receipt.clearableCommentIDs(in: [reusable]).isEmpty)
+        #expect(receipt.clearableCommentIDs(in: [ordinary]) == [ordinary.id])
+    }
+
 }

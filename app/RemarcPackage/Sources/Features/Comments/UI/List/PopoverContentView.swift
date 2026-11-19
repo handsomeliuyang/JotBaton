@@ -93,19 +93,21 @@ struct PopoverContentView: View {
         model.scopeIsEmpty = scoped.isEmpty
         model.counts = CommentListQuery.counts(of: scoped)
 
-        // A search looks across every status; the cards show each one's status.
-        let matched = CommentListQuery.sorted(
-            scoped.filter { CommentListQuery.matches($0, terms: terms, sessionName: sessionName) },
-            newestFirst: sortNewestFirst
-        )
-        model.comments = CommentListQuery.unresolvedFirst(
-            terms.isEmpty ? CommentListQuery.filtered(matched, statuses: statusFilters) : matched
+        model.comments = CommentListQuery.visibleComments(
+            in: scoped, statuses: statusFilters, terms: terms,
+            sessionName: sessionName, newestFirst: sortNewestFirst
         )
         return model
     }
 
     private var hasComments: Bool {
         !persistence.activeComments.isEmpty
+    }
+
+    /// Match the displayed IDs while preserving the existing chronological export order.
+    private var visibleActionComments: [Comment] {
+        let visibleIDs = Set(listModel.comments.map(\.id))
+        return persistence.activeComments.filter { visibleIDs.contains($0.id) }
     }
 
     // MARK: - Body
@@ -604,29 +606,33 @@ struct PopoverContentView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 6) {
+        let comments = visibleActionComments
+        let visibleActionsDisabled = sessionActionsDisabled || comments.isEmpty
+        let inProgressTaskCount = comments.filter { $0.status == .inProgress }.count
+        return HStack(spacing: 6) {
             primaryFooterButton(icon: "doc.on.doc", title: L10n.tr("Copy All")) {
                 copyAll()
             }
-            .help(L10n.tr("Copy all comments in this session"))
-            .disabled(sessionActionsDisabled)
+            .help(L10n.tr("Copy all visible comments"))
+            .disabled(visibleActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAll")
 
             primaryFooterButton(icon: "play.fill", title: L10n.tr("Copy and Start"), prominent: true) {
                 copyAllAndStartDevelopment()
             }
-            .help(L10n.tr("Copy only Open and In Progress comments in this session, and set Open comments to In Progress; keep comments"))
-            .disabled(sessionActionsDisabled || !persistence.activeComments.contains { $0.status.canStartDevelopment })
+            .help(L10n.tr("Copy visible Open, Reusable and In Progress comments; set Open to In Progress and keep comments"))
+            .disabled(visibleActionsDisabled || !comments.contains { $0.status.canStartDevelopment })
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
             primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks"),
                                 isWorking: persistence.taskCompletionInFlight) {
-                completeTasks(scope: .inProgress)
+                let ids = Set(visibleActionComments.filter { $0.status == .inProgress }.map(\.id))
+                completeTasks(scope: .inProgress, commentIDs: ids)
             }
             .help(persistence.taskCompletionInFlight
                   ? L10n.tr("Updating tasks...")
-                  : L10n.tr("Mark in-progress tasks as complete (\(inProgressTaskCount))"))
-            .disabled(sessionActionsDisabled || inProgressTaskCount == 0)
+                  : L10n.tr("Complete visible in-progress tasks (\(inProgressTaskCount))"))
+            .disabled(visibleActionsDisabled || inProgressTaskCount == 0)
             .accessibilityIdentifier("remarc.footer.completeInProgress")
 
             Spacer()
@@ -667,7 +673,7 @@ struct PopoverContentView: View {
             } label: {
                 Label(L10n.tr("Resolve All"), systemImage: "checkmark.bubble")
             }
-            .disabled(sessionActionsDisabled || unresolvedCommentCount == 0)
+            .disabled(sessionActionsDisabled || batchCompletableCommentCount == 0)
 
             Button {
                 exportToFile()
@@ -873,7 +879,7 @@ struct PopoverContentView: View {
 
     private var resolveAllConfirmation: some View {
         let sessionName = persistence.activeSession?.name ?? "Inbox"
-        let unresolvedCount = unresolvedCommentCount
+        let unresolvedCount = batchCompletableCommentCount
         return VStack(spacing: 8) {
             Text(L10n.tr("Resolve all \(unresolvedCount) comments in \(sessionName)?"))
                 .font(.system(size: 12, weight: .medium))
@@ -892,20 +898,16 @@ struct PopoverContentView: View {
         .padding(12)
     }
 
-    private var inProgressTaskCount: Int {
-        persistence.activeComments.filter { $0.status == .inProgress }.count
-    }
-
-    private func completeTasks(scope: CommentCompletionScope) {
+    private func completeTasks(scope: CommentCompletionScope, commentIDs: Set<UUID>? = nil) {
         guard !persistence.taskCompletionInFlight,
               let sessionID = persistence.appState.activeSessionID else { return }
         Task { @MainActor in
-            await performCompletion(in: sessionID, scope: scope)
+            await performCompletion(in: sessionID, scope: scope, commentIDs: commentIDs)
         }
     }
 
-    private func performCompletion(in sessionID: UUID, scope: CommentCompletionScope) async {
-        switch await persistence.completeComments(in: sessionID, scope: scope) {
+    private func performCompletion(in sessionID: UUID, scope: CommentCompletionScope, commentIDs: Set<UUID>?) async {
+        switch await persistence.completeComments(in: sessionID, scope: scope, commentIDs: commentIDs) {
         case .failure(let error):
             ToastManager.shared.show(error.userMessage)
         case .success(let receipt):
@@ -934,19 +936,20 @@ struct PopoverContentView: View {
         }
     }
 
-    private var unresolvedCommentCount: Int {
+    private var batchCompletableCommentCount: Int {
         guard let sessionID = persistence.appState.activeSessionID else { return 0 }
-        return persistence.comments(for: sessionID).filter { $0.status != .resolved }.count
+        return persistence.comments(for: sessionID).filter { CommentCompletionScope.allUnresolved.includes($0.status) }.count
     }
 
     // MARK: - Actions
 
     private func copyAll() {
         guard let session = persistence.activeSession else { return }
-        let allComments = persistence.activeComments
+        let comments = visibleActionComments
+        guard !comments.isEmpty else { return }
         guard let receipt = ExportManager.shared.copySessionToClipboard(
             session,
-            comments: allComments,
+            comments: comments,
             format: .markdown
         ) else {
             ToastManager.shared.show(L10n.tr("Couldn’t copy comments"))
@@ -957,9 +960,11 @@ struct PopoverContentView: View {
     }
 
     private func copyAllAndStartDevelopment() {
+        let comments = visibleActionComments
+        let hasPendingComments = comments.contains { $0.status == .open }
         guard let session = persistence.activeSession,
               let receipt = ExportManager.shared.copySessionAndStartDevelopment(
-                session, comments: persistence.activeComments
+                session, comments: comments
               ) else {
             ToastManager.shared.show(L10n.tr("Copy failed; status unchanged"))
             return
@@ -967,7 +972,9 @@ struct PopoverContentView: View {
         // A development handoff keeps comments for tracking, including when an
         // earlier ordinary Copy All has a delayed clear action still pending.
         resetPostExportAction()
-        ToastManager.shared.show(L10n.tr("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s"); pending comments set to In Progress"))
+        ToastManager.shared.show(hasPendingComments
+            ? L10n.tr("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s"); pending comments set to In Progress")
+            : L10n.tr("Copied \(receipt.count) comment\(receipt.count == 1 ? "" : "s")"))
     }
 
     private func resetPostExportAction() {
@@ -984,6 +991,7 @@ struct PopoverContentView: View {
         // next action. Each delayed closure also captures this generation.
         resetPostExportAction()
         let generation = exportClearGeneration
+        guard !receipt.clearableCommentIDs(in: persistence.activeComments).isEmpty else { return }
         pendingExportReceipt = receipt
 
         switch settings.clearAfterExportBehavior {
@@ -1095,7 +1103,7 @@ private struct StatusFilterChip: View {
     private var status: CommentStatus {
         switch filter {
         case .open: return .open
-        case .handedOff: return .handedOff
+        case .reusable: return .reusable
         case .inProgress: return .inProgress
         case .deferred: return .deferred
         }
@@ -1104,7 +1112,7 @@ private struct StatusFilterChip: View {
     private var selectedFill: Color {
         switch filter {
         case .open: return Color.remarcButtonBase(for: colorScheme)
-        case .handedOff: return Color.remarcInfoButtonFill(for: colorScheme)
+        case .reusable: return Color.remarcInfoButtonFill(for: colorScheme)
         case .inProgress: return Color.remarcWarningButtonFill(for: colorScheme)
         case .deferred: return Color.remarcDeferredButtonFill(for: colorScheme)
         }

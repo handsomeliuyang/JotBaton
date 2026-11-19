@@ -10,13 +10,14 @@ package struct SessionTaskCommit<Value: Sendable>: Sendable {
 /// No singleton or real user directory is needed to exercise them in tests.
 package enum SessionTaskTransactions {
     package static func complete(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
-                         scope: CommentCompletionScope, archiveImmediately: Bool = false,
+                         scope: CommentCompletionScope, commentIDs: Set<UUID>? = nil, archiveImmediately: Bool = false,
                          now: Date) throws -> SessionTaskCommit<CommentCompletionReceipt> {
         try update(fileURL: fileURL, candidate: candidate, baseline: baseline, now: now) { state in
             guard state.sessions.contains(where: { $0.id == sessionID && !$0.isDeleted && !$0.isAutoDismissed }) else {
                 throw PersistenceError.sessionUnavailable
             }
             return CommentCompletionPolicy.complete(&state, in: sessionID, scope: scope,
+                                                    commentIDs: commentIDs,
                                                     archiveImmediately: archiveImmediately, now: now)
         }
     }
@@ -81,11 +82,11 @@ package enum SessionTaskTransactions {
 package actor SessionTaskWriter {
     package init() {}
     package func complete(fileURL: URL, candidate: AppState, baseline: AppState, sessionID: UUID,
-                  scope: CommentCompletionScope, archiveImmediately: Bool,
+                  scope: CommentCompletionScope, commentIDs: Set<UUID>? = nil, archiveImmediately: Bool,
                   now: Date) throws -> SessionTaskCommit<CommentCompletionReceipt> {
         try SessionTaskTransactions.complete(
             fileURL: fileURL, candidate: candidate, baseline: baseline, sessionID: sessionID,
-            scope: scope, archiveImmediately: archiveImmediately, now: now)
+            scope: scope, commentIDs: commentIDs, archiveImmediately: archiveImmediately, now: now)
     }
 
     package func undo(fileURL: URL, candidate: AppState, baseline: AppState,

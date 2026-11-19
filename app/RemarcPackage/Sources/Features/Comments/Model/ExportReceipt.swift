@@ -51,7 +51,8 @@ public struct ExportReceipt: Equatable, Sendable {
     }
 
     /// IDs that still represent the exact exported versions in the same
-    /// session. This pure helper is shared by persistence and contract tests.
+    /// session, excluding reusable context that must survive export cleanup.
+    /// This pure helper is shared by persistence and contract tests.
     public func clearableCommentIDs(in comments: [Comment]) -> [UUID] {
         var versions: [UUID: Date] = [:]
         for entry in entries {
@@ -60,6 +61,7 @@ public struct ExportReceipt: Equatable, Sendable {
 
         return comments.compactMap { comment in
             guard !comment.isDeleted,
+                  comment.status != .reusable,
                   comment.sessionID == sessionID,
                   versions[comment.id] == comment.updatedAt else {
                 return nil

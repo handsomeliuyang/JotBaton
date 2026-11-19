@@ -52,7 +52,8 @@ struct StatusDotView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: comment.status)
         .accessibilityLabel(L10n.tr("Change status"))
         .accessibilityValue(comment.status.label)
-        .help(comment.status == .resolved ? (comment.resolutionSummary ?? L10n.tr("Change status")) : L10n.tr("Change status"))
+        .help(comment.status == .reusable ? L10n.tr("Included in every start; kept when completing tasks")
+              : comment.status == .resolved ? (comment.resolutionSummary ?? L10n.tr("Change status")) : L10n.tr("Change status"))
     }
 
     private func showDropdown() {
@@ -148,6 +149,7 @@ private struct StatusOptionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(status == .reusable ? L10n.tr("Included in every start; kept when completing tasks") : status.label)
         .onHover { hovering in
             isHovered = hovering
         }

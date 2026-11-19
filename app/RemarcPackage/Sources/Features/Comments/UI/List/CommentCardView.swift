@@ -325,7 +325,7 @@ struct CommentCardView: View {
                              ? L10n.tr("Set to Open before starting this comment") : L10n.tr("Copy and Start"),
                              tint: Color.remarcPrimary(for: colorScheme)) {
                 if ExportManager.shared.copyCommentAndStartDevelopment(comment) {
-                    ToastManager.shared.show(comment.status == .inProgress
+                    ToastManager.shared.show(comment.status != .open
                                              ? L10n.tr("Copied to clipboard") : L10n.tr("Copied; set to In Progress"))
                 } else {
                     ToastManager.shared.show(L10n.tr("Copy failed; status unchanged"))

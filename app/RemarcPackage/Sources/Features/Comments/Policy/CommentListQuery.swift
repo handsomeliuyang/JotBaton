@@ -3,18 +3,18 @@ import Foundation
 
 /// Status buckets offered by the comment list filter bar. The chips toggle
 /// independently; with none selected every retained status is shown, including
-/// completions awaiting their configured move to History. Handed-off work is
-/// separate from in-progress work because it cannot be started or batch completed.
+/// completions awaiting their configured move to History. Reusable context joins
+/// every handoff without entering the ordinary task completion cycle.
 public enum CommentStatusFilter: String, CaseIterable, Sendable {
     case open
-    case handedOff
+    case reusable = "handedOff"
     case inProgress
     case deferred
 
     public var title: String {
         switch self {
         case .open: return L10n.tr("Open")
-        case .handedOff: return L10n.tr("Handed Off")
+        case .reusable: return L10n.tr("Reusable")
         case .inProgress: return L10n.tr("In Progress")
         case .deferred: return L10n.tr("On Hold")
         }
@@ -23,7 +23,7 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
     public var help: String {
         switch self {
         case .open: return L10n.tr("Comments nobody has started on")
-        case .handedOff: return L10n.tr("Comments already handed off and skipped when starting")
+        case .reusable: return L10n.tr("Included in every start; kept when completing tasks")
         case .inProgress: return L10n.tr("Comments currently in development")
         case .deferred: return L10n.tr("Comments set aside and skipped when starting")
         }
@@ -33,7 +33,7 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
     public var emptyStateTitle: String {
         switch self {
         case .open: return L10n.tr("No open comments")
-        case .handedOff: return L10n.tr("No handed-off comments")
+        case .reusable: return L10n.tr("No reusable comments")
         case .inProgress: return L10n.tr("No in-progress comments")
         case .deferred: return L10n.tr("No comments on hold")
         }
@@ -42,7 +42,7 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
     public func includes(_ status: CommentStatus) -> Bool {
         switch self {
         case .open: return status == .open
-        case .handedOff: return status == .handedOff
+        case .reusable: return status == .reusable
         case .inProgress: return status == .inProgress
         case .deferred: return status == .deferred
         }
@@ -62,6 +62,17 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
 /// ordering and per-session grouping. Kept free of SwiftUI so it is testable.
 public enum CommentListQuery {
     package static let searchOptions: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]
+
+    /// The complete list after filtering, including cards outside the scroll viewport.
+    /// Nonempty searches retain the existing behavior of looking across all statuses.
+    public static func visibleComments(in comments: [Comment], statuses: Set<CommentStatusFilter>,
+                                       terms: [String], sessionName: String?, newestFirst: Bool) -> [Comment] {
+        let matched = sorted(
+            comments.filter { matches($0, terms: terms, sessionName: sessionName) },
+            newestFirst: newestFirst
+        )
+        return unresolvedFirst(terms.isEmpty ? filtered(matched, statuses: statuses) : matched)
+    }
 
     /// Whitespace-separated terms. Every term must match some field.
     public static func searchTerms(from query: String) -> [String] {
