@@ -2,6 +2,22 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.43 - 2026-11-19
+
+### 新增
+
+- 将“已转交”调整为“常驻”，用于反复使用的提示词和协作说明；每次“复制并开始”都会加入，批量完成和导出清理时保留，兼容已有数据与同步记录。([78d64f4](https://github.com/handsomeliuyang/JotBaton/commit/78d64f48c26e60499148321b2595c877063e64cb))
+- 底栏“复制全部”“复制并开始”“完成进行中任务”仅作用于当前筛选列表中的评论，涵盖滚动区域内尚未显示的卡片；更多菜单保留会话级操作，并更新使用说明与回归测试。([78d64f4](https://github.com/handsomeliuyang/JotBaton/commit/78d64f48c26e60499148321b2595c877063e64cb))
+
+### 修复
+
+- 将进行中评论的导出状态文本统一为 `In Progress`。([78d64f4](https://github.com/handsomeliuyang/JotBaton/commit/78d64f48c26e60499148321b2595c877063e64cb))
+- 未保存导出偏好时，默认不添加编号、来源、日期、评论 ID 和类型，保留已保存的用户设置及旧版元数据偏好的兼容行为。([1480beb](https://github.com/handsomeliuyang/JotBaton/commit/1480beb7597083cea50c9e783f8f0d5a144e4825))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.42...v1.2.43)
+
+<!-- remarc-release: {"base_tag": "v1.2.42", "build": "62", "source_sha": "1480beb7597083cea50c9e783f8f0d5a144e4825"} -->
+
 ## 1.2.42 - 2026-11-18
 
 ### 新增
