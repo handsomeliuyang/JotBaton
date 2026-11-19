@@ -389,7 +389,7 @@ public final class SettingsManager: ObservableObject {
            let style = NumberingStyle(rawValue: saved) {
             self.numberingStyle = style
         } else {
-            self.numberingStyle = .numbered
+            self.numberingStyle = .none
         }
 
         if let saved = defaults.string(forKey: Keys.dividerStyle),
@@ -409,7 +409,7 @@ public final class SettingsManager: ObservableObject {
         // Migration: if old includeMetadataInExport was explicitly set, use it for includeSource/includeDate
         let metadataDefault = defaults.object(forKey: Keys.includeMetadataInExport) != nil
             ? defaults.bool(forKey: Keys.includeMetadataInExport)
-            : true
+            : false
 
         if defaults.object(forKey: Keys.includeSource) != nil {
             self.includeSource = defaults.bool(forKey: Keys.includeSource)
@@ -459,14 +459,14 @@ public final class SettingsManager: ObservableObject {
         if defaults.object(forKey: Keys.includeRemarkID) != nil {
             self.includeRemarkID = defaults.bool(forKey: Keys.includeRemarkID)
         } else {
-            self.includeRemarkID = true
+            self.includeRemarkID = false
         }
 
 
         if defaults.object(forKey: Keys.includeType) != nil {
             self.includeType = defaults.bool(forKey: Keys.includeType)
         } else {
-            self.includeType = true
+            self.includeType = false
         }
 
         if let savedCorner = defaults.string(forKey: Keys.widgetCorner),
