@@ -47,6 +47,7 @@ package enum SyncMerge {
             mergeComment(base: base, local: local, remote: remote, localWinsTie: localWinsTie,
                          remoteName: remoteName, now: now, conflicts: &conflicts)
         }
+        queueDroppedLocalImages(before: local.comments, after: result.comments, into: &result.orphanedImages, now: now)
         result.sessions = mergeList(base: base?.sessions, local: local.sessions, remote: remote.sessions,
                                     id: \.id, isDeleted: \.isDeleted) { base, local, remote in
             mergeSession(base: base, local: local, remote: remote, localWinsTie: localWinsTie)
@@ -210,5 +211,28 @@ package enum SyncMerge {
             if baseByID[key] == nil || !item[keyPath: isDeleted] { merged.append(item) }
         }
         return merged
+    }
+
+    /// When a merge drops comments (e.g. expired history pruned on another Mac)
+    /// or removes image references from a comment, record any local image paths
+    /// no longer referenced by any remaining comment so local retention cleanup
+    /// can reclaim them safely.
+    private static func queueDroppedLocalImages(
+        before: [Comment],
+        after: [Comment],
+        into orphanedImages: inout [OrphanedImage],
+        now: Date
+    ) {
+        let remainingPaths = Set(after.flatMap { comment in
+            comment.attachments + [comment.type.imagePath].compactMap { $0 }
+        })
+        var queuedPaths = Set(orphanedImages.map(\.path))
+        for comment in before {
+            let paths = comment.attachments + [comment.type.imagePath].compactMap { $0 }
+            let deletedAt = comment.deletedAt ?? now
+            for path in paths where !remainingPaths.contains(path) && queuedPaths.insert(path).inserted {
+                orphanedImages.append(OrphanedImage(path: path, deletedAt: deletedAt))
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 import CoreLocalization
+import CorePlatform
 import FeatureComments
 import Foundation
 
@@ -6,6 +7,9 @@ import Foundation
 /// once and never rewritten, and a document refers to it by its local path,
 /// which is a capture UUID and therefore the same on every Mac.
 package enum SyncAssets {
+    package static let blobGracePeriod: TimeInterval = 3 * 24 * 60 * 60
+    package static let blobCleanupInterval: TimeInterval = 24 * 60 * 60
+
     package struct CachedDigest: Codable, Equatable, Sendable {
         let size: Int
         let modified: Date
@@ -13,6 +17,11 @@ package enum SyncAssets {
     }
 
     private static let suffixes = [".base.png", ".marks.json", ".png"]
+
+    /// SHA-256 hex digest (64 lowercase hexadecimal characters).
+    package static func isValidBlobDigest(_ digest: String) -> Bool {
+        digest.count == 64 && digest.utf8.allSatisfy { ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102) }
+    }
 
     /// The only paths sync reads or writes: `images/<UUID>` plus a known suffix.
     package static func isValidPath(_ path: String) -> Bool {
@@ -140,5 +149,58 @@ package enum SyncAssets {
             state.comments[index].attachments = state.comments[index].attachments.map { mapping[$0] ?? $0 }
         }
         return state
+    }
+
+    /// Pure decision rule for blob garbage collection: a blob is eligible only
+    /// when every device file in `devices/` was readable in this pass, no device
+    /// references its digest, and its timestamp is older than `gracePeriod`.
+    package static func unreferencedBlobs(
+        existing: [SyncBlobEntry],
+        referencedDigests: Set<String>,
+        allDevicesReadable: Bool,
+        now: Date,
+        gracePeriod: TimeInterval = blobGracePeriod
+    ) -> [String] {
+        guard allDevicesReadable else { return [] }
+        let cutoff = now.addingTimeInterval(-gracePeriod)
+        return existing.compactMap { entry in
+            guard isValidBlobDigest(entry.digest),
+                  !referencedDigests.contains(entry.digest),
+                  let createdAt = entry.createdAt,
+                  createdAt <= cutoff else { return nil }
+            return entry.digest
+        }.sorted()
+    }
+
+    /// Deletes unreferenced blobs older than `gracePeriod`. Best-effort per file:
+    /// a single deletion error does not prevent cleaning the remaining blobs.
+    @discardableResult
+    package static func cleanupBlobs(
+        referencedDigests: Set<String>,
+        allDevicesReadable: Bool,
+        layout: SyncLayout,
+        provider: any StorageProvider = ICloudStorageProvider(),
+        now: Date = Date(),
+        gracePeriod: TimeInterval = blobGracePeriod
+    ) throws -> Int {
+        guard allDevicesReadable else { return 0 }
+        let existing = try provider.listBlobs(layout)
+        let victims = unreferencedBlobs(
+            existing: existing,
+            referencedDigests: referencedDigests,
+            allDevicesReadable: allDevicesReadable,
+            now: now,
+            gracePeriod: gracePeriod
+        )
+        var deleted = 0
+        for digest in victims {
+            do {
+                try provider.deleteItem(at: layout.blob(digest))
+                deleted += 1
+            } catch {
+                debugLog("CloudSync: Failed to delete unreferenced blob \(digest.prefix(12)): \(error)")
+            }
+        }
+        return deleted
     }
 }

@@ -43,6 +43,10 @@ package struct ICloudStorageProvider: StorageProvider {
         }
     }
 
+    package func listBlobs(_ layout: SyncLayout) throws -> [SyncBlobEntry] {
+        try CloudFileStatus.listBlobs(in: layout.blobs, includeICloudPlaceholders: true)
+    }
+
     package func readData(at url: URL) throws -> Data {
         try SyncIO.coordinate(url, writing: false) { try Data(contentsOf: $0, options: .mappedIfSafe) }
     }
@@ -51,6 +55,17 @@ package struct ICloudStorageProvider: StorageProvider {
         try SyncIO.coordinate(url, writing: true) { target in
             if onlyIfMissing, FileManager.default.fileExists(atPath: target.path) { return }
             try data.write(to: target, options: .atomic)
+        }
+    }
+
+    package func deleteItem(at url: URL) throws {
+        let fm = FileManager.default
+        let placeholder = CloudFileStatus.iCloudPlaceholder(for: url)
+        if fm.fileExists(atPath: url.path) {
+            try CloudFileStatus.deleteCoordinated(url)
+        }
+        if fm.fileExists(atPath: placeholder.path) {
+            try CloudFileStatus.deleteCoordinated(placeholder)
         }
     }
 

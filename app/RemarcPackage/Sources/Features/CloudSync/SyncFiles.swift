@@ -189,6 +189,7 @@ package struct SyncRecord: Codable, Sendable {
     package var publishedDigest: String?
     package var publishedAt: Date?
     package var lastSuccessAt: Date?
+    package var lastBlobCleanupAt: Date?
     package var conflicts: [SyncConflict] = []
     package init() {}
 
@@ -197,6 +198,7 @@ package struct SyncRecord: Codable, Sendable {
         publishedDigest = try container.decodeIfPresent(String.self, forKey: .publishedDigest)
         publishedAt = try container.decodeIfPresent(Date.self, forKey: .publishedAt)
         lastSuccessAt = try container.decodeIfPresent(Date.self, forKey: .lastSuccessAt)
+        lastBlobCleanupAt = try container.decodeIfPresent(Date.self, forKey: .lastBlobCleanupAt)
         conflicts = try container.decodeIfPresent([SyncConflict].self, forKey: .conflicts) ?? []
     }
 }

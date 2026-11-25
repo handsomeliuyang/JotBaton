@@ -207,6 +207,10 @@ package struct LocalFolderStorageProvider: StorageProvider {
         }
     }
 
+    package func listBlobs(_ layout: SyncLayout) throws -> [SyncBlobEntry] {
+        try CloudFileStatus.listBlobs(in: layout.blobs, includeICloudPlaceholders: false)
+    }
+
     package func readData(at url: URL) throws -> Data {
         try SyncIO.coordinate(url, writing: false) { try Data(contentsOf: $0, options: .mappedIfSafe) }
     }
@@ -216,6 +220,11 @@ package struct LocalFolderStorageProvider: StorageProvider {
             if onlyIfMissing, FileManager.default.fileExists(atPath: target.path) { return }
             try data.write(to: target, options: .atomic)
         }
+    }
+
+    package func deleteItem(at url: URL) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try CloudFileStatus.deleteCoordinated(url)
     }
 
     package func uploadState(_ url: URL) throws -> Bool? {

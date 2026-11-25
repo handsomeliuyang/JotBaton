@@ -16,6 +16,16 @@ package enum SyncFileAvailability: Equatable, Sendable {
     case missing
 }
 
+package struct SyncBlobEntry: Equatable, Sendable {
+    package let digest: String
+    package let createdAt: Date?
+
+    package init(digest: String, createdAt: Date?) {
+        self.digest = digest
+        self.createdAt = createdAt
+    }
+}
+
 /// Abstracts where `sync-v3` device files and content-addressed blobs live,
 /// so the merge engine and coordinator stay identical across iCloud Drive,
 /// Google Drive (FileProvider), Syncthing, and other local sync folders.
@@ -26,8 +36,10 @@ package protocol StorageProvider: Sendable {
     func exists(_ url: URL) -> Bool
     func availability(_ url: URL) -> SyncFileAvailability
     func listDevices(_ layout: SyncLayout) throws -> [UUID]
+    func listBlobs(_ layout: SyncLayout) throws -> [SyncBlobEntry]
     func readData(at url: URL) throws -> Data
     func writeData(_ data: Data, to url: URL, onlyIfMissing: Bool) throws
+    func deleteItem(at url: URL) throws
     /// `nil` when the underlying storage does not report cloud upload state
     /// (for example Syncthing or an ordinary local folder). Throws on a
     /// provider-reported upload error (such as quota or network failure).
@@ -149,5 +161,74 @@ package enum CloudFileStatus {
 
     package static func uploadState(_ url: URL) throws -> Bool? {
         try uploadState(for: inspect(url, checksICloudPlaceholder: false))
+    }
+
+    package static func isMissingFileError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileNoSuchFileError { return true }
+        if nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOENT) { return true }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return isMissingFileError(underlying)
+        }
+        return false
+    }
+
+    package static func deleteCoordinated(_ url: URL) throws {
+        do {
+            try SyncIO.coordinate(url, writing: true, deleting: true) { target in
+                do {
+                    try FileManager.default.removeItem(at: target)
+                } catch where isMissingFileError(error) {
+                    return
+                }
+            }
+        } catch where isMissingFileError(error) {
+            return
+        }
+    }
+
+    /// Scans `blobs/` using metadata keys only (no FileProvider materialization).
+    /// Takes `max(creationDate, contentModificationDate)` so preserved old mtimes
+    /// or newly copied blobs both respect the grace period conservatively.
+    package static func listBlobs(in directory: URL, includeICloudPlaceholders: Bool) throws -> [SyncBlobEntry] {
+        let keys: [URLResourceKey] = [
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+            .creationDateKey,
+            .contentModificationDateKey,
+        ]
+        let urls: [URL]
+        do {
+            urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys)
+        } catch where isMissingFileError(error) {
+            return []
+        }
+        var entriesByDigest: [String: SyncBlobEntry] = [:]
+        for url in urls {
+            guard let values = try? url.resourceValues(forKeys: Set(keys)),
+                  values.isSymbolicLink != true,
+                  values.isRegularFile == true else { continue }
+            var name = url.lastPathComponent
+            if includeICloudPlaceholders, name.hasPrefix("."), name.hasSuffix(".icloud") {
+                name = String(name.dropFirst().dropLast(7))
+            } else if name.hasPrefix(".") {
+                continue
+            }
+            guard name.hasSuffix(".blob") else { continue }
+            let digest = String(name.dropLast(5))
+            guard SyncAssets.isValidBlobDigest(digest) else { continue }
+            let timestamp = [values.creationDate, values.contentModificationDate].compactMap { $0 }.max()
+            if let existing = entriesByDigest[digest] {
+                let mergedDate: Date?
+                switch (existing.createdAt, timestamp) {
+                case let (lhs?, rhs?): mergedDate = max(lhs, rhs)
+                case (nil, _), (_, nil): mergedDate = nil
+                }
+                entriesByDigest[digest] = SyncBlobEntry(digest: digest, createdAt: mergedDate)
+            } else {
+                entriesByDigest[digest] = SyncBlobEntry(digest: digest, createdAt: timestamp)
+            }
+        }
+        return entriesByDigest.values.sorted { $0.digest < $1.digest }
     }
 }

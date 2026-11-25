@@ -51,6 +51,9 @@ package final class CloudSyncManager: ObservableObject {
     private let iCloudConnectOverride: (@Sendable (Bool) throws -> URL)?
     private let providerOverride: (@Sendable (StorageProviderKind, URL?) -> any StorageProvider)?
     private let imagesDidChange: @MainActor (Set<String>) -> Void
+    private let nowProvider: @Sendable () -> Date
+    private let blobGracePeriod: TimeInterval
+    private let blobCleanupInterval: TimeInterval
     private var generation = 0
     package let deviceID: UUID
     @Published package private(set) var isEnabled: Bool
@@ -148,7 +151,10 @@ package final class CloudSyncManager: ObservableObject {
                  home: URL = FileManager.default.homeDirectoryForCurrentUser,
                  connect: (@Sendable (Bool) throws -> URL)? = nil,
                  providerFactory: (@Sendable (StorageProviderKind, URL?) -> any StorageProvider)? = nil,
-                 imagesDidChange: @escaping @MainActor (Set<String>) -> Void = { _ in }) {
+                 imagesDidChange: @escaping @MainActor (Set<String>) -> Void = { _ in },
+                 now: @escaping @Sendable () -> Date = Date.init,
+                 blobGracePeriod: TimeInterval = SyncAssets.blobGracePeriod,
+                 blobCleanupInterval: TimeInterval = SyncAssets.blobCleanupInterval) {
         self.documents = documents
         self.root = root
         self.defaults = defaults
@@ -157,6 +163,9 @@ package final class CloudSyncManager: ObservableObject {
         self.iCloudConnectOverride = connect
         self.providerOverride = providerFactory
         self.imagesDidChange = imagesDidChange
+        self.nowProvider = now
+        self.blobGracePeriod = blobGracePeriod
+        self.blobCleanupInterval = blobCleanupInterval
         isEnabled = defaults.bool(forKey: Keys.enabled)
         providerKind = defaults.string(forKey: Keys.providerKind).flatMap(StorageProviderKind.init(rawValue:)) ?? .iCloud
         deviceName = defaults.string(forKey: Keys.deviceName) ?? Host.current().localizedName ?? "This Mac"
@@ -468,7 +477,16 @@ package final class CloudSyncManager: ObservableObject {
             devices = pulled.summaries
 
             stage = .publishing
-            try await publish(layout, provider: provider, generation: generation)
+            let publishedDigests = try await publish(layout, provider: provider, generation: generation)
+            try checkActive(generation)
+
+            await cleanupUnreferencedBlobsIfNeeded(
+                layout: layout,
+                provider: provider,
+                referencedDigests: pulled.referencedDigests.union(publishedDigests),
+                allDevicesReadable: pulled.allDevicesReadable,
+                generation: generation
+            )
             try checkActive(generation)
 
             let live = Set(documents.appState.comments.filter { !$0.isDeleted }.map(\.id))
@@ -527,6 +545,8 @@ package final class CloudSyncManager: ObservableObject {
     private struct PullResult {
         var waiting = 0
         var summaries: [SyncDeviceSummary] = []
+        var allDevicesReadable = true
+        var referencedDigests = Set<String>()
     }
 
     private func pullDevices(_ layout: SyncLayout, provider: any StorageProvider, generation: Int) async throws -> PullResult {
@@ -559,14 +579,18 @@ package final class CloudSyncManager: ObservableObject {
             switch results[remoteID] ?? .waiting {
             case .waiting:
                 result.waiting += 1
+                result.allDevicesReadable = false
                 result.summaries.append(SyncDeviceSummary(id: remoteID, name: known?.name ?? L10n.tr("Another Mac"),
                                                           updatedAt: known?.updatedAt, isWaiting: true, needsNewerApp: false))
             case .newerFormat(let name):
+                result.allDevicesReadable = false
                 result.summaries.append(SyncDeviceSummary(id: remoteID, name: name, updatedAt: nil,
                                                           isWaiting: false, needsNewerApp: true))
             case .invalid:
+                result.allDevicesReadable = false
                 continue
             case .file(let remote):
+                result.referencedDigests.formUnion(remote.assets.values)
                 let waitingImages = try await merge(remote, layout: layout, provider: provider, generation: generation)
                 result.waiting += waitingImages
                 result.summaries.append(SyncDeviceSummary(id: remoteID, name: remote.deviceName, updatedAt: remote.writtenAt,
@@ -639,7 +663,7 @@ package final class CloudSyncManager: ObservableObject {
         return merged
     }
 
-    private func publish(_ layout: SyncLayout, provider: any StorageProvider, generation: Int) async throws {
+    private func publish(_ layout: SyncLayout, provider: any StorageProvider, generation: Int) async throws -> Set<String> {
         let state = try await documents.stateForSync()
         try checkActive(generation)
         let projection = SyncProjection.make(state)
@@ -649,7 +673,7 @@ package final class CloudSyncManager: ObservableObject {
         let name = trimmed.isEmpty ? (Host.current().localizedName ?? "Mac") : trimmed
         let startingCache = digestCache
         let published = record.publishedDigest
-        let outcome = try await Task.detached(priority: .utility) { () -> (written: String?, uploaded: Bool?, cache: [String: SyncAssets.CachedDigest]) in
+        let outcome = try await Task.detached(priority: .utility) { () -> (written: String?, uploaded: Bool?, cache: [String: SyncAssets.CachedDigest], digests: Set<String>) in
             var cache = startingCache
             let manifest = SyncAssets.manifest(for: projection, root: root, cache: &cache)
             // Blobs first: another Mac never sees a reference before its bytes.
@@ -662,7 +686,7 @@ package final class CloudSyncManager: ObservableObject {
                 written = digest
             }
             let uploaded = try SyncCloud.uploadState(layout.deviceFile(id), provider: provider)
-            return (written, uploaded, cache)
+            return (written, uploaded, cache, Set(manifest.values))
         }.value
         try checkActive(generation)
         digestCache = outcome.cache
@@ -671,6 +695,42 @@ package final class CloudSyncManager: ObservableObject {
             record.publishedAt = Date()
         }
         if outcome.uploaded == false { unsyncedSince = unsyncedSince ?? Date() } else { unsyncedSince = nil }
+        return outcome.digests
+    }
+
+    private func cleanupUnreferencedBlobsIfNeeded(
+        layout: SyncLayout,
+        provider: any StorageProvider,
+        referencedDigests: Set<String>,
+        allDevicesReadable: Bool,
+        generation: Int
+    ) async {
+        guard allDevicesReadable else { return }
+        let now = nowProvider()
+        if let lastCleanup = record.lastBlobCleanupAt,
+           now.timeIntervalSince(lastCleanup) < blobCleanupInterval {
+            return
+        }
+        let gracePeriod = blobGracePeriod
+        do {
+            let deleted = try await Task.detached(priority: .utility) {
+                try SyncAssets.cleanupBlobs(
+                    referencedDigests: referencedDigests,
+                    allDevicesReadable: allDevicesReadable,
+                    layout: layout,
+                    provider: provider,
+                    now: now,
+                    gracePeriod: gracePeriod
+                )
+            }.value
+            guard isEnabled, generation == self.generation else { return }
+            record.lastBlobCleanupAt = now
+            if deleted > 0 {
+                debugLog("CloudSync: Cleaned up \(deleted) unreferenced blob(s)")
+            }
+        } catch {
+            debugLog("CloudSync: Blob cleanup skipped due to error: \(error)")
+        }
     }
 
     // MARK: - Plumbing
@@ -693,6 +753,7 @@ package final class CloudSyncManager: ObservableObject {
     private func resetSyncStateForProviderSwitch() {
         record.publishedDigest = nil
         record.publishedAt = nil
+        record.lastBlobCleanupAt = nil
         conflicts = []
         SyncLocalStore.clearBases(in: root)
         persist()

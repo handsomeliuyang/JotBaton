@@ -201,6 +201,47 @@ struct SyncMergeTests {
                                        localWinsTie: true, remoteName: "B", now: t0.addingTimeInterval(20)).state
         #expect(repeated == merged)
     }
+
+    @Test func prunedRemoteCommentsQueueUnreferencedLocalImagesWithoutAffectingSharedOnes() {
+        let expiredImage = "images/\(UUID().uuidString).png"
+        let alreadyQueued = "images/\(UUID().uuidString).png"
+        let sharedImage = "images/\(UUID().uuidString).png"
+        let expired = Comment(type: .screenshot(imagePath: expiredImage), commentText: "Old", source: "test",
+                              appBundleID: nil, createdAt: t0, updatedAt: t0, sessionID: session.id,
+                              isDeleted: true, deletedAt: t0, attachments: [sharedImage, alreadyQueued])
+        let active = Comment(type: .screenshot(imagePath: sharedImage), commentText: "Keep", source: "test",
+                             appBundleID: nil, createdAt: t0, updatedAt: t0, sessionID: session.id)
+        let base = state([expired, active])
+        var local = base
+        local.orphanedImages = [OrphanedImage(path: alreadyQueued, deletedAt: t0)]
+        let remote = state([active])
+
+        let merged = SyncMerge.merge(base: SyncProjection.make(base), local: local,
+                                     remote: SyncProjection.make(remote), localWinsTie: false,
+                                     remoteName: "A", now: t0.addingTimeInterval(100)).state
+
+        #expect(merged.comments.map(\.id) == [active.id])
+        #expect(Set(merged.orphanedImages.map(\.path)) == [expiredImage, alreadyQueued])
+        #expect(merged.orphanedImages.count == 2)
+        #expect(merged.orphanedImages.first { $0.path == expiredImage }?.deletedAt == t0)
+    }
+
+    @Test func restoredCommentsDoNotQueueLocalImagesAsOrphans() {
+        let image = "images/\(UUID().uuidString).png"
+        let deleted = Comment(type: .screenshot(imagePath: image), commentText: "Old", source: "test",
+                              appBundleID: nil, createdAt: t0, updatedAt: t0, sessionID: session.id,
+                              isDeleted: true, deletedAt: t0)
+        var restored = deleted
+        restored.isDeleted = false
+        restored.deletedAt = nil
+
+        let merged = SyncMerge.merge(base: SyncProjection.make(state([deleted])), local: state([restored]),
+                                     remote: SyncProjection.make(state([])), localWinsTie: false,
+                                     remoteName: "A", now: t0.addingTimeInterval(100)).state
+
+        #expect(merged.comments.map(\.id) == [deleted.id])
+        #expect(merged.orphanedImages.isEmpty)
+    }
 }
 
 @Suite("Sync image files")
@@ -233,6 +274,30 @@ struct SyncAssetTests {
                               appBundleID: nil, sessionID: session.id)
         #expect(SyncAssets.files(referencedBy: AppState(sessions: [session], comments: [comment]))
                 == ["\(stem).png", "\(stem).base.png", "\(stem).marks.json"])
+    }
+
+    @Test func unreferencedBlobSelectionRequiresReadableDevicesNoReferenceAndGracePeriod() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let grace = SyncAssets.blobGracePeriod
+        let oldUnused = SyncIO.digest(Data("old-unused".utf8))
+        let exactBoundary = SyncIO.digest(Data("exact-boundary".utf8))
+        let freshUnused = SyncIO.digest(Data("fresh-unused".utf8))
+        let oldReferenced = SyncIO.digest(Data("old-referenced".utf8))
+        let missingDate = SyncIO.digest(Data("missing-date".utf8))
+        let entries = [
+            SyncBlobEntry(digest: oldUnused, createdAt: now.addingTimeInterval(-grace - 1)),
+            SyncBlobEntry(digest: exactBoundary, createdAt: now.addingTimeInterval(-grace)),
+            SyncBlobEntry(digest: freshUnused, createdAt: now.addingTimeInterval(-grace + 1)),
+            SyncBlobEntry(digest: oldReferenced, createdAt: now.addingTimeInterval(-grace * 3)),
+            SyncBlobEntry(digest: missingDate, createdAt: nil),
+            SyncBlobEntry(digest: "not-a-valid-sha256", createdAt: .distantPast),
+        ]
+
+        #expect(SyncAssets.unreferencedBlobs(existing: entries, referencedDigests: [oldReferenced],
+                                             allDevicesReadable: false, now: now).isEmpty)
+        #expect(SyncAssets.unreferencedBlobs(existing: entries, referencedDigests: [oldReferenced],
+                                             allDevicesReadable: true, now: now)
+                == [oldUnused, exactBoundary].sorted())
     }
 }
 
@@ -350,8 +415,12 @@ final class SyncFileTests {
     }
 
     @Test func recordToleratesMissingFieldsAndRestorePointsAreBounded() throws {
-        let record = try JSONDecoder().decode(SyncRecord.self, from: Data("{}".utf8))
-        #expect(record.conflicts.isEmpty && record.publishedDigest == nil)
+        var record = try JSONDecoder().decode(SyncRecord.self, from: Data("{}".utf8))
+        #expect(record.conflicts.isEmpty && record.publishedDigest == nil && record.lastBlobCleanupAt == nil)
+        let cleanupDate = Date(timeIntervalSince1970: 123_456)
+        record.lastBlobCleanupAt = cleanupDate
+        try SyncLocalStore.saveRecord(record, in: directory)
+        #expect(try SyncLocalStore.loadRecord(in: directory).lastBlobCleanupAt == cleanupDate)
         for index in 0..<(SyncLocalStore.restorePointLimit + 3) {
             try SyncLocalStore.saveRestorePoint(AppState(totalCommentsCreated: index),
                                                 at: Date(timeIntervalSince1970: Double(index)), in: directory)
@@ -361,6 +430,33 @@ final class SyncFileTests {
         let kept = try FileManager.default.contentsOfDirectory(
             at: SyncLocalStore.directory(in: directory).appendingPathComponent("restore-points"), includingPropertiesForKeys: nil)
         #expect(kept.count == SyncLocalStore.restorePointLimit)
+    }
+
+    @Test func storageProvidersListAndDeleteBlobsSafely() throws {
+        let regularDigest = SyncIO.digest(Data("regular-blob".utf8))
+        let evictedDigest = SyncIO.digest(Data("evicted-blob".utf8))
+        let regularURL = layout.blob(regularDigest)
+        let evictedPlaceholder = CloudFileStatus.iCloudPlaceholder(for: layout.blob(evictedDigest))
+        try Data("regular-blob".utf8).write(to: regularURL)
+        try Data("placeholder".utf8).write(to: evictedPlaceholder)
+        try Data("finder".utf8).write(to: layout.blobs.appendingPathComponent(".DS_Store"))
+        try Data("tmp".utf8).write(to: layout.blobs.appendingPathComponent(".syncthing.\(regularDigest).blob.tmp"))
+        try Data("conflict".utf8).write(to: layout.blobs.appendingPathComponent("\(regularDigest).sync-conflict-20261125.blob"))
+
+        let iCloud = ICloudStorageProvider(connect: { _ in directory })
+        let local = LocalFolderStorageProvider(base: directory)
+
+        #expect(Set(try iCloud.listBlobs(layout).map(\.digest)) == [regularDigest, evictedDigest])
+        #expect(try local.listBlobs(layout).map(\.digest) == [regularDigest])
+
+        // Deleting an evicted placeholder removes it; deleting an already-missing file succeeds.
+        try iCloud.deleteItem(at: layout.blob(evictedDigest))
+        #expect(!FileManager.default.fileExists(atPath: evictedPlaceholder.path))
+        try iCloud.deleteItem(at: layout.blob(evictedDigest))
+
+        try local.deleteItem(at: regularURL)
+        #expect(!FileManager.default.fileExists(atPath: regularURL.path))
+        try local.deleteItem(at: regularURL)
     }
 }
 
@@ -814,10 +910,16 @@ struct CloudSyncManagerTests {
             func listDevices(_ layout: SyncLayout) throws -> [UUID] {
                 try LocalFolderStorageProvider(base: folder).listDevices(layout)
             }
+            func listBlobs(_ layout: SyncLayout) throws -> [SyncBlobEntry] {
+                try LocalFolderStorageProvider(base: folder).listBlobs(layout)
+            }
             func readData(at url: URL) throws -> Data { try Data(contentsOf: url) }
             func writeData(_ data: Data, to url: URL, onlyIfMissing: Bool) throws {
                 if onlyIfMissing, FileManager.default.fileExists(atPath: url.path) { return }
                 try data.write(to: url, options: .atomic)
+            }
+            func deleteItem(at url: URL) throws {
+                try LocalFolderStorageProvider(base: folder).deleteItem(at: url)
             }
             func uploadState(_ url: URL) throws -> Bool? { uploaded }
         }
@@ -864,6 +966,105 @@ struct CloudSyncManagerTests {
         await manager.syncNow()
         #expect(manager.unsyncedSince == nil)
         #expect(manager.health == .ok)
+    }
+
+    @Test func blobCleanupRunsAfterPublishRespectsThrottleAndSkipsWhenAnyDeviceIsUnreadable() async throws {
+        final class ClockBox: @unchecked Sendable {
+            var now: Date
+            init(_ now: Date) { self.now = now }
+        }
+        func writeBlob(_ bytes: Data, to layout: SyncLayout, dated date: Date) throws -> String {
+            let digest = SyncIO.digest(bytes)
+            let url = layout.blob(digest)
+            try bytes.write(to: url)
+            try FileManager.default.setAttributes([.creationDate: date, .modificationDate: date], ofItemAtPath: url.path)
+            return digest
+        }
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("BlobCleanup-\(UUID())")
+        let cloud = root.appendingPathComponent("cloud")
+        try FileManager.default.createDirectory(at: cloud, withIntermediateDirectories: true)
+        let domain = "BlobCleanup.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer {
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let t0 = Date()
+        let fiveDaysAgo = t0.addingTimeInterval(-5 * 24 * 60 * 60)
+        let oneDayAgo = t0.addingTimeInterval(-24 * 60 * 60)
+        let clock = ClockBox(t0)
+
+        let session = Session(name: "Project")
+        let localImagePath = "images/\(UUID().uuidString).png"
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("images"), withIntermediateDirectories: true)
+        let localImageBytes = Data("local-referenced-image".utf8)
+        try localImageBytes.write(to: root.appendingPathComponent(localImagePath))
+        let localComment = Comment(type: .screenshot(imagePath: localImagePath), commentText: "Local", source: "test",
+                                   appBundleID: nil, sessionID: session.id)
+        let docs = Documents(AppState(sessions: [session], comments: [localComment]))
+        let manager = CloudSyncManager(documents: docs, root: root, defaults: defaults,
+                                       connect: { _ in cloud }, now: { clock.now })
+        defer { manager.disable() }
+
+        let layout = SyncLayout(folder: cloud)
+        try layout.prepare()
+
+        let oldUnusedDigest = try writeBlob(Data("old-unused".utf8), to: layout, dated: fiveDaysAgo)
+        let freshUnusedDigest = try writeBlob(Data("fresh-unused".utf8), to: layout, dated: oneDayAgo)
+        let localImageDigest = try writeBlob(localImageBytes, to: layout, dated: fiveDaysAgo)
+        let remoteImagePath = "images/\(UUID().uuidString).png"
+        let remoteImageBytes = Data("remote-referenced-image".utf8)
+        let remoteImageDigest = try writeBlob(remoteImageBytes, to: layout, dated: fiveDaysAgo)
+
+        let remoteComment = Comment(type: .screenshot(imagePath: remoteImagePath), commentText: "Remote", source: "test",
+                                    appBundleID: nil, sessionID: session.id)
+        let readableRemote = SyncDeviceFile(deviceID: UUID(), deviceName: "Office", writtenAt: t0,
+                                            state: AppState(sessions: [session], comments: [remoteComment]),
+                                            assets: [remoteImagePath: remoteImageDigest])
+        try SyncCloud.write(readableRemote, layout: layout)
+
+        // With a newer-format or corrupt device file present, cleanup must skip completely.
+        let newerID = UUID()
+        var newer = readableRemote
+        newer.deviceID = newerID
+        newer.formatVersion = SyncDeviceFile.currentFormat + 1
+        try SyncCloud.write(newer, layout: layout)
+
+        manager.enable()
+        await manager.syncNow()
+        #expect(FileManager.default.fileExists(atPath: layout.blob(oldUnusedDigest).path))
+        #expect(try SyncLocalStore.loadRecord(in: root).lastBlobCleanupAt == nil)
+
+        // Corrupt device file also blocks cleanup.
+        try Data("corrupt json".utf8).write(to: layout.deviceFile(newerID))
+        await manager.syncNow()
+        #expect(FileManager.default.fileExists(atPath: layout.blob(oldUnusedDigest).path))
+        #expect(try SyncLocalStore.loadRecord(in: root).lastBlobCleanupAt == nil)
+
+        // Removing the unreadable device lets the first full pass clean old unreferenced blobs only.
+        try FileManager.default.removeItem(at: layout.deviceFile(newerID))
+        await manager.syncNow()
+        #expect(!FileManager.default.fileExists(atPath: layout.blob(oldUnusedDigest).path))
+        #expect(FileManager.default.fileExists(atPath: layout.blob(freshUnusedDigest).path))
+        #expect(FileManager.default.fileExists(atPath: layout.blob(localImageDigest).path))
+        #expect(FileManager.default.fileExists(atPath: layout.blob(remoteImageDigest).path))
+        #expect(try SyncLocalStore.loadRecord(in: root).lastBlobCleanupAt == t0)
+
+        // Within 24 hours, cleanup is throttled.
+        clock.now = t0.addingTimeInterval(12 * 60 * 60)
+        let secondOldDigest = try writeBlob(Data("second-old-unused".utf8), to: layout, dated: fiveDaysAgo)
+        await manager.syncNow()
+        #expect(FileManager.default.fileExists(atPath: layout.blob(secondOldDigest).path))
+        #expect(try SyncLocalStore.loadRecord(in: root).lastBlobCleanupAt == t0)
+
+        // After 24 hours, cleanup runs again and deletes the new expired orphan.
+        let nextRun = t0.addingTimeInterval(25 * 60 * 60)
+        clock.now = nextRun
+        await manager.syncNow()
+        #expect(!FileManager.default.fileExists(atPath: layout.blob(secondOldDigest).path))
+        #expect(try SyncLocalStore.loadRecord(in: root).lastBlobCleanupAt == nextRun)
     }
 }
 
