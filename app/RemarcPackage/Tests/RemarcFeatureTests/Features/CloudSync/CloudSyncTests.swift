@@ -443,8 +443,9 @@ final class SyncFileTests {
         try Data("tmp".utf8).write(to: layout.blobs.appendingPathComponent(".syncthing.\(regularDigest).blob.tmp"))
         try Data("conflict".utf8).write(to: layout.blobs.appendingPathComponent("\(regularDigest).sync-conflict-20261125.blob"))
 
-        let iCloud = ICloudStorageProvider(connect: { _ in directory })
-        let local = LocalFolderStorageProvider(base: directory)
+        let dir = directory
+        let iCloud = ICloudStorageProvider(connect: { _ in dir })
+        let local = LocalFolderStorageProvider(base: dir)
 
         #expect(Set(try iCloud.listBlobs(layout).map(\.digest)) == [regularDigest, evictedDigest])
         #expect(try local.listBlobs(layout).map(\.digest) == [regularDigest])
