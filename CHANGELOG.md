@@ -2,6 +2,22 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.44 - 2026-11-25
+
+### 新增
+
+- 同步支持选择本地同步目录（兼容 Google Drive 桌面版、Syncthing 等网盘或同步文件夹），保持通道隔离与多机无冲突合并。([a4f67f7](https://github.com/handsomeliuyang/JotBaton/commit/a4f67f72afb0b52a58c62803f9ed1cded91151dd))
+- 新增云端未引用图片 blob 定期清理机制（需所有设备文件完整可读且超过 3 天宽限期，每 24 小时最多执行一次，兼容 iCloud 占位文件与本地同步目录）。([8ccdc1a](https://github.com/handsomeliuyang/JotBaton/commit/8ccdc1a4fd646cd58ecf73fb9dc51d68e0254775))
+
+### 修复
+
+- 支持在 Herdr 中读取选中的文本。([3c3f49f](https://github.com/handsomeliuyang/JotBaton/commit/3c3f49ffa4e1cd9143c50f0379cee46cbe0a164a))
+- 修复多机同步合并移除已清理的历史评论后本机残留图片未被加入待清理队列的问题，并补充回归测试。([8ccdc1a](https://github.com/handsomeliuyang/JotBaton/commit/8ccdc1a4fd646cd58ecf73fb9dc51d68e0254775), [be7e3d0](https://github.com/handsomeliuyang/JotBaton/commit/be7e3d00f0be26b56271dd79d54205fcbfbae536))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.43...v1.2.44)
+
+<!-- remarc-release: {"base_tag": "v1.2.43", "build": "63", "source_sha": "be7e3d00f0be26b56271dd79d54205fcbfbae536"} -->
+
 ## 1.2.43 - 2026-11-19
 
 ### 新增
