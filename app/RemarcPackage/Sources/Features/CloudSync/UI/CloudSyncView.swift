@@ -11,33 +11,56 @@ import AppKit
 struct CloudSyncView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     @ObservedObject private var sync = AppServices.shared.cloudSync
+    @Environment(\.colorScheme) private var colorScheme
     @State private var confirmEnable = false
     @State private var confirmUndo = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(L10n.tr("iCloud Sync")).font(.title2.bold())
-                Text(L10n.tr("Tasks, images and sessions sync automatically between your Macs through \(AppIdentity.current.cloudDisplayPath). Each Mac keeps working offline, and changes merge task by task."))
+                Text(L10n.tr("Sync")).font(.title2.bold())
+                Text(L10n.tr("Tasks, images and sessions sync automatically between your Macs through iCloud Drive, Google Drive, Syncthing, or any synced folder. Each Mac keeps working offline, and changes merge task by task."))
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                providerSection
+
                 Toggle(L10n.tr("Sync automatically"), isOn: Binding(
                     get: { sync.isEnabled },
-                    set: { if $0 { confirmEnable = true } else { sync.disable() } }
+                    set: { enabled in
+                        if enabled {
+                            if sync.canEnableCurrentProvider {
+                                confirmEnable = true
+                            } else {
+                                Task {
+                                    if await sync.chooseLocalFolder() {
+                                        confirmEnable = true
+                                    }
+                                }
+                            }
+                        } else {
+                            sync.disable()
+                        }
+                    }
                 ))
                 .toggleStyle(.switch)
                 .accessibilityIdentifier("sync.enabled")
+
                 HStack {
                     Text(L10n.tr("This Mac"))
                     TextField(L10n.tr("Device name"), text: $sync.deviceName)
                         .textFieldStyle(.roundedBorder)
                 }
+
                 if sync.isEnabled {
                     CloudSyncControls(compact: false)
                     if !sync.devices.isEmpty { deviceList }
+                } else if let issue = sync.issue {
+                    inlineIssueBanner(issue)
                 }
+
                 HStack {
-                    Button(L10n.tr("Show iCloud Folder")) {
+                    Button(L10n.tr("Show Sync Folder")) {
                         if let folder = sync.folder { NSWorkspace.shared.open(folder) }
                     }.disabled(sync.folder == nil)
                     if sync.canUndoLastSync {
@@ -61,6 +84,107 @@ struct CloudSyncView: View {
         }
     }
 
+    private var providerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(L10n.tr("Storage Provider"))
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { sync.providerKind },
+                    set: { sync.selectProvider($0) }
+                )) {
+                    Text(L10n.tr("iCloud Drive")).tag(StorageProviderKind.iCloud)
+                    Text(L10n.tr("Local Folder")).tag(StorageProviderKind.localFolder)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 240)
+                .accessibilityIdentifier("sync.provider")
+            }
+
+            if sync.providerKind == .iCloud {
+                Text(L10n.tr("Folder: \(AppIdentity.current.cloudDisplayPath)"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else {
+                localFolderSelector
+            }
+        }
+        .padding(12)
+        .background(Color.remarcCardSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.remarcSyncBorder(for: colorScheme), lineWidth: 0.75)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var localFolderSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "folder")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(sync.targetDisplayPath.isEmpty ? L10n.tr("No folder selected") : sync.targetDisplayPath)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(sync.targetDisplayPath.isEmpty ? .secondary : .primary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if sync.isGoogleDriveSelected {
+                            Text("Google Drive")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1.5)
+                                .background(Capsule().fill(Color.remarcPrimary(for: colorScheme).opacity(0.12)))
+                        }
+                    }
+                }
+                Spacer(minLength: 8)
+                if let googleDrive = sync.detectedGoogleDriveFolders.first, !sync.isGoogleDriveSelected {
+                    Button(L10n.tr("Google Drive…")) {
+                        Task { _ = await sync.chooseLocalFolder(initialDirectory: googleDrive) }
+                    }
+                    .controlSize(.small)
+                }
+                Button(L10n.tr("Choose Folder…")) {
+                    Task { _ = await sync.chooseLocalFolder() }
+                }
+                .controlSize(.small)
+                .accessibilityIdentifier("sync.chooseFolder")
+            }
+
+            Text(L10n.tr("Works with Google Drive, Syncthing, Dropbox, OneDrive, or any folder synced between your Macs. Sync files are stored in its \(AppIdentity.current.cloudDirectoryName) folder."))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func inlineIssueBanner(_ issue: CloudSyncIssue) -> some View {
+        let warning = Color.remarcWarning(for: colorScheme)
+        return HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(warning)
+                .font(.system(size: 12))
+            Text(L10n.lookup(issue.message))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(warning.opacity(0.10), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(warning.opacity(0.35), lineWidth: 0.75)
+                .allowsHitTesting(false)
+        }
+    }
+
     private var deviceList: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(L10n.tr("Other Macs")).font(.system(size: 12, weight: .semibold))
@@ -78,19 +202,27 @@ struct CloudSyncView: View {
 
     private func deviceStatus(_ device: SyncDeviceSummary) -> String {
         if device.needsNewerApp { return L10n.tr("Uses a newer JotBaton") }
-        if device.isWaiting { return L10n.tr("Downloading from iCloud…") }
+        if device.isWaiting {
+            return sync.providerKind == .iCloud
+                ? L10n.tr("Downloading from iCloud…")
+                : L10n.tr("Downloading from \(sync.providerShortName)…")
+        }
         guard let time = device.updatedAt else { return "" }
         return L10n.tr("Updated \(time.syncInterfaceFormatted())")
     }
 }
 
 private extension View {
+    @MainActor
     func syncEnableConfirmation(isPresented: Binding<Bool>) -> some View {
-        alert(L10n.tr("Turn on iCloud sync?"), isPresented: isPresented) {
+        let sync = AppServices.shared.cloudSync
+        let title = sync.providerKind == .iCloud ? L10n.tr("Turn on iCloud sync?") : L10n.tr("Turn on sync?")
+        let path = sync.targetDisplayPath
+        return alert(title, isPresented: isPresented) {
             Button(L10n.tr("Cancel"), role: .cancel) {}
             Button(L10n.tr("Turn On")) { AppServices.shared.cloudSync.enable() }
         } message: {
-            Text(L10n.tr("This Mac's tasks, images and sessions are merged with your other Macs through \(AppIdentity.current.cloudDisplayPath). Nothing is replaced: edits from every Mac are kept, and the newer one wins when the same field changed on two Macs."))
+            Text(L10n.tr("This Mac's tasks, images and sessions are merged with your other Macs through \(path). Nothing is replaced: edits from every Mac are kept, and the newer one wins when the same field changed on two Macs."))
         }
     }
 }
@@ -107,6 +239,13 @@ struct CloudSyncControls: View {
     @State private var confirmEnable = false
 
     private var health: SyncHealth { sync.health }
+
+    private var headerTitle: String {
+        switch sync.providerKind {
+        case .iCloud: return L10n.tr("iCloud Sync")
+        case .localFolder: return sync.isGoogleDriveSelected ? L10n.tr("Google Drive Sync") : L10n.tr("Folder Sync")
+        }
+    }
 
     private var statusTint: Color {
         switch health {
@@ -133,7 +272,7 @@ struct CloudSyncControls: View {
         .frame(height: 20)
         .background(Capsule().fill(statusTint.opacity(0.12)))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(health.title)
+        .accessibilityLabel(sync.healthTitle)
         .accessibilityIdentifier("sync.status")
     }
 
@@ -149,7 +288,7 @@ struct CloudSyncControls: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text(L10n.tr("iCloud Sync"))
+            Text(headerTitle)
                 .font(.system(size: 13, weight: .semibold))
             statusPill
             Spacer(minLength: 4)
@@ -165,7 +304,7 @@ struct CloudSyncControls: View {
                 }
                 .frame(width: 26, height: 26)
                 if compact {
-                    CloudSyncIconButton(symbol: "folder", help: L10n.tr("Show iCloud Folder"),
+                    CloudSyncIconButton(symbol: "folder", help: L10n.tr("Show Sync Folder"),
                                            identifier: "sync.openFolder") {
                         if let folder = sync.folder {
                             onDismiss()
@@ -173,10 +312,10 @@ struct CloudSyncControls: View {
                         }
                     }
                     .disabled(sync.folder == nil)
-                    CloudSyncIconButton(symbol: "gearshape", help: L10n.tr("iCloud Sync Settings"),
+                    CloudSyncIconButton(symbol: "gearshape", help: L10n.tr("Sync Settings"),
                                            identifier: "sync.settings") {
                         onDismiss()
-                        PreferencesWindowController.shared.show(tab: L10n.tr("iCloud Sync"))
+                        PreferencesWindowController.shared.show(tab: "Sync")
                     }
                 }
             }
@@ -186,7 +325,10 @@ struct CloudSyncControls: View {
     private var detail: String {
         switch health {
         case .off: return L10n.tr("Sync keeps tasks, images and sessions the same on all your Macs.")
-        case .waiting(let count): return L10n.tr("iCloud is downloading \(count) files. Your tasks keep working meanwhile.")
+        case .waiting(let count):
+            return sync.providerKind == .iCloud
+                ? L10n.tr("iCloud is downloading \(count) files. Your tasks keep working meanwhile.")
+                : L10n.tr("\(sync.providerShortName) is downloading \(count) files. Your tasks keep working meanwhile.")
         case .syncing, .ok, .attention:
             guard let time = sync.lastSuccessAt else { return L10n.tr("Not synced yet.") }
             return L10n.tr("Last synced \(time.syncInterfaceFormatted())")
@@ -209,9 +351,20 @@ struct CloudSyncControls: View {
             if !sync.isEnabled {
                 HStack {
                     Spacer(minLength: 0)
-                    Button(L10n.tr("Turn On iCloud Sync…")) { confirmEnable = true }
+                    if !sync.canEnableCurrentProvider {
+                        Button(L10n.tr("Choose Sync Folder…")) {
+                            onDismiss()
+                            PreferencesWindowController.shared.show(tab: "Sync")
+                        }
                         .buttonStyle(CloudSyncActionButtonStyle(prominent: true))
                         .accessibilityIdentifier("sync.enable")
+                    } else {
+                        Button(sync.providerKind == .iCloud ? L10n.tr("Turn On iCloud Sync…") : L10n.tr("Turn On Sync…")) {
+                            confirmEnable = true
+                        }
+                        .buttonStyle(CloudSyncActionButtonStyle(prominent: true))
+                        .accessibilityIdentifier("sync.enable")
+                    }
                 }
             }
         }
@@ -233,8 +386,9 @@ struct CloudSyncAttentionView: View {
         let health = sync.health
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "exclamationmark.icloud.fill").foregroundStyle(warning)
-                Text(health.title).font(.system(size: 11.5, weight: .semibold))
+                Image(systemName: sync.providerKind == .iCloud ? "exclamationmark.icloud.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(warning)
+                Text(sync.healthTitle).font(.system(size: 11.5, weight: .semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
             if showsExplanation, let explanation = health.explanation {
@@ -263,12 +417,19 @@ struct CloudSyncAttentionView: View {
             switch attention {
             case .issue(let issue):
                 if issue.needsAuthorization {
-                    Button(L10n.tr("Allow Access")) { Task { await sync.authorizeAccess() } }
+                    if sync.providerKind == .iCloud {
+                        Button(L10n.tr("Allow Access")) { Task { await sync.authorizeAccess() } }
+                    } else {
+                        Button(L10n.tr("Choose Folder…")) { Task { _ = await sync.chooseLocalFolder(initialDirectory: sync.localFolderBase) } }
+                    }
                 } else {
                     Button(L10n.tr("Retry")) { Task { await sync.syncNow() } }
                         .accessibilityIdentifier("sync.retry")
+                    if sync.providerKind == .localFolder && issue.kind == .unavailable {
+                        Button(L10n.tr("Choose Folder…")) { Task { _ = await sync.chooseLocalFolder(initialDirectory: sync.localFolderBase) } }
+                    }
                 }
-                if issue.needsICloudSettings {
+                if issue.needsICloudSettings && sync.providerKind == .iCloud {
                     Button(L10n.tr("iCloud Settings")) { sync.openICloudSettings() }
                 }
                 Button(L10n.tr("Copy diagnostic details")) {
@@ -280,15 +441,19 @@ struct CloudSyncAttentionView: View {
             case .stuckDownload:
                 Button(L10n.tr("Retry")) { Task { await sync.syncNow() } }
                 if let folder = sync.folder {
-                    Button(L10n.tr("Show iCloud Folder")) { NSWorkspace.shared.open(folder) }
+                    Button(L10n.tr("Show Sync Folder")) { NSWorkspace.shared.open(folder) }
                 }
             case .unsynced:
                 Button(L10n.tr("Retry")) { Task { await sync.syncNow() } }
-                Button(L10n.tr("iCloud Settings")) { sync.openICloudSettings() }
+                if sync.providerKind == .iCloud {
+                    Button(L10n.tr("iCloud Settings")) { sync.openICloudSettings() }
+                } else if let folder = sync.folder {
+                    Button(L10n.tr("Show Sync Folder")) { NSWorkspace.shared.open(folder) }
+                }
             case .conflicts:
                 Button(L10n.tr("Review")) {
                     onDismiss()
-                    PreferencesWindowController.shared.show(tab: L10n.tr("iCloud Sync"))
+                    PreferencesWindowController.shared.show(tab: "Sync")
                 }
             }
         }
@@ -417,11 +582,18 @@ struct CloudSyncToolbarButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showing = false
 
+    private var iconName: String {
+        switch sync.providerKind {
+        case .iCloud: return sync.isEnabled ? "icloud" : "icloud.slash"
+        case .localFolder: return sync.isEnabled ? "folder" : "folder.badge.minus"
+        }
+    }
+
     var body: some View {
         Button { showing.toggle() } label: {
             Group {
                 if sync.isSyncing { ProgressView().controlSize(.mini) }
-                else { Image(systemName: sync.isEnabled ? "icloud" : "icloud.slash") }
+                else { Image(systemName: iconName) }
             }
         }
         .buttonStyle(RemarcToolbarButtonStyle(
@@ -438,8 +610,8 @@ struct CloudSyncToolbarButton: View {
             }
         }
         .background(CloudSyncPopoverAnchor(isPresented: $showing, colorScheme: colorScheme))
-        .help(L10n.tr("iCloud · \(sync.health.title)"))
-        .accessibilityLabel(L10n.tr("iCloud · \(sync.health.title)"))
+        .help(L10n.tr("\(sync.providerShortName) · \(sync.healthTitle)"))
+        .accessibilityLabel(L10n.tr("\(sync.providerShortName) · \(sync.healthTitle)"))
         .accessibilityIdentifier("sync.toolbar")
         .onRemarcChange(of: panel.isVisible) { visible in
             if !visible && !panel.isDetached { showing = false }

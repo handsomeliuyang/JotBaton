@@ -1,3 +1,4 @@
+@testable import CorePlatform
 @testable import FeatureComments
 @testable import FeatureCloudSync
 import Foundation
@@ -697,5 +698,310 @@ struct CloudSyncManagerTests {
         await manager.syncNow()
         #expect(try Data(contentsOf: root.appendingPathComponent(path)) == bytes)
         #expect(notified == [path])
+    }
+
+    @Test func localFolderProviderSyncsBetweenTwoMacsAndIgnoresSyncthingArtifacts() async throws {
+        let rootA = FileManager.default.temporaryDirectory.appendingPathComponent("LocalSyncA-\(UUID())")
+        let rootB = FileManager.default.temporaryDirectory.appendingPathComponent("LocalSyncB-\(UUID())")
+        let sharedBase = FileManager.default.temporaryDirectory.appendingPathComponent("SharedSyncthing-\(UUID())")
+        try FileManager.default.createDirectory(at: rootA, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: rootB, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: sharedBase, withIntermediateDirectories: true)
+        let domainA = "LocalSyncA.\(UUID())"
+        let domainB = "LocalSyncB.\(UUID())"
+        let defaultsA = try #require(UserDefaults(suiteName: domainA))
+        let defaultsB = try #require(UserDefaults(suiteName: domainB))
+        defer {
+            defaultsA.removePersistentDomain(forName: domainA)
+            defaultsB.removePersistentDomain(forName: domainB)
+            try? FileManager.default.removeItem(at: rootA)
+            try? FileManager.default.removeItem(at: rootB)
+            try? FileManager.default.removeItem(at: sharedBase)
+        }
+
+        let session = Session(name: "Project")
+        let imagePath = "images/\(UUID()).png"
+        try FileManager.default.createDirectory(at: rootA.appendingPathComponent("images"), withIntermediateDirectories: true)
+        let imageBytes = Data("syncthing-shared-image".utf8)
+        try imageBytes.write(to: rootA.appendingPathComponent(imagePath))
+        let commentA = Comment(type: .screenshot(imagePath: imagePath), commentText: "From Mac A", source: "test",
+                               appBundleID: nil, sessionID: session.id)
+        let docsA = Documents(AppState(sessions: [session], comments: [commentA]))
+        let docsB = Documents(AppState(sessions: [session], comments: []))
+
+        let managerA = CloudSyncManager(documents: docsA, root: rootA, defaults: defaultsA, channel: .production)
+        let managerB = CloudSyncManager(documents: docsB, root: rootB, defaults: defaultsB, channel: .production)
+        defer {
+            managerA.disable()
+            managerB.disable()
+        }
+
+        try managerA.setLocalFolder(sharedBase, storeBookmark: false)
+        managerA.enable()
+        await managerA.syncNow()
+
+        let expectedChannelFolder = sharedBase.appendingPathComponent("JotBaton", isDirectory: true)
+        let layout = SyncLayout(folder: expectedChannelFolder)
+        #expect(managerA.folder?.standardizedFileURL.path == expectedChannelFolder.standardizedFileURL.path)
+
+        // Drop Syncthing temporary and conflict artifacts next to device files.
+        try Data("temp".utf8).write(to: layout.devices.appendingPathComponent(".syncthing.\(UUID()).json.tmp"))
+        try Data("conflict".utf8).write(to: layout.devices.appendingPathComponent("\(UUID()).sync-conflict-20261125-120000.json"))
+        try Data("finder".utf8).write(to: layout.devices.appendingPathComponent(".DS_Store"))
+
+        try managerB.setLocalFolder(sharedBase, storeBookmark: false)
+        managerB.enable()
+        await managerB.syncNow()
+
+        #expect(docsB.appState.comments.map(\.commentText) == ["From Mac A"])
+        #expect(try Data(contentsOf: rootB.appendingPathComponent(imagePath)) == imageBytes)
+        #expect(managerB.issue == nil && managerB.unsyncedSince == nil)
+    }
+
+    @Test func switchingProvidersResetsPublishedDigestAndPreservesOldFolder() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ProviderSwitch-\(UUID())")
+        let iCloudDir = root.appendingPathComponent("iCloudFolder")
+        let localDir = FileManager.default.temporaryDirectory.appendingPathComponent("GoogleDriveBase-\(UUID())")
+        try FileManager.default.createDirectory(at: iCloudDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: localDir, withIntermediateDirectories: true)
+        let domain = "ProviderSwitch.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer {
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: localDir)
+        }
+
+        let session = Session(name: "Project")
+        let comment = Comment(type: .quickNote, commentText: "Migrate me", source: "test", appBundleID: nil, sessionID: session.id)
+        let docs = Documents(AppState(sessions: [session], comments: [comment]))
+        let manager = CloudSyncManager(documents: docs, root: root, defaults: defaults, channel: .production,
+                                       connect: { _ in iCloudDir })
+        defer { manager.disable() }
+
+        manager.enable()
+        await manager.syncNow()
+        let iCloudDeviceFile = SyncLayout(folder: iCloudDir).deviceFile(manager.deviceID)
+        #expect(FileManager.default.fileExists(atPath: iCloudDeviceFile.path))
+
+        // Switch to local folder without changing the local document.
+        try manager.setLocalFolder(localDir, storeBookmark: false)
+        await manager.syncNow()
+
+        let localDeviceFile = SyncLayout(folder: localDir.appendingPathComponent("JotBaton")).deviceFile(manager.deviceID)
+        #expect(FileManager.default.fileExists(atPath: localDeviceFile.path))
+        // Old iCloud file is preserved untouched.
+        #expect(FileManager.default.fileExists(atPath: iCloudDeviceFile.path))
+
+        // Disabling keeps the chosen local folder for quick re-enabling.
+        manager.disable()
+        #expect(manager.providerKind == .localFolder)
+        #expect(manager.localFolderBase?.standardizedFileURL.path == localDir.standardizedFileURL.path)
+    }
+
+    @Test func fileProviderUploadAndDatalessStatesTrackGoogleDriveSyncStatus() async throws {
+        final class StubFileProvider: StorageProvider, @unchecked Sendable {
+            let kind: StorageProviderKind = .localFolder
+            let supportsSystemCloudSettings = false
+            let folder: URL
+            var remoteAvailability: SyncFileAvailability = .downloading
+            var uploaded: Bool? = false
+
+            init(folder: URL) { self.folder = folder }
+            func connect(createIfMissing: Bool, verifyWriteAccess: Bool) throws -> URL { folder }
+            func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
+            func availability(_ url: URL) -> SyncFileAvailability { remoteAvailability }
+            func listDevices(_ layout: SyncLayout) throws -> [UUID] {
+                try LocalFolderStorageProvider(base: folder).listDevices(layout)
+            }
+            func readData(at url: URL) throws -> Data { try Data(contentsOf: url) }
+            func writeData(_ data: Data, to url: URL, onlyIfMissing: Bool) throws {
+                if onlyIfMissing, FileManager.default.fileExists(atPath: url.path) { return }
+                try data.write(to: url, options: .atomic)
+            }
+            func uploadState(_ url: URL) throws -> Bool? { uploaded }
+        }
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("GDriveStub-\(UUID())")
+        let driveFolder = FileManager.default.temporaryDirectory.appendingPathComponent("GDriveStubFolder-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: driveFolder, withIntermediateDirectories: true)
+        let domain = "GDriveStub.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer {
+            defaults.removePersistentDomain(forName: domain)
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: driveFolder)
+        }
+
+        let stub = StubFileProvider(folder: driveFolder)
+        let layout = SyncLayout(folder: driveFolder)
+        try layout.prepare()
+        let session = Session(name: "Project")
+        let remoteComment = Comment(type: .quickNote, commentText: "From Drive", source: "test", appBundleID: nil, sessionID: session.id)
+        let remoteID = UUID()
+        try SyncCloud.write(SyncDeviceFile(deviceID: remoteID, deviceName: "Office", writtenAt: Date(),
+                                           state: AppState(sessions: [session], comments: [remoteComment]), assets: [:]),
+                            layout: layout, provider: stub)
+
+        let docs = Documents(AppState(sessions: [session], comments: []))
+        let manager = CloudSyncManager(documents: docs, root: root, defaults: defaults,
+                                       providerFactory: { _, _ in stub })
+        defer { manager.disable() }
+        try manager.setLocalFolder(driveFolder, storeBookmark: false)
+        manager.enable()
+
+        // Pass 1: remote device file is hydrated and merged; local publish is still uploading to Google Drive.
+        stub.remoteAvailability = .ready
+        stub.uploaded = false
+        await manager.syncNow()
+        #expect(docs.appState.comments.map(\.commentText) == ["From Drive"])
+        #expect(manager.unsyncedSince != nil)
+        #expect(manager.issue == nil)
+
+        // Pass 2: Google Drive FileProvider confirms upload completed.
+        stub.uploaded = true
+        await manager.syncNow()
+        #expect(manager.unsyncedSince == nil)
+        #expect(manager.health == .ok)
+    }
+}
+
+@Suite("Google Drive and local folder storage", .serialized)
+final class LocalFolderStorageTests {
+    private let tempRoot: URL
+    private let fakeHome: URL
+    private let fakeAppSupport: URL
+
+    init() throws {
+        tempRoot = FileManager.default.temporaryDirectory.appendingPathComponent("RemarcLocalFolder-\(UUID())")
+        fakeHome = tempRoot.appendingPathComponent("home", isDirectory: true)
+        fakeAppSupport = AppIdentity.production.appSupportURL(in: fakeHome)
+        try FileManager.default.createDirectory(at: fakeHome, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: fakeAppSupport, withIntermediateDirectories: true)
+    }
+
+    deinit { try? FileManager.default.removeItem(at: tempRoot) }
+
+    @Test func channelSubfolderIsCreatedAndReusedWithoutDoubleNesting() throws {
+        let base = tempRoot.appendingPathComponent("Syncthing", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: false)
+
+        let prodFolder = try LocalFolderLocation.connect(base: base, createIfMissing: true, verifyWriteAccess: true,
+                                                         channel: .production, home: fakeHome, appSupportRoot: fakeAppSupport)
+        #expect(prodFolder.standardizedFileURL.path == base.appendingPathComponent("JotBaton").standardizedFileURL.path)
+
+        // Selecting the JotBaton folder directly does not nest JotBaton/JotBaton.
+        let direct = try LocalFolderLocation.resolveSyncFolder(base: prodFolder, channel: .production,
+                                                               home: fakeHome, appSupportRoot: fakeAppSupport)
+        #expect(direct.standardizedFileURL.path == prodFolder.standardizedFileURL.path)
+
+        // Development gets its own sibling JotBaton Dev folder in the same base.
+        let devFolder = try LocalFolderLocation.connect(base: base, createIfMissing: true, verifyWriteAccess: true,
+                                                        channel: .development, home: fakeHome, appSupportRoot: fakeAppSupport)
+        #expect(devFolder.standardizedFileURL.path == base.appendingPathComponent("JotBaton Dev").standardizedFileURL.path)
+    }
+
+    @Test func rejectsCrossChannelFoldersSymlinksICloudAndAppSupport() throws {
+        let base = tempRoot.appendingPathComponent("Shared", isDirectory: true)
+        let prodDir = base.appendingPathComponent("JotBaton", isDirectory: true)
+        let devDir = base.appendingPathComponent("JotBaton Dev", isDirectory: true)
+        let iCloudDir = CloudSyncLocation.root(in: fakeHome)
+        let symlinkDir = tempRoot.appendingPathComponent("Link", isDirectory: true)
+        try FileManager.default.createDirectory(at: prodDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: devDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: iCloudDir, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: symlinkDir, withDestinationURL: base)
+
+        // Cross-channel rejection
+        #expect(throws: (any Error).self) {
+            try LocalFolderLocation.resolveSyncFolder(base: devDir, channel: .production, home: fakeHome, appSupportRoot: fakeAppSupport)
+        }
+        #expect(throws: (any Error).self) {
+            try LocalFolderLocation.resolveSyncFolder(base: prodDir, channel: .development, home: fakeHome, appSupportRoot: fakeAppSupport)
+        }
+        // Symlink rejection
+        #expect(throws: (any Error).self) {
+            try LocalFolderLocation.resolveSyncFolder(base: symlinkDir, channel: .production, home: fakeHome, appSupportRoot: fakeAppSupport)
+        }
+        // iCloud Drive root rejection
+        #expect(throws: (any Error).self) {
+            try LocalFolderLocation.resolveSyncFolder(base: iCloudDir, channel: .production, home: fakeHome, appSupportRoot: fakeAppSupport)
+        }
+        // App Support local data folder rejection
+        #expect(throws: (any Error).self) {
+            try LocalFolderLocation.resolveSyncFolder(base: fakeAppSupport, channel: .production, home: fakeHome, appSupportRoot: fakeAppSupport)
+        }
+    }
+
+    @Test func detectsGoogleDriveUnderCloudStorage() throws {
+        let gdriveRoot = fakeHome.appendingPathComponent("Library/CloudStorage/GoogleDrive-user@example.com", isDirectory: true)
+        let myDrive = gdriveRoot.appendingPathComponent("My Drive", isDirectory: true)
+        let nested = myDrive.appendingPathComponent("Sync/JotBaton", isDirectory: true)
+        let syncthing = fakeHome.appendingPathComponent("Syncthing/JotBaton", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: syncthing, withIntermediateDirectories: true)
+
+        #expect(LocalFolderLocation.isGoogleDriveFolder(nested, home: fakeHome))
+        #expect(LocalFolderLocation.isCloudStorageFolder(nested, home: fakeHome))
+        #expect(!LocalFolderLocation.isGoogleDriveFolder(syncthing, home: fakeHome))
+        #expect(!LocalFolderLocation.isCloudStorageFolder(syncthing, home: fakeHome))
+
+        let detected = LocalFolderLocation.detectedGoogleDriveFolders(home: fakeHome)
+        #expect(detected.map { $0.standardizedFileURL.path } == [myDrive.standardizedFileURL.path])
+    }
+
+    @Test func cloudFileStatusHandlesGoogleDriveFileProviderAndSyncthingCorrectly() throws {
+        var downloadsStarted = 0
+
+        // Google Drive FileProvider dehydrated file (.notDownloaded) triggers download without blocking.
+        let gdriveNotDownloaded = CloudItemState(exists: true, isUbiquitous: true, downloadingStatus: .notDownloaded)
+        #expect(CloudFileStatus.availability(for: gdriveNotDownloaded) { downloadsStarted += 1 } == .downloading)
+        #expect(downloadsStarted == 1)
+
+        // APFS SF_DATALESS safety net catches dataless placeholders even if ubiquitous status is absent.
+        let dataless = CloudItemState(exists: true, isUbiquitous: false, isDataless: true)
+        #expect(CloudFileStatus.availability(for: dataless) { downloadsStarted += 1 } == .downloading)
+        #expect(downloadsStarted == 2)
+
+        // Downloaded stale copy stays readable while requesting an update.
+        let staleLocal = CloudItemState(exists: true, isUbiquitous: true, downloadingStatus: .downloaded)
+        #expect(CloudFileStatus.availability(for: staleLocal) { downloadsStarted += 1 } == .ready)
+        #expect(downloadsStarted == 3)
+
+        // Current Google Drive file needs no download trigger.
+        let current = CloudItemState(exists: true, isUbiquitous: true, downloadingStatus: .current, isUploaded: true)
+        #expect(CloudFileStatus.availability(for: current) { downloadsStarted += 1 } == .ready)
+        #expect(downloadsStarted == 3)
+        #expect(try CloudFileStatus.uploadState(for: current) == true)
+
+        // Google Drive upload in progress reports false; quota error throws.
+        #expect(try CloudFileStatus.uploadState(for: CloudItemState(exists: true, isUbiquitous: true, isUploaded: false)) == false)
+        let quotaError = NSError(domain: "NSFileProviderErrorDomain", code: -1003)
+        #expect(throws: (any Error).self) {
+            _ = try CloudFileStatus.uploadState(for: CloudItemState(exists: true, isUbiquitous: true, isUploaded: false, uploadingError: quotaError))
+        }
+
+        // Syncthing / plain local folder is ready immediately and does not report cloud upload state.
+        let syncthing = CloudItemState(exists: true, isUbiquitous: false, isDataless: false)
+        #expect(CloudFileStatus.availability(for: syncthing) { downloadsStarted += 1 } == .ready)
+        #expect(downloadsStarted == 3)
+        #expect(try CloudFileStatus.uploadState(for: syncthing) == nil)
+    }
+
+    @Test func providerAwareIssuesAndHealthTitlesAvoidICloudCopyForGoogleDrive() {
+        let quota = CloudSyncIssue.make(NSError(domain: "NSFileProviderErrorDomain", code: -1003),
+                                        stage: .publishing, providerKind: .localFolder)
+        #expect(quota.kind == .quota)
+        #expect(!quota.message.contains("iCloud"))
+
+        let perm = CloudSyncIssue.make(NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES)),
+                                       stage: .connection, providerKind: .localFolder)
+        #expect(perm.kind == .permission && !perm.message.contains("iCloud"))
+
+        let waitingTitle = SyncHealth.waiting(count: 2).title(providerKind: .localFolder, providerName: "Google Drive")
+        #expect(waitingTitle.contains("Google Drive") && !waitingTitle.contains("iCloud"))
+        let unsyncedTitle = SyncHealth.attention(.unsynced(since: Date())).title(providerKind: .localFolder, providerName: "Google Drive")
+        #expect(unsyncedTitle.contains("Google Drive") && !unsyncedTitle.contains("iCloud"))
     }
 }

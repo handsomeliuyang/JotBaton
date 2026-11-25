@@ -196,7 +196,7 @@ public final class AppController: NSObject, ObservableObject {
     private func menuBarToolTip(for state: MenuBarIconState) -> String {
         var parts = [AppIdentity.current.displayName]
         if state.unresolvedCount > 0 { parts.append(L10n.tr("\(state.unresolvedCount) unresolved tasks")) }
-        if state.needsSyncAttention { parts.append(AppServices.shared.cloudSync.health.title) }
+        if state.needsSyncAttention { parts.append(AppServices.shared.cloudSync.healthTitle) }
         return parts.joined(separator: " · ")
     }
 

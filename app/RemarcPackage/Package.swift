@@ -68,6 +68,7 @@ let package = Package(
                 "Features/CloudSync/CloudSyncIssue.swift",
                 "Features/CloudSync/CloudSyncLocation.swift",
                 "Features/CloudSync/CloudSyncManager.swift",
+                "Features/CloudSync/Storage",
                 "Features/CloudSync/SyncAssets.swift",
                 "Features/CloudSync/SyncFiles.swift",
                 "Features/CloudSync/SyncHealth.swift",

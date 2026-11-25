@@ -19,11 +19,8 @@ struct PreferencesView: View {
     @ObservedObject var webSocketService = WebSocketService.shared
     @ObservedObject var updateManager = UpdateManager.shared
     @State var selectedSection: SettingsSection = {
-        if let raw = UserDefaults.standard.string(forKey: PreferencesWindowController.selectedSectionKey),
-           let section = SettingsSection(rawValue: raw) {
-            return section
-        }
-        return .general
+        let raw = UserDefaults.standard.string(forKey: PreferencesWindowController.selectedSectionKey)
+        return SettingsSection.resolve(raw) ?? .general
     }()
     @State var hoveredHighlight: ExportHighlight?
     @State var excludedApps: [ExcludedAppInfo] = []
@@ -36,7 +33,7 @@ struct PreferencesView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
-        case iCloudSync = "iCloud Sync"
+        case sync = "Sync"
         case shortcuts = "Shortcuts"
         case export = "Export"
         case chromeExtension = "Chrome Extension"
@@ -45,12 +42,18 @@ struct PreferencesView: View {
         case about = "About"
         case experimental = "Experimental"
 
+        static func resolve(_ raw: String?) -> SettingsSection? {
+            guard let raw else { return nil }
+            if raw == "iCloud Sync" { return .sync }
+            return SettingsSection(rawValue: raw)
+        }
+
         var id: String { rawValue }
 
         var icon: String {
             switch self {
             case .general: return "gearshape"
-            case .iCloudSync: return "icloud"
+            case .sync: return "arrow.triangle.2.circlepath"
             case .shortcuts: return "command"
             case .export: return "square.and.arrow.up"
             case .chromeExtension: return "globe"
@@ -108,7 +111,7 @@ struct PreferencesView: View {
             Group {
                 switch selectedSection {
                 case .general: generalSection
-                case .iCloudSync: CloudSyncView()
+                case .sync: CloudSyncView()
                 case .shortcuts: shortcutsSection
                 case .export: exportSection
                 case .chromeExtension: chromeExtensionSection
@@ -128,7 +131,7 @@ struct PreferencesView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: PreferencesWindowController.selectTabNotification)) { notification in
             if let raw = notification.object as? String,
-               let section = SettingsSection(rawValue: raw) {
+               let section = SettingsSection.resolve(raw) {
                 selectedSection = section
             }
         }

@@ -24,7 +24,7 @@ package enum SyncIO {
         return hash.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    /// iCloud requires file coordination; a coordinated read also downloads.
+    /// Cloud/FileProvider folders require file coordination; a coordinated read also materializes dataless files.
     package static func coordinate<T>(_ url: URL, writing: Bool, deleting: Bool = false, _ body: (URL) throws -> T) throws -> T {
         let coordinator = NSFileCoordinator()
         var error: NSError?
@@ -39,7 +39,7 @@ package enum SyncIO {
             }
         }
         if let error { throw error }
-        guard let result else { throw CloudSyncError.message(L10n.tr("Could not access the iCloud sync folder.")) }
+        guard let result else { throw CloudSyncError.message(L10n.tr("Could not access the sync folder.")) }
         return try result.get()
     }
 }
@@ -116,7 +116,7 @@ package struct SyncLayout: Sendable {
 }
 
 package enum SyncCloud {
-    package enum Availability: Equatable, Sendable { case ready, downloading, missing }
+    package typealias Availability = SyncFileAvailability
 
     package enum LoadResult: Equatable, Sendable {
         case file(SyncDeviceFile)
@@ -133,49 +133,31 @@ package enum SyncCloud {
         let deviceName: String
     }
 
-    private static func placeholder(for url: URL) -> URL {
-        url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).icloud")
-    }
-
-    package static func exists(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path) || FileManager.default.fileExists(atPath: placeholder(for: url).path)
+    package static func exists(_ url: URL, provider: any StorageProvider = ICloudStorageProvider()) -> Bool {
+        provider.exists(url)
     }
 
     /// Requests a download whenever the newest bytes are not local. An older
     /// downloaded version still counts as readable: merging a stale copy is safe,
     /// and refusing it is exactly how sync used to stall.
-    package static func availability(_ url: URL) -> Availability {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: url.path) else {
-            guard fm.fileExists(atPath: placeholder(for: url).path) else { return .missing }
-            try? fm.startDownloadingUbiquitousItem(at: url)
-            return .downloading
-        }
-        guard let values = try? url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemDownloadingStatusKey]),
-              values.isUbiquitousItem == true, let status = values.ubiquitousItemDownloadingStatus else { return .ready }
-        if status != .current { try? fm.startDownloadingUbiquitousItem(at: url) }
-        return status == .notDownloaded ? .downloading : .ready
+    package static func availability(_ url: URL, provider: any StorageProvider = ICloudStorageProvider()) -> Availability {
+        provider.availability(url)
     }
 
-    /// Device identifiers present in the cloud folder, including evicted ones.
-    package static func listDevices(_ layout: SyncLayout) throws -> [UUID] {
-        try FileManager.default.contentsOfDirectory(atPath: layout.devices.path).compactMap { name in
-            var name = name
-            if name.hasPrefix("."), name.hasSuffix(".icloud") { name = String(name.dropFirst().dropLast(7)) }
-            guard name.hasSuffix(".json") else { return nil }
-            return UUID(uuidString: String(name.dropLast(5)))
-        }
+    /// Device identifiers present in the sync folder, including evicted ones.
+    package static func listDevices(_ layout: SyncLayout, provider: any StorageProvider = ICloudStorageProvider()) throws -> [UUID] {
+        try provider.listDevices(layout)
     }
 
-    package static func load(_ id: UUID, layout: SyncLayout) -> LoadResult {
+    package static func load(_ id: UUID, layout: SyncLayout, provider: any StorageProvider = ICloudStorageProvider()) -> LoadResult {
         let url = layout.deviceFile(id)
-        switch availability(url) {
+        switch provider.availability(url) {
         case .missing: return .invalid
         case .downloading: return .waiting
         case .ready: break
         }
         do {
-            let data = try SyncIO.coordinate(url, writing: false) { try Data(contentsOf: $0, options: .mappedIfSafe) }
+            let data = try provider.readData(at: url)
             guard data.count < 128_000_000 else { return .invalid }
             let header = try JSONDecoder().decode(Header.self, from: data)
             guard header.deviceID == id else { return .invalid }
@@ -189,21 +171,15 @@ package enum SyncCloud {
         }
     }
 
-    package static func write(_ file: SyncDeviceFile, layout: SyncLayout) throws {
+    package static func write(_ file: SyncDeviceFile, layout: SyncLayout, provider: any StorageProvider = ICloudStorageProvider()) throws {
         let data = try SyncIO.encode(file)
-        try SyncIO.coordinate(layout.deviceFile(file.deviceID), writing: true) { target in
-            try data.write(to: target, options: .atomic)
-        }
+        try provider.writeData(data, to: layout.deviceFile(file.deviceID), onlyIfMissing: false)
     }
 
     /// nil when the provider does not report upload state. A reported upload
     /// failure (quota, server) is thrown so it can be shown, not waited on.
-    package static func uploadState(_ url: URL) throws -> Bool? {
-        guard let values = try? url.resourceValues(forKeys: [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey, .ubiquitousItemUploadingErrorKey]),
-              values.isUbiquitousItem == true else { return nil }
-        if values.ubiquitousItemIsUploaded == true { return true }
-        if let error = values.ubiquitousItemUploadingError { throw error }
-        return values.ubiquitousItemIsUploaded
+    package static func uploadState(_ url: URL, provider: any StorageProvider = ICloudStorageProvider()) throws -> Bool? {
+        try provider.uploadState(url)
     }
 }
 
@@ -258,6 +234,14 @@ package enum SyncLocalStore {
     }
     package static func saveBase(_ file: SyncDeviceFile, in root: URL) throws {
         try save(file, to: bases(in: root).appendingPathComponent("\(file.deviceID.uuidString).json"))
+    }
+    /// Clears cached three-way bases when switching sync providers or folders so
+    /// the new destination merges cleanly as first contact. Restore points stay intact.
+    package static func clearBases(in root: URL) {
+        let dir = bases(in: root)
+        if FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.removeItem(at: dir)
+        }
     }
 
     /// The complete local document before a merge changed it, newest kept last.

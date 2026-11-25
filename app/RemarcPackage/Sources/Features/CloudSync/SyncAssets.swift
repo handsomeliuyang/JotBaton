@@ -58,14 +58,13 @@ package enum SyncAssets {
     }
 
     /// Uploads blobs other Macs do not have yet. Existing blobs are never touched.
-    package static func upload(_ manifest: [String: String], root: URL, layout: SyncLayout) throws {
-        for (path, digest) in manifest where !SyncCloud.exists(layout.blob(digest)) {
+    package static func upload(_ manifest: [String: String], root: URL, layout: SyncLayout,
+                               provider: any StorageProvider = ICloudStorageProvider()) throws {
+        for (path, digest) in manifest where !provider.exists(layout.blob(digest)) {
             let data = try Data(contentsOf: root.appendingPathComponent(path), options: .mappedIfSafe)
             // Edited since it was hashed: the next pass publishes the new bytes.
             guard SyncIO.digest(data) == digest else { continue }
-            try SyncIO.coordinate(layout.blob(digest), writing: true) { target in
-                if !FileManager.default.fileExists(atPath: target.path) { try data.write(to: target, options: .atomic) }
-            }
+            try provider.writeData(data, to: layout.blob(digest), onlyIfMissing: true)
         }
     }
 
@@ -86,8 +85,9 @@ package enum SyncAssets {
     }
 
     /// Installs planned files whose blobs are on this Mac and returns the paths
-    /// still waiting for iCloud. A missing image never fails a merge.
-    package static func install(_ plan: [String: String], root: URL, layout: SyncLayout) throws -> Set<String> {
+    /// still waiting for the cloud provider. A missing image never fails a merge.
+    package static func install(_ plan: [String: String], root: URL, layout: SyncLayout,
+                                provider: any StorageProvider = ICloudStorageProvider()) throws -> Set<String> {
         guard !plan.isEmpty else { return [] }
         let images = root.appendingPathComponent("images", isDirectory: true)
         try FileManager.default.createDirectory(at: images, withIntermediateDirectories: true)
@@ -97,8 +97,8 @@ package enum SyncAssets {
         var waiting = Set<String>()
         for (path, digest) in plan where isValidPath(path) {
             let blob = layout.blob(digest)
-            guard SyncCloud.availability(blob) == .ready else { waiting.insert(path); continue }
-            let data = try SyncIO.coordinate(blob, writing: false) { try Data(contentsOf: $0, options: .mappedIfSafe) }
+            guard provider.availability(blob) == .ready else { waiting.insert(path); continue }
+            let data = try provider.readData(at: blob)
             guard SyncIO.digest(data) == digest else { waiting.insert(path); continue }
             try data.write(to: root.appendingPathComponent(path), options: .atomic)
         }

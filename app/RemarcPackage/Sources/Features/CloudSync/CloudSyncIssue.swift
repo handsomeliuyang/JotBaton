@@ -29,7 +29,7 @@ package struct CloudSyncIssue: Codable, Equatable, Sendable {
         "Stage: \(stage.rawValue)\nTime: \(date.formatted(date: .numeric, time: .standard))\nErrors: \(codes.joined(separator: " → "))"
     }
 
-    package static func make(_ error: Error, stage: Stage) -> Self {
+    package static func make(_ error: Error, stage: Stage, providerKind: StorageProviderKind = .iCloud) -> Self {
         var errors: [NSError] = []
         var next = error as NSError
         if let wrapped = error as? CloudSyncError, case .underlying(_, let underlying) = wrapped { next = underlying }
@@ -48,13 +48,19 @@ package struct CloudSyncIssue: Codable, Equatable, Sendable {
             message = "Sync progress could not be saved on this Mac. Your tasks are kept."
         } else if contains(NSCocoaErrorDomain, [NSFileReadNoPermissionError, NSFileWriteNoPermissionError]) || contains(NSPOSIXErrorDomain, [Int(EACCES), Int(EPERM)]) {
             kind = .permission
-            message = "JotBaton cannot access the iCloud sync files."
+            message = providerKind == .iCloud
+                ? "JotBaton cannot access the iCloud sync files."
+                : "JotBaton cannot access the sync folder."
         } else if contains(NSCocoaErrorDomain, [NSUbiquitousFileNotUploadedDueToQuotaError]) || contains("NSFileProviderErrorDomain", [-1003]) {
             kind = .quota
-            message = "iCloud storage is full. Upload is not confirmed."
+            message = providerKind == .iCloud
+                ? "iCloud storage is full. Upload is not confirmed."
+                : "Cloud storage is full. Upload is not confirmed."
         } else if contains(NSCocoaErrorDomain, [NSUbiquitousFileUbiquityServerNotAvailable]) || contains("NSFileProviderErrorDomain", [-1000, -1004]) || errors.contains(where: { $0.domain == NSURLErrorDomain }) {
             kind = .cloudUnavailable
-            message = "iCloud could not confirm the upload or connection."
+            message = providerKind == .iCloud
+                ? "iCloud could not confirm the upload or connection."
+                : "The cloud drive could not confirm the upload or connection."
         } else if stage == .connection {
             kind = .unavailable
             message = error.localizedDescription

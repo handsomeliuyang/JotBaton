@@ -73,7 +73,7 @@ public final class RemarcApplicationDelegate: NSObject, NSApplicationDelegate {
             }
         } else if arguments.contains("--show-sync") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                PreferencesWindowController.shared.show(tab: "iCloud Sync")
+                PreferencesWindowController.shared.show(tab: "Sync")
             }
         }
         #endif

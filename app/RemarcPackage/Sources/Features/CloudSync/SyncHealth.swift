@@ -47,18 +47,37 @@ package enum SyncHealth: Equatable, Sendable {
     }
 
     package var title: String {
+        title(providerKind: .iCloud, providerName: "iCloud")
+    }
+
+    package func title(providerKind: StorageProviderKind, providerName: String) -> String {
         switch self {
-        case .off: return L10n.tr("iCloud sync is off")
-        case .ok: return L10n.tr("Synced")
-        case .syncing: return L10n.tr("Syncing…")
-        case .waiting(let count): return L10n.tr("Downloading \(count) files from iCloud")
+        case .off:
+            return providerKind == .iCloud ? L10n.tr("iCloud sync is off") : L10n.tr("Sync is off")
+        case .ok:
+            return L10n.tr("Synced")
+        case .syncing:
+            return L10n.tr("Syncing…")
+        case .waiting(let count):
+            return providerKind == .iCloud
+                ? L10n.tr("Downloading \(count) files from iCloud")
+                : L10n.tr("Downloading \(count) files from \(providerName)")
         case .attention(let attention):
             switch attention {
-            case .issue: return L10n.tr("iCloud sync is not working")
-            case .newerFormat: return L10n.tr("Update JotBaton to keep syncing")
-            case .stuckDownload: return L10n.tr("iCloud has not delivered the latest data")
-            case .unsynced: return L10n.tr("Recent changes are not in iCloud yet")
-            case .conflicts(let count): return L10n.tr("\(count) tasks were edited on two Macs")
+            case .issue:
+                return providerKind == .iCloud ? L10n.tr("iCloud sync is not working") : L10n.tr("Sync is not working")
+            case .newerFormat:
+                return L10n.tr("Update JotBaton to keep syncing")
+            case .stuckDownload:
+                return providerKind == .iCloud
+                    ? L10n.tr("iCloud has not delivered the latest data")
+                    : L10n.tr("\(providerName) has not delivered the latest data")
+            case .unsynced:
+                return providerKind == .iCloud
+                    ? L10n.tr("Recent changes are not in iCloud yet")
+                    : L10n.tr("Recent changes are not uploaded to \(providerName) yet")
+            case .conflicts(let count):
+                return L10n.tr("\(count) tasks were edited on two Macs")
             }
         }
     }
