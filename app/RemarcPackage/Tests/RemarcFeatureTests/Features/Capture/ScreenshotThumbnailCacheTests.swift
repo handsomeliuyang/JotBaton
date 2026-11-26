@@ -42,4 +42,74 @@ struct ScreenshotThumbnailCacheTests {
         #expect(thumbnail.image.height <= 140)
         #expect(thumbnail.sourceSize == CGSize(width: 40, height: 80))
     }
+
+    @Test("CardFrame clamps height between minHeight and maxHeight for wide, normal, and tall images")
+    func cardFrameRenderedSize() {
+        let frame = ScreenshotThumbnailCache.CardFrame(width: 120, minHeight: 56, maxHeight: 90)
+        #expect(frame.renderedSize(for: CGSize(width: 2400, height: 400)) == CGSize(width: 120, height: 56))
+        #expect(frame.renderedSize(for: CGSize(width: 1200, height: 750)) == CGSize(width: 120, height: 75))
+        #expect(frame.renderedSize(for: CGSize(width: 600, height: 2400)) == CGSize(width: 120, height: 90))
+    }
+
+    @Test("CardFrame crops tall images from the top and isolates its cache entry from standard thumbnails")
+    func cardFrameTopCropAndCacheIsolation() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("card-tall-\(UUID()).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        // Top half red, bottom half blue (600x1800 tall page screenshot).
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = try #require(CGContext(
+            data: nil, width: 600, height: 1800,
+            bitsPerComponent: 8, bytesPerRow: 0, space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ))
+        // CGContext origin is bottom-left: y [0, 900) is bottom (blue), y [900, 1800) is top (red).
+        ctx.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 600, height: 900))
+        ctx.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 900, width: 600, height: 900))
+        let tallImage = try #require(ctx.makeImage())
+        try AnnotationExporter.pngData(from: tallImage).write(to: url)
+
+        let cache = ScreenshotThumbnailCache()
+        let frame = ScreenshotThumbnailCache.CardFrame(width: 120, minHeight: 56, maxHeight: 90)
+        let cardReq = ScreenshotThumbnailCache.Request(
+            url: url, revision: 0, maxPixelSize: 240, cardFrame: frame, displayScale: 2
+        )
+        let standardReq = ScreenshotThumbnailCache.Request(url: url, revision: 0, maxPixelSize: 240)
+
+        let cardThumb = try #require(await cache.thumbnail(for: cardReq))
+        let standardThumb = try #require(await cache.thumbnail(for: standardReq))
+
+        // Card thumbnail fills 120x90 @2x = 240x180 and keeps the top (red) portion.
+        #expect(cardThumb.image.width == 240)
+        #expect(cardThumb.image.height == 180)
+        #expect(TestImages.pixel(cardThumb.image, x: 120, y: 10)[0] > 240)
+        #expect(TestImages.pixel(cardThumb.image, x: 120, y: 170)[0] > 240)
+        #expect(TestImages.pixel(cardThumb.image, x: 120, y: 170)[2] < 20)
+
+        // Standard thumbnail stays aspect-fit (80x240) and does not collide in cache.
+        #expect(standardThumb.image.width == 80)
+        #expect(standardThumb.image.height == 240)
+        #expect(cardThumb.image !== standardThumb.image)
+    }
+
+    @Test("CardFrame fills wide images cleanly to clamped minHeight")
+    func cardFrameWideImageFill() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("card-wide-\(UUID()).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let wide = TestImages.solid(width: 2400, height: 400, red: 0, green: 1, blue: 0)
+        try AnnotationExporter.pngData(from: wide).write(to: url)
+
+        let cache = ScreenshotThumbnailCache()
+        let frame = ScreenshotThumbnailCache.CardFrame(width: 120, minHeight: 56, maxHeight: 90)
+        let req = ScreenshotThumbnailCache.Request(
+            url: url, revision: 0, maxPixelSize: 240, cardFrame: frame, displayScale: 2
+        )
+        let thumb = try #require(await cache.thumbnail(for: req))
+        #expect(thumb.image.width == 240)
+        #expect(thumb.image.height == 112)
+        #expect(thumb.sourceSize == CGSize(width: 2400, height: 400))
+    }
 }
