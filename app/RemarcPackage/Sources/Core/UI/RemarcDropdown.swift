@@ -5,6 +5,11 @@ import AppKit
 
 // MARK: - Panel Controller
 
+/// Borderless NSPanel that can accept key focus when hosting an inline text field.
+private final class DropdownNSPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 package final class DropdownPanelController {
     package static let shared = DropdownPanelController()
@@ -16,6 +21,11 @@ package final class DropdownPanelController {
     private var triggerScreenFrame: NSRect = .zero
 
     private init() {}
+
+    package func makeKey() {
+        NSApp.activate(ignoringOtherApps: true)
+        panel?.makeKeyAndOrderFront(nil)
+    }
 
     package func show<Content: View>(
         below anchorScreenFrame: NSRect,
@@ -33,14 +43,29 @@ package final class DropdownPanelController {
         )
         let fittingSize = hostingView.fittingSize
 
+        let visibleFrame = NSScreen.screens.first(where: { $0.frame.intersects(anchorScreenFrame) })?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+        var originX = anchorScreenFrame.origin.x
+        var originY = anchorScreenFrame.origin.y - fittingSize.height - 2
+        if let visible = visibleFrame {
+            let margin: CGFloat = 8
+            let minX = visible.minX + margin
+            let maxX = max(minX, visible.maxX - width - margin)
+            originX = min(max(originX, minX), maxX)
+            if originY < visible.minY + margin {
+                let aboveY = anchorScreenFrame.maxY + 2
+                originY = min(aboveY, visible.maxY - fittingSize.height - margin)
+            }
+        }
+
         let panelFrame = NSRect(
-            x: anchorScreenFrame.origin.x,
-            y: anchorScreenFrame.origin.y - fittingSize.height - 2,
+            x: originX,
+            y: originY,
             width: width,
             height: fittingSize.height
         )
 
-        let panel = NSPanel(
+        let panel = DropdownNSPanel(
             contentRect: panelFrame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,

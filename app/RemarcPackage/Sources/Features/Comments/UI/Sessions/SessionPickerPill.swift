@@ -1,8 +1,98 @@
+import AppKit
 import CoreLocalization
 import CoreTheme
 import CoreUI
 import FeatureComments
 import SwiftUI
+
+// MARK: - Shared Session Move Dropdown
+
+/// Shared session move actions and dropdown presentation used by both
+/// `SessionPickerPill` and `CommentCardView`.
+@MainActor
+enum SessionMoveDropdown {
+    static func displayName(for session: Session) -> String {
+        session.isInbox ? L10n.tr("Inbox") : session.name
+    }
+
+    /// Moves `comment` to `sessionID` when different, showing a toast with Undo.
+    static func move(_ comment: Comment, to sessionID: UUID) {
+        guard sessionID != comment.sessionID else { return }
+        let persistence = AppServices.shared.comments
+        let previousSessionID = comment.sessionID
+        let targetName = persistence.activeSessions
+            .first { $0.id == sessionID }
+            .map(displayName(for:)) ?? L10n.tr("Inbox")
+
+        persistence.moveComment(comment.id, to: sessionID)
+        ToastManager.shared.show(L10n.tr("Moved to \(targetName)"), undo: {
+            AppServices.shared.comments.moveComment(comment.id, to: previousSessionID)
+        })
+    }
+
+    /// Creates a new session with `rawName` (if non-empty) and moves `comment` into it.
+    static func createSessionAndMove(_ comment: Comment, name rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty,
+              let session = AppServices.shared.comments.createSession(name: name) else { return }
+        move(comment, to: session.id)
+    }
+
+    /// Prompts for a new session name in a lightweight dialog and moves `comment` into it.
+    /// Used from native context menus where no inline popover anchor remains open.
+    static func promptNewSessionAndMove(_ comment: Comment) {
+        let alert = NSAlert()
+        alert.messageText = L10n.tr("New Session\u{2026}")
+        alert.addButton(withTitle: L10n.tr("Create"))
+        alert.addButton(withTitle: L10n.tr("Cancel"))
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
+        field.placeholderString = L10n.tr("Session name")
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            createSessionAndMove(comment, name: field.stringValue)
+        }
+    }
+
+    /// Presents the shared session dropdown anchored below `anchor` to move `comment`.
+    static func show(
+        for comment: Comment,
+        anchor: AnchorViewRef,
+        colorScheme: ColorScheme,
+        onDismiss: @escaping () -> Void = {}
+    ) {
+        guard let screenFrame = anchor.screenFrame() else {
+            onDismiss()
+            return
+        }
+        let sessions = AppServices.shared.comments.activeSessions
+
+        DropdownPanelController.shared.show(
+            below: screenFrame,
+            width: 180,
+            colorScheme: colorScheme,
+            anchorWindowLevel: anchor.windowLevel(),
+            onDismiss: onDismiss
+        ) {
+            SessionDropdownPanel(
+                sessions: sessions,
+                currentSessionID: comment.sessionID,
+                colorScheme: colorScheme,
+                onSelect: { sessionID in
+                    move(comment, to: sessionID)
+                    DropdownPanelController.shared.dismiss()
+                },
+                onCreateSession: { name in
+                    createSessionAndMove(comment, name: name)
+                    DropdownPanelController.shared.dismiss()
+                }
+            )
+        }
+    }
+}
 
 struct SessionPickerPill: View {
     @ObservedObject private var localization = LocalizationManager.shared
@@ -31,8 +121,8 @@ struct SessionPickerPill: View {
     }
 
     private var displayName: String {
-        guard let session = selectedSession, !session.isInbox else { return L10n.tr("Inbox") }
-        return session.name
+        guard let session = selectedSession else { return L10n.tr("Inbox") }
+        return SessionMoveDropdown.displayName(for: session)
     }
 
     var body: some View {
@@ -166,15 +256,8 @@ struct SessionPickerPill: View {
         }
 
         guard sessionID != selectedSessionID, let comment else { return }
-        let previousSessionID = comment.sessionID
-        let targetName = persistence.activeSessions.first { $0.id == sessionID }?.name ?? "Inbox"
-
-        AppServices.shared.comments.moveComment(comment.id, to: sessionID)
+        SessionMoveDropdown.move(comment, to: sessionID)
         selectedSessionID = sessionID
-
-        ToastManager.shared.show(L10n.tr("Moved to \(targetName)"), undo: {
-            AppServices.shared.comments.moveComment(comment.id, to: previousSessionID)
-        })
     }
 
     private func startCreatingNewSession() {
@@ -245,13 +328,34 @@ struct SessionPickerPill: View {
 
 // MARK: - Session Dropdown Panel
 
-private struct SessionDropdownPanel: View {
+struct SessionDropdownPanel: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let sessions: [Session]
     let currentSessionID: UUID?
     let colorScheme: ColorScheme
     let onSelect: (UUID) -> Void
-    let onNewSession: () -> Void
+    let onNewSession: (() -> Void)?
+    let onCreateSession: ((String) -> Void)?
+
+    @State private var isCreatingInline = false
+    @State private var newSessionName = ""
+    @FocusState private var isInlineFieldFocused: Bool
+
+    init(
+        sessions: [Session],
+        currentSessionID: UUID?,
+        colorScheme: ColorScheme,
+        onSelect: @escaping (UUID) -> Void,
+        onNewSession: (() -> Void)? = nil,
+        onCreateSession: ((String) -> Void)? = nil
+    ) {
+        self.sessions = sessions
+        self.currentSessionID = currentSessionID
+        self.colorScheme = colorScheme
+        self.onSelect = onSelect
+        self.onNewSession = onNewSession
+        self.onCreateSession = onCreateSession
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -260,7 +364,7 @@ private struct SessionDropdownPanel: View {
                     LazyVStack(spacing: 0) {
                         ForEach(sessions) { session in
                             SessionOptionRow(
-                                name: session.name,
+                                name: SessionMoveDropdown.displayName(for: session),
                                 isSelected: session.id == currentSessionID,
                                 colorScheme: colorScheme,
                                 onSelect: { onSelect(session.id) }
@@ -280,10 +384,20 @@ private struct SessionDropdownPanel: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
 
-            NewSessionRow(
-                colorScheme: colorScheme,
-                onTap: onNewSession
-            )
+            if isCreatingInline {
+                inlineNewSessionField
+            } else {
+                NewSessionRow(
+                    colorScheme: colorScheme,
+                    onTap: {
+                        if let onNewSession {
+                            onNewSession()
+                        } else {
+                            startInlineCreation()
+                        }
+                    }
+                )
+            }
         }
         .padding(5)
         .frame(width: 180)
@@ -296,6 +410,56 @@ private struct SessionDropdownPanel: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .strokeBorder(.primary.opacity(0.15), lineWidth: 0.5)
         )
+    }
+
+    private var inlineNewSessionField: some View {
+        TextField(L10n.tr("Session name"), text: $newSessionName)
+            .font(.system(size: 12))
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.remarcPrimary(for: colorScheme).opacity(0.10))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .strokeBorder(Color.remarcPrimary(for: colorScheme).opacity(0.35), lineWidth: 0.5)
+            )
+            .focused($isInlineFieldFocused)
+            .onSubmit {
+                commitInlineCreation()
+            }
+            .onExitCommand {
+                cancelInlineCreation()
+            }
+            .onAppear {
+                DropdownPanelController.shared.makeKey()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    isInlineFieldFocused = true
+                }
+            }
+    }
+
+    private func startInlineCreation() {
+        newSessionName = ""
+        isCreatingInline = true
+    }
+
+    private func commitInlineCreation() {
+        let name = newSessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            cancelInlineCreation()
+            return
+        }
+        isCreatingInline = false
+        newSessionName = ""
+        onCreateSession?(name)
+    }
+
+    private func cancelInlineCreation() {
+        isCreatingInline = false
+        newSessionName = ""
     }
 }
 
@@ -360,7 +524,7 @@ private struct NewSessionRow: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.remarcPrimary(for: colorScheme))
                     .frame(width: 14)
-                Text(L10n.tr("New Session..."))
+                Text(L10n.tr("New Session\u{2026}"))
                     .font(.system(size: 12))
                     .lineLimit(1)
                 Spacer(minLength: 0)

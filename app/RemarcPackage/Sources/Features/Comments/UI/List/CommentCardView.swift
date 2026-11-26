@@ -33,12 +33,16 @@ struct CommentCardView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var isHovered: Bool = false
     @State private var showDeleteConfirmation: Bool = false
+    @State private var isMoveDropdownOpen: Bool = false
+    @State private var moveAnchorRef = AnchorViewRef()
     @State private var isWebhookDropdownOpen: Bool = false
     @State private var webhookAnchorRef = AnchorViewRef()
     @State private var isResolvedExpanded = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private var showActions: Bool { isHovered || isFocused || showDeleteConfirmation || isWebhookDropdownOpen }
+    private var showActions: Bool {
+        isHovered || isFocused || showDeleteConfirmation || isMoveDropdownOpen || isWebhookDropdownOpen
+    }
 
     private var enabledWebhooks: [Webhook] { settings.webhooks.filter(\.isEnabled) }
 
@@ -111,6 +115,33 @@ struct CommentCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
         .contextMenu {
+            Menu {
+                ForEach(persistence.activeSessions) { session in
+                    Button {
+                        SessionMoveDropdown.move(comment, to: session.id)
+                    } label: {
+                        if session.id == comment.sessionID {
+                            Label(SessionMoveDropdown.displayName(for: session), systemImage: "checkmark")
+                        } else {
+                            Text(SessionMoveDropdown.displayName(for: session))
+                        }
+                    }
+                    .disabled(session.id == comment.sessionID)
+                }
+
+                Divider()
+
+                Button {
+                    SessionMoveDropdown.promptNewSessionAndMove(comment)
+                } label: {
+                    Label(L10n.tr("New Session\u{2026}"), systemImage: "plus")
+                }
+            } label: {
+                Label(L10n.tr("Move to\u{2026}"), systemImage: "folder")
+            }
+
+            Divider()
+
             Button {
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
@@ -362,6 +393,20 @@ struct CommentCardView: View {
             cardActionButton(icon: "pencil", tooltip: L10n.tr("Edit"), tint: Color.remarcPrimary(for: colorScheme)) {
                 FloatingEditorController.shared.showForEdit(comment: comment)
             }
+            cardActionButton(icon: "folder", tooltip: L10n.tr("Move to\u{2026}"), tint: Color.remarcPrimary(for: colorScheme)) {
+                if isMoveDropdownOpen {
+                    DropdownPanelController.shared.dismiss()
+                } else {
+                    isMoveDropdownOpen = true
+                    SessionMoveDropdown.show(
+                        for: comment,
+                        anchor: moveAnchorRef,
+                        colorScheme: colorScheme,
+                        onDismiss: { isMoveDropdownOpen = false }
+                    )
+                }
+            }
+            .overlay(DropdownAnchor(ref: moveAnchorRef).allowsHitTesting(false))
             if !enabledWebhooks.isEmpty {
                 cardActionButton(icon: "paperplane", tooltip: L10n.tr("Send to webhook"), tint: Color.remarcPrimary(for: colorScheme)) {
                     if enabledWebhooks.count == 1 {
@@ -946,50 +991,7 @@ private struct WebhookDropdownPanel: View {
     }
 }
 
-// MARK: - Move Dropdown Panel
-
-private struct MoveDropdownPanel: View {
-    @ObservedObject private var localization = LocalizationManager.shared
-    let sessions: [Session]
-    let colorScheme: ColorScheme
-    let onSelect: (_ sessionID: UUID, _ sessionName: String) -> Void
-    let onNewSession: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(sessions) { session in
-                        MoveSessionRow(
-                            name: session.name,
-                            colorScheme: colorScheme,
-                            onSelect: { onSelect(session.id, session.name) }
-                        )
-                        .frame(height: 28)
-                    }
-                }
-            }
-            .frame(height: min(CGFloat(sessions.count) * 28, 240))
-            MoveSessionRow(
-                name: L10n.tr("New Session\u{2026}"),
-                icon: "plus",
-                colorScheme: colorScheme,
-                onSelect: onNewSession
-            )
-        }
-        .padding(5)
-        .frame(width: 180)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.remarcDropdownBackground(for: colorScheme))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(.primary.opacity(0.15), lineWidth: 0.5)
-        )
-    }
-}
+// MARK: - Dropdown Row
 
 private struct MoveSessionRow: View {
     @ObservedObject private var localization = LocalizationManager.shared
