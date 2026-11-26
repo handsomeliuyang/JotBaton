@@ -25,6 +25,7 @@ package final class AnnotationToolbarPanelController {
     package var onCancel: (() -> Void)?
     package var onZoomStep: ((Int) -> Void)?
     package var onDone: (() -> Void)?
+    package var onAdjustSelection: (() -> Void)?
     package var onRequestDiscard: (() -> Void)?
     package var onConfirmDiscard: (() -> Void)?
     package var onCancelDiscard: (() -> Void)?
@@ -33,7 +34,7 @@ package final class AnnotationToolbarPanelController {
     /// toolbar. Measuring would be circular: the stepper only appears once `zMax`
     /// is known, and `zMax` depends on an allowance computed from this reserve, so
     /// adding the stepper could invalidate the allowance that enabled it.
-    package static let worstCaseWidth: CGFloat = 620
+    package static let worstCaseWidth: CGFloat = 648
     /// The toolbar docks BELOW the stage, so what the stage has to give up is
     /// vertical: its height plus the 10pt gap plus a little slack.
     package static let reserve: CGFloat = height + 10 + 8
@@ -42,6 +43,7 @@ package final class AnnotationToolbarPanelController {
     package init() {}
 
     package var isVisible: Bool { panel?.isVisible ?? false }
+    package var isKeyWindow: Bool { panel?.isKeyWindow ?? false }
 
     package func show(session: AnnotationSession,
                      anchoredBelow rect: CGRect,
@@ -62,6 +64,7 @@ package final class AnnotationToolbarPanelController {
             onUndo: { session.undo() },
             onRedo: { session.redo() },
             onDone: { [weak self] in self?.onDone?() },
+            onAdjustSelection: onAdjustSelection != nil ? { [weak self] in self?.onAdjustSelection?() } : nil,
             onRequestDiscard: { [weak self] in self?.onRequestDiscard?() },
             onConfirmDiscard: { [weak self] in self?.onConfirmDiscard?() },
             onCancelDiscard: { [weak self] in self?.onCancelDiscard?() }

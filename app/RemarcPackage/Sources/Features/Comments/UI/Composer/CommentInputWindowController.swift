@@ -361,7 +361,7 @@ public final class CommentInputController: NSObject, ObservableObject {
 
         if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
            event.charactersIgnoringModifiers?.lowercased() == "c",
-           capture.annotationCanvasHasCopyFocus {
+           canCopyScreenshotWithCommandC {
             copyScreenshot()
             return true
         }
@@ -388,6 +388,27 @@ public final class CommentInputController: NSObject, ObservableObject {
         }
     }
 
+    private var canCopyScreenshotWithCommandC: Bool {
+        if AppServices.shared.capture.hasAnnotationCopyFocus { return true }
+        guard let panel, panel.isKeyWindow else { return false }
+        if let textView = panel.firstResponder as? NSTextView {
+            return Self.composerAllowsImageCopyShortcut(
+                text: textView.string,
+                selectedLength: textView.selectedRange().length,
+                hasMarkedText: textView.hasMarkedText()
+            )
+        }
+        return currentText.isEmpty
+    }
+
+    static func composerAllowsImageCopyShortcut(
+        text: String,
+        selectedLength: Int,
+        hasMarkedText: Bool
+    ) -> Bool {
+        text.isEmpty && selectedLength == 0 && !hasMarkedText
+    }
+
     /// Routes a dismissal through the annotation coordinator first.
     ///
     /// Returns true when annotation consumed it, so the caller does nothing
@@ -395,7 +416,7 @@ public final class CommentInputController: NSObject, ObservableObject {
     func routeDismissalThroughAnnotation(intent: DismissalIntent) -> Bool {
         guard captureTransaction == .idle else { return true }   // refuse mid-save
         guard AppServices.shared.capture.isAnnotating else { return false }
-        return AppServices.shared.capture.resolveDismissal(intent: intent)
+        return AppServices.shared.capture.resolveDismissal(intent: intent, origin: .composer)
     }
 
     public var shouldAttachWebContextToCurrentScreenshot: Bool {

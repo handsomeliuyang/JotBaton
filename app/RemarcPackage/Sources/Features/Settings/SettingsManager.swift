@@ -32,6 +32,7 @@ public final class SettingsManager: ObservableObject {
         static let widgetCorner = "widgetCorner"
         static let normalizeWhitespace = "normalizeWhitespace"
         static let copyScreenshotToClipboard = "copyScreenshotToClipboard"
+        static let autoAnnotateOnScreenshot = "autoAnnotateOnScreenshot"
         static let screenshotDirectoryPath = SettingsManager.screenshotDirectoryPathKey
         static let deleteResolvedComments = "deleteResolvedComments" // legacy migration key
         static let resolvedCommentDeletion = "resolvedCommentDeletion"
@@ -134,6 +135,15 @@ public final class SettingsManager: ObservableObject {
 
     @Published public var copyScreenshotToClipboard: Bool {
         didSet { defaults.set(copyScreenshotToClipboard, forKey: Keys.copyScreenshotToClipboard) }
+    }
+
+    @Published public var autoAnnotateOnScreenshot: Bool {
+        didSet { defaults.set(autoAnnotateOnScreenshot, forKey: Keys.autoAnnotateOnScreenshot) }
+    }
+
+    package static func readAutoAnnotateOnScreenshot(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.autoAnnotateOnScreenshot) == nil
+            ? true : defaults.bool(forKey: Keys.autoAnnotateOnScreenshot)
     }
 
     /// Absolute folder for new screenshots. Empty means Application Support/Remarc/images.
@@ -343,6 +353,7 @@ public final class SettingsManager: ObservableObject {
             self.normalizeWhitespace = true
         }
         self.copyScreenshotToClipboard = defaults.bool(forKey: Keys.copyScreenshotToClipboard)
+        self.autoAnnotateOnScreenshot = Self.readAutoAnnotateOnScreenshot(from: defaults)
         self.screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectoryPath) ?? ""
 
         // Migration: old Bool deleteResolvedComments → new enum resolvedCommentDeletion

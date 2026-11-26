@@ -88,14 +88,55 @@ public final class ScreenCaptureCoordinator {
 
     init(composer: @escaping () -> any ScreenshotComposer) { resolveComposer = composer }
 
+    enum DismissalOrigin: Equatable {
+        case composer
+        case canvas
+        case toolbar
+    }
+
+    enum AnnotationDismissalAction: Equatable {
+        case resolveTextEdit
+        case hideDiscardControls
+        case focusCanvasFromToolbar
+        case showDiscardControls
+        case exitToSelection
+        case passThroughToComposer
+    }
+
+    static func dismissalAction(
+        origin: DismissalOrigin,
+        hasActiveTextEdit: Bool,
+        showsDiscardControls: Bool,
+        isToolbarKey: Bool,
+        isDirty: Bool
+    ) -> AnnotationDismissalAction {
+        if hasActiveTextEdit { return .resolveTextEdit }
+        if showsDiscardControls { return .hideDiscardControls }
+        if origin == .toolbar || isToolbarKey { return .focusCanvasFromToolbar }
+        if isDirty { return .showDiscardControls }
+        switch origin {
+        case .composer:
+            return .passThroughToComposer
+        case .canvas, .toolbar:
+            return .exitToSelection
+        }
+    }
+
     var isAnnotating: Bool { annotationSession != nil }
     var hasActiveCapture: Bool { captureIsLive || overlayPanel != nil || annotationSession != nil }
 
-    var annotationCanvasHasCopyFocus: Bool {
-        guard let canvas = selectionView?.annotationCanvas else { return false }
-        return canvas.window?.isKeyWindow == true
-            && canvas.window?.firstResponder === canvas
-            && !canvas.hasActiveTextEdit
+    var hasAnnotationCopyFocus: Bool {
+        if let canvas = selectionView?.annotationCanvas {
+            if canvas.hasActiveTextEdit { return false }
+            if canvas.window?.isKeyWindow == true && canvas.window?.firstResponder === canvas {
+                return true
+            }
+            if toolbarController.isVisible && toolbarController.isKeyWindow {
+                return true
+            }
+            return false
+        }
+        return overlayPanel?.isKeyWindow == true
     }
 
     // MARK: - Public API
@@ -235,6 +276,7 @@ public final class ScreenCaptureCoordinator {
 
     private func dismissOverlay() {
         removeEscapeMonitor()
+        composer.onPanelLayoutReady = nil
         teardownAnnotation()
         entryPillController.teardown()
         overlayPanel?.orderOut(nil)
@@ -283,7 +325,28 @@ public final class ScreenCaptureCoordinator {
         // Convert from overlay-local to screen-global coordinates
         let screenRect = selectionRect.offsetBy(dx: screenFrame.origin.x, dy: screenFrame.origin.y)
         callback?(screenRect, sourceBundleID)
-        showEntryPill(selectionScreenRect: screenRect, screen: screen)
+        if SettingsManager.shared.autoAnnotateOnScreenshot {
+            scheduleAutoAnnotation(selectionScreenRect: screenRect, screen: screen)
+        } else {
+            showEntryPill(selectionScreenRect: screenRect, screen: screen)
+        }
+    }
+
+    private func scheduleAutoAnnotation(selectionScreenRect rect: CGRect, screen: NSScreen) {
+        if composer.panelLayoutReady {
+            attemptAutoAnnotation(selectionScreenRect: rect, screen: screen)
+        } else {
+            composer.onPanelLayoutReady = { [weak self] in
+                self?.attemptAutoAnnotation(selectionScreenRect: rect, screen: screen)
+            }
+        }
+    }
+
+    private func attemptAutoAnnotation(selectionScreenRect rect: CGRect, screen: NSScreen) {
+        guard annotationSession == nil, pendingSelectionLocal != nil else { return }
+        if !beginAnnotation(autoEntered: true) {
+            showEntryPill(selectionScreenRect: rect, screen: screen)
+        }
     }
 
     /// The Annotate pill, docked opposite the comment panel.
@@ -476,7 +539,7 @@ public final class ScreenCaptureCoordinator {
     /// grab ignores the overlay entirely, so the frozen bitmap is the undimmed
     /// content the user will actually capture.
     @discardableResult
-    func beginAnnotation() -> Bool {
+    func beginAnnotation(autoEntered: Bool = false) -> Bool {
         guard annotationSession == nil,
               let quartzRect = pendingQuartzRect,
               let selection = pendingSelectionLocal,
@@ -512,39 +575,49 @@ public final class ScreenCaptureCoordinator {
         // Stage, computed in the same synchronous pass as the mode transition, so
         // there is no stable "before" frame the enlargement contradicts.
         resolveStage(selection: selection, screen: screen)
-        let zoom = AnnotationStageGeometry.autoZoom(
-            selection: selection.size, maxZoom: stageMaxZoom,
-            comfortEdge: AnnotationStageGeometry.comfortEdgeDefault)
+        let zoom = autoEntered
+            ? 1
+            : AnnotationStageGeometry.autoZoom(
+                selection: selection.size, maxZoom: stageMaxZoom,
+                comfortEdge: AnnotationStageGeometry.comfortEdgeDefault)
         let resolved = displayRect(for: selection, requestedZoom: zoom)
         stageEffectiveZoom = resolved.effectiveZoom
         stageDisplayRectLocal = resolved.rect
 
         regionView.installAnnotationCanvas(canvas, selection: selection,
                                            displayRect: resolved.rect,
-                                           startFrame: selection,
+                                           startFrame: autoEntered ? resolved.rect : selection,
                                            zoom: resolved.effectiveZoom)
         composer.beginAnnotationAnchoring(
             displayRectScreen: resolved.rect.offsetBy(dx: screenFrame.origin.x,
                                                       dy: screenFrame.origin.y))
 
-        animateStage(to: resolved.rect, zoom: resolved.effectiveZoom, duration: 0.18) {
-            [weak self] in
-            guard let self, let canvas = self.selectionView?.annotationCanvas else { return }
-            // The overlay has to become KEY, not just first responder. The comment
-            // panel sits a level above at .screenSaver + 1 and holds key status, so
-            // making the canvas first responder in a non-key window left every tool
-            // shortcut going to the comment text view - measured: pressing T then
-            // typing produced the comment "thello" and no text annotation at all.
-            //
-            // Clicking the comment field hands focus back, which is how a user
-            // types their comment; the two surfaces simply take turns.
-            self.overlayPanel?.makeKeyAndOrderFront(nil)
-            canvas.window?.makeFirstResponder(canvas)
+        if autoEntered {
+            // Keep focus in the comment input box and stay at 1x without an
+            // entrance animation, so typing and direct canvas drawing both work
+            // immediately.
+            regionView.updateAnnotationStage(displayRect: resolved.rect,
+                                             zoom: resolved.effectiveZoom)
+        } else {
+            animateStage(to: resolved.rect, zoom: resolved.effectiveZoom, duration: 0.18) {
+                [weak self] in
+                guard let self, let canvas = self.selectionView?.annotationCanvas else { return }
+                // The overlay has to become KEY, not just first responder. The comment
+                // panel sits a level above at .screenSaver + 1 and holds key status, so
+                // making the canvas first responder in a non-key window left every tool
+                // shortcut going to the comment text view - measured: pressing T then
+                // typing produced the comment "thello" and no text annotation at all.
+                //
+                // Clicking the comment field hands focus back, which is how a user
+                // types their comment; the two surfaces simply take turns.
+                self.overlayPanel?.makeKeyAndOrderFront(nil)
+                canvas.window?.makeFirstResponder(canvas)
+            }
         }
 
         entryPillController.hide()
         showToolbar()
-        debugLog("ScreenCaptureService: Annotation began, \(Int(session.pixelSize.width))x\(Int(session.pixelSize.height)) px, z=\(resolved.effectiveZoom)")
+        debugLog("ScreenCaptureService: Annotation began (auto=\(autoEntered)), \(Int(session.pixelSize.width))x\(Int(session.pixelSize.height)) px, z=\(resolved.effectiveZoom)")
         return true
     }
 
@@ -645,6 +718,10 @@ public final class ScreenCaptureCoordinator {
         toolbarController.onZoomStep = { [weak self] in self?.stepZoom($0) }
         // Done KEEPS the marks. Discard is the only thing that drops them.
         toolbarController.onDone = { [weak self] in self?.finishAnnotating() }
+        toolbarController.onAdjustSelection = { [weak self] in
+            guard let self, self.annotationSession?.isDirty == false else { return }
+            self.exitAnnotation(discardingItems: false)
+        }
         toolbarController.onRequestDiscard = { [weak self] in
             self?.showsDiscardControls = true
             self?.refreshToolbar()
@@ -699,41 +776,46 @@ public final class ScreenCaptureCoordinator {
     // MARK: - Dismissal coordination
 
     /// Resolves exactly ONE layer per invocation and stops.
-    func resolveDismissal(intent: DismissalIntent) -> Bool {
+    func resolveDismissal(intent: DismissalIntent, origin: DismissalOrigin = .composer) -> Bool {
         guard let session = annotationSession else { return false }
         let canvas = selectionView?.annotationCanvas
+        let action = Self.dismissalAction(
+            origin: origin,
+            hasActiveTextEdit: canvas?.hasActiveTextEdit == true,
+            showsDiscardControls: showsDiscardControls,
+            isToolbarKey: toolbarController.isVisible && toolbarController.isKeyWindow,
+            isDirty: session.isDirty
+        )
 
-        // 1. An inline text edit consumes the event and returns focus to the canvas.
-        if canvas?.hasActiveTextEdit == true {
+        switch action {
+        case .resolveTextEdit:
             _ = canvas?.resolveTextEdit(for: intent)
             return true
-        }
-        // 2. Toolbar focus returns to the canvas.
-        if toolbarController.isVisible, let canvas, canvas.window?.firstResponder !== canvas {
-            canvas.window?.makeFirstResponder(canvas)
-            canvas.window?.makeKeyAndOrderFront(nil)
-            return true
-        }
-        // 3. A dirty session reveals the discard controls.
-        if session.isDirty && !showsDiscardControls {
-            showsDiscardControls = true
-            refreshToolbar()
-            return true
-        }
-        // 4. Discard controls showing: hide them, stay in annotation.
-        if showsDiscardControls {
+        case .hideDiscardControls:
             showsDiscardControls = false
             refreshToolbar()
             return true
+        case .focusCanvasFromToolbar:
+            if let canvas {
+                overlayPanel?.makeKeyAndOrderFront(nil)
+                canvas.window?.makeFirstResponder(canvas)
+            }
+            return true
+        case .showDiscardControls:
+            showsDiscardControls = true
+            entryPillController.hide()
+            showToolbar()
+            return true
+        case .exitToSelection:
+            exitAnnotation(discardingItems: false)
+            return true
+        case .passThroughToComposer:
+            return false
         }
-        // Nothing of ours left. A clean session has nothing to lose, so it exits
-        // fully; a session with marks only leaves editing mode.
-        if session.isDirty { finishAnnotating() } else { exitAnnotation(discardingItems: false) }
-        return true
     }
 
-    private func handleCanvasEscape() { _ = resolveDismissal(intent: .escape) }
-    private func handleToolbarEscape() { _ = resolveDismissal(intent: .escape) }
+    private func handleCanvasEscape() { _ = resolveDismissal(intent: .escape, origin: .canvas) }
+    private func handleToolbarEscape() { _ = resolveDismissal(intent: .escape, origin: .toolbar) }
 
     /// Finish editing but KEEP the marks.
     ///
@@ -782,10 +864,10 @@ public final class ScreenCaptureCoordinator {
         showsDiscardControls = false
         toolbarController.orderOut()
 
-        animateStage(to: selection, zoom: 1, duration: 0.14) { [weak self] in
+        let finishExit = { [weak self] in
             guard let self else { return }
             self.teardownAnnotation()
-            composer.endAnnotationAnchoring()
+            self.composer.endAnnotationAnchoring()
             if let screen = self.overlayScreen, let screenFrame = self.overlayScreenFrame {
                 self.showEntryPill(
                     selectionScreenRect: selection.offsetBy(dx: screenFrame.origin.x,
@@ -793,11 +875,16 @@ public final class ScreenCaptureCoordinator {
                     screen: screen)
             }
             if let screenFrame = self.overlayScreenFrame {
-                composer.repositionForScreenshot(
+                self.composer.repositionForScreenshot(
                     captureRect: selection.offsetBy(dx: screenFrame.origin.x,
                                                     dy: screenFrame.origin.y),
                     restoreFocus: true)
             }
+        }
+        if stageEffectiveZoom > 1 {
+            animateStage(to: selection, zoom: 1, duration: 0.14, completion: finishExit)
+        } else {
+            finishExit()
         }
         _ = discardingItems
     }

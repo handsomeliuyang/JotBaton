@@ -240,6 +240,28 @@ public final class AnnotationCanvasNSView: NSView {
         addCursorRect(bounds, cursor: session?.tool == .select ? .arrow : .crosshair)
     }
 
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas {
+            removeTrackingArea(area)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.cursorUpdate, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+    }
+
+    public override func cursorUpdate(with event: NSEvent) {
+        guard isInputEnabled else {
+            super.cursorUpdate(with: event)
+            return
+        }
+        (session?.tool == .select ? NSCursor.arrow : NSCursor.crosshair).set()
+    }
+
     public override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         // The interpolation measurement, the chrome metrics, and the composite's
@@ -273,6 +295,10 @@ public final class AnnotationCanvasNSView: NSView {
 
     public override func mouseDown(with event: NSEvent) {
         guard isInputEnabled, let session, !session.isFrozen else { return }
+        // Make the overlay key without changing window z-order so tool shortcuts,
+        // Cmd+Z, and inline text typing route to the canvas after a click when
+        // auto-enter left initial focus in the comment box.
+        window?.makeKey()
         window?.makeFirstResponder(self)
         // A click while typing commits what is there, then acts normally.
         commitTypedText()

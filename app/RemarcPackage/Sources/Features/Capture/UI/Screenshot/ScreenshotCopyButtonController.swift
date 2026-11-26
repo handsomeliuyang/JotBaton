@@ -2,23 +2,35 @@ import CoreLocalization
 import CorePlatform
 import CoreTheme
 import AppKit
+import Combine
 import SwiftUI
 
 enum ScreenshotCopyButtonGeometry {
-    static let size = CGSize(width: 30, height: 30)
+    static let height: CGFloat = 28
+    static let minWidth: CGFloat = 96
+    static let fallbackSize = CGSize(width: 124, height: height)
 
-    static func frame(for parent: CGRect, visibleFrame: CGRect) -> CGRect {
+    static func frame(for parent: CGRect, size: CGSize = fallbackSize, visibleFrame: CGRect) -> CGRect {
         let inset: CGFloat = 4
         let gap: CGFloat = 8
-        let x = min(max(parent.maxX - size.width, visibleFrame.minX + inset),
-                    visibleFrame.maxX - size.width - inset)
+        let maxWidth = max(visibleFrame.width - inset * 2, minWidth)
+        let resolvedSize = CGSize(
+            width: min(max(ceil(size.width), minWidth), maxWidth),
+            height: max(ceil(size.height), height)
+        )
+        let x = min(max(parent.maxX - resolvedSize.width, visibleFrame.minX + inset),
+                    visibleFrame.maxX - resolvedSize.width - inset)
         let above = parent.maxY + gap
-        let y = above + size.height <= visibleFrame.maxY - inset
-            ? above : parent.minY - gap - size.height
+        let y = above + resolvedSize.height <= visibleFrame.maxY - inset
+            ? above : parent.minY - gap - resolvedSize.height
         return CGRect(x: x, y: min(max(y, visibleFrame.minY + inset),
-                                  visibleFrame.maxY - size.height - inset),
-                      width: size.width, height: size.height)
+                                  visibleFrame.maxY - resolvedSize.height - inset),
+                      width: resolvedSize.width, height: resolvedSize.height)
     }
+}
+
+private final class CopyButtonHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// A child panel keeps the image-only action outside the comment layout and
@@ -26,15 +38,17 @@ enum ScreenshotCopyButtonGeometry {
 @MainActor
 final class ScreenshotCopyButtonController {
     private var panel: NSPanel?
+    private var hosting: CopyButtonHostingView<ScreenshotCopyButton>?
     private weak var parent: NSPanel?
     private var observers: [NSObjectProtocol] = []
+    private var cancellables: Set<AnyCancellable> = []
 
     func show(for parent: NSPanel, controller: CommentInputController) {
         if self.parent !== parent || panel == nil {
             teardown()
             self.parent = parent
             let panel = NSPanel(
-                contentRect: CGRect(origin: .zero, size: ScreenshotCopyButtonGeometry.size),
+                contentRect: CGRect(origin: .zero, size: ScreenshotCopyButtonGeometry.fallbackSize),
                 styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             panel.isOpaque = false
             panel.backgroundColor = .clear
@@ -47,10 +61,10 @@ final class ScreenshotCopyButtonController {
             material.blendingMode = .behindWindow
             material.state = .active
             material.wantsLayer = true
-            material.layer?.cornerRadius = 7
+            material.layer?.cornerRadius = ScreenshotCopyButtonGeometry.height / 2
             material.layer?.masksToBounds = true
             panel.contentView = material
-            let hosting = NSHostingView(rootView: ScreenshotCopyButton(controller: controller))
+            let hosting = CopyButtonHostingView(rootView: ScreenshotCopyButton(controller: controller))
             hosting.translatesAutoresizingMaskIntoConstraints = false
             material.addSubview(hosting)
             NSLayoutConstraint.activate([
@@ -60,6 +74,7 @@ final class ScreenshotCopyButtonController {
                 hosting.bottomAnchor.constraint(equalTo: material.bottomAnchor),
             ])
             self.panel = panel
+            self.hosting = hosting
             parent.addChildWindow(panel, ordered: .above)
             for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
                 observers.append(NotificationCenter.default.addObserver(
@@ -68,6 +83,12 @@ final class ScreenshotCopyButtonController {
                     Task { @MainActor in self?.reposition() }
                 })
             }
+            LocalizationManager.shared.$language
+                .dropFirst()
+                .sink { [weak self] _ in
+                    Task { @MainActor in self?.reposition() }
+                }
+                .store(in: &cancellables)
         }
         reposition()
         panel?.orderFrontRegardless()
@@ -78,18 +99,28 @@ final class ScreenshotCopyButtonController {
               let screen = parent.screen ?? NSScreen.screens.first(where: {
                   $0.frame.contains(NSPoint(x: parent.frame.midX, y: parent.frame.midY))
               }) else { return }
-        panel.setFrame(ScreenshotCopyButtonGeometry.frame(
-            for: parent.frame, visibleFrame: screen.visibleFrame), display: true)
+        hosting?.layoutSubtreeIfNeeded()
+        let fitting = hosting?.fittingSize ?? ScreenshotCopyButtonGeometry.fallbackSize
+        let frame = ScreenshotCopyButtonGeometry.frame(
+            for: parent.frame,
+            size: CGSize(width: fitting.width, height: ScreenshotCopyButtonGeometry.height),
+            visibleFrame: screen.visibleFrame
+        )
+        panel.contentView?.layer?.cornerRadius = frame.height / 2
+        panel.setFrame(frame, display: true)
+        panel.invalidateShadow()
     }
 
     func hide() { panel?.orderOut(nil) }
 
     func teardown() {
+        cancellables.removeAll()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers.removeAll()
         if let panel { parent?.removeChildWindow(panel) }
         panel?.orderOut(nil)
         panel?.contentView = nil
+        hosting = nil
         panel = nil
         parent = nil
     }
@@ -101,29 +132,63 @@ private struct ScreenshotCopyButton: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
 
+    private var hasError: Bool { controller.screenshotCopyError != nil }
+
     var body: some View {
         Button(action: { controller.copyScreenshot() }) {
-            Group {
+            HStack(spacing: 5) {
                 if controller.captureTransaction == .copying {
-                    ProgressView().controlSize(.small)
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.75)
+                        .frame(width: 13, height: 13)
                 } else {
-                    Image(systemName: controller.screenshotCopyError == nil
-                          ? "doc.on.doc" : "exclamationmark.circle")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(controller.screenshotCopyError == nil
-                            ? Color.remarcPrimary(for: colorScheme)
-                            : Color.remarcError(for: colorScheme))
+                    Image(systemName: hasError ? "exclamationmark.circle" : "doc.on.doc")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(hasError
+                            ? Color.remarcError(for: colorScheme)
+                            : Color.remarcPrimary(for: colorScheme))
                 }
+                Text(L10n.tr("Copy Image Only"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(hasError
+                        ? Color.remarcError(for: colorScheme)
+                        : Color.primary.opacity(isHovered ? 0.95 : 0.85))
+                    .fixedSize()
+                Text("⌘C")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Color.secondary.opacity(0.85))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.primary.opacity(colorScheme == .dark ? 0.1 : 0.06))
+                    )
+                    .fixedSize()
             }
-            .frame(width: 30, height: 30)
-            .background(Color.remarcPrimary(for: colorScheme).opacity(isHovered ? 0.15 : 0.05))
-            .contentShape(Rectangle())
+            .padding(.horizontal, 10)
+            .frame(height: ScreenshotCopyButtonGeometry.height)
+            .background(
+                Capsule()
+                    .fill(Color.remarcPrimary(for: colorScheme).opacity(isHovered ? 0.14 : 0.05))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(
+                        hasError
+                            ? Color.remarcError(for: colorScheme).opacity(0.45)
+                            : Color.primary.opacity(isHovered ? 0.2 : 0.12),
+                        lineWidth: 0.75
+                    )
+            )
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .disabled(controller.captureTransaction != .idle)
         .onHover { isHovered = $0 }
-        .help(controller.screenshotCopyError ?? L10n.tr("Copy Image"))
-        .accessibilityLabel(AppIdentity.current.displayName + " · " + L10n.tr("Copy Image"))
+        .help(controller.screenshotCopyError
+              ?? L10n.tr("Copy the screenshot and annotations without saving a comment"))
+        .accessibilityLabel(AppIdentity.current.displayName + " · " + L10n.tr("Copy Image Only"))
         .accessibilityValue(controller.screenshotCopyError ?? "")
         .accessibilityIdentifier("remarc.screenshot.copyImageButton")
     }

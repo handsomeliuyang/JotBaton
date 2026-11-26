@@ -59,7 +59,11 @@ extension PreferencesView {
                 Divider()
 
                 VStack(alignment: .leading, spacing: Self.itemSpacing) {
-                    sectionHeader(L10n.tr("Screenshots"), description: L10n.tr("Where captured images are stored."))
+                    sectionHeader(L10n.tr("Screenshots"), description: L10n.tr("Capture behavior and where images are stored."))
+
+                    describedRow(L10n.tr("Enter annotation mode automatically after selecting a region, while keeping focus in the comment box.")) {
+                        toggleRow(L10n.tr("Auto-annotate screenshots"), isOn: $settings.autoAnnotateOnScreenshot)
+                    }
 
                     VStack(alignment: .leading, spacing: SettingsMetrics.descriptionSpacing) {
                         settingsRow(L10n.tr("Storage folder")) {

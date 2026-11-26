@@ -188,11 +188,13 @@ package struct AnnotationToolbarView: View {
     package init(session: AnnotationSession, zoomState: ZoomState?, showsDiscardControls: Bool,
                  onZoomStep: @escaping (Int) -> Void = { _ in }, onUndo: @escaping () -> Void = {},
                  onRedo: @escaping () -> Void = {}, onDone: @escaping () -> Void = {}, onApply: (() -> Void)? = nil,
+                 onAdjustSelection: (() -> Void)? = nil,
                  onRequestDiscard: @escaping () -> Void = {}, onConfirmDiscard: @escaping () -> Void = {},
                  onCancelDiscard: @escaping () -> Void = {}) {
         self.session = session; self.zoomState = zoomState; self.showsDiscardControls = showsDiscardControls
         self.onZoomStep = onZoomStep; self.onUndo = onUndo; self.onRedo = onRedo; self.onDone = onDone
-        self.onApply = onApply; self.onRequestDiscard = onRequestDiscard
+        self.onApply = onApply; self.onAdjustSelection = onAdjustSelection
+        self.onRequestDiscard = onRequestDiscard
         self.onConfirmDiscard = onConfirmDiscard; self.onCancelDiscard = onCancelDiscard
     }
     @ObservedObject private var localization = LocalizationManager.shared
@@ -215,6 +217,8 @@ package struct AnnotationToolbarView: View {
     /// panel. The capture path carries its marks forward into the comment being
     /// composed and has no Apply step, so it keeps the plain Done control.
     package var onApply: (() -> Void)?
+    /// Return from capture-time annotation to live region resizing while clean.
+    package var onAdjustSelection: (() -> Void)?
     package var onRequestDiscard: () -> Void = {}
     package var onConfirmDiscard: () -> Void = {}
     package var onCancelDiscard: () -> Void = {}
@@ -351,6 +355,11 @@ package struct AnnotationToolbarView: View {
         // The saved-image preview has its own Apply and Discard header.
         if onApply == nil {
             divider
+            if let onAdjustSelection {
+                AnnotationToolButton(systemImage: "crop", label: L10n.tr("Adjust selection"),
+                                     shortcut: nil, isEnabled: !session.isDirty,
+                                     action: onAdjustSelection)
+            }
             AnnotationToolButton(systemImage: "trash", label: L10n.tr("Discard annotations"),
                                  shortcut: nil, isEnabled: session.isDirty,
                                  action: onRequestDiscard)

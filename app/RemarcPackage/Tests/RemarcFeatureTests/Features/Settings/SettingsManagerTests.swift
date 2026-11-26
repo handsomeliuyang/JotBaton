@@ -28,4 +28,18 @@ final class SettingsManagerTests: XCTestCase {
             .flatMap(MenuBarIndicatorStyle.init(rawValue:)) ?? .count
         XCTAssertEqual(style, .count)
     }
+
+    // MARK: - Screenshot annotation
+
+    func testAutoAnnotateOnScreenshotDefaultsToEnabledAndHonorsExplicitValue() {
+        let suiteName = "remarc.settings-tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertTrue(SettingsManager.readAutoAnnotateOnScreenshot(from: defaults))
+        defaults.set(false, forKey: "autoAnnotateOnScreenshot")
+        XCTAssertFalse(SettingsManager.readAutoAnnotateOnScreenshot(from: defaults))
+        defaults.set(true, forKey: "autoAnnotateOnScreenshot")
+        XCTAssertTrue(SettingsManager.readAutoAnnotateOnScreenshot(from: defaults))
+    }
 }
