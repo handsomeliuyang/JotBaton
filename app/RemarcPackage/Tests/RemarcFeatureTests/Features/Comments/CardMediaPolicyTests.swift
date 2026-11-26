@@ -6,8 +6,8 @@ import Testing
 struct CardMediaPolicyTests {
     private let sessionID = UUID()
 
-    private func makeComment(type: CommentType, attachments: [String] = []) -> Comment {
-        Comment(
+    private func makeComment(type: CommentType, attachments: [String] = []) -> FeatureComments.Comment {
+        .init(
             type: type,
             commentText: "Note",
             source: "Test",
@@ -19,7 +19,7 @@ struct CardMediaPolicyTests {
 
     @Test("screenshot only uses screenshot path with zero extra images")
     func screenshotOnly() {
-        let comment = makeComment(type: .screenshot("shot.png"))
+        let comment = makeComment(type: .screenshot(imagePath: "shot.png"))
         let media = CardMediaPolicy.leadImage(for: comment)
         #expect(media == CardMediaPolicy.LeadMedia(imagePath: "shot.png", extraImageCount: 0))
     }
@@ -29,13 +29,13 @@ struct CardMediaPolicyTests {
         let single = makeComment(type: .quickNote, attachments: ["a.png"])
         #expect(CardMediaPolicy.leadImage(for: single) == .init(imagePath: "a.png", extraImageCount: 0))
 
-        let multiple = makeComment(type: .comment("quoted"), attachments: ["a.png", "b.png", "c.png"])
+        let multiple = makeComment(type: .comment(text: "quoted"), attachments: ["a.png", "b.png", "c.png"])
         #expect(CardMediaPolicy.leadImage(for: multiple) == .init(imagePath: "a.png", extraImageCount: 2))
     }
 
     @Test("screenshot with attachments leads with screenshot and counts all attachments as extra")
     func screenshotAndAttachments() {
-        let comment = makeComment(type: .screenshot("shot.png"), attachments: ["a.png", "b.png"])
+        let comment = makeComment(type: .screenshot(imagePath: "shot.png"), attachments: ["a.png", "b.png"])
         let media = CardMediaPolicy.leadImage(for: comment)
         #expect(media == CardMediaPolicy.LeadMedia(imagePath: "shot.png", extraImageCount: 2))
     }
@@ -43,7 +43,7 @@ struct CardMediaPolicyTests {
     @Test("comments without screenshot or attachments return nil")
     func noImages() {
         #expect(CardMediaPolicy.leadImage(for: makeComment(type: .quickNote)) == nil)
-        #expect(CardMediaPolicy.leadImage(for: makeComment(type: .comment("quoted"))) == nil)
-        #expect(CardMediaPolicy.leadImage(for: makeComment(type: .webElement(name: "Button", path: "App > Button"))) == nil)
+        #expect(CardMediaPolicy.leadImage(for: makeComment(type: .comment(text: "quoted"))) == nil)
+        #expect(CardMediaPolicy.leadImage(for: makeComment(type: .webElement(componentName: "Button", filePath: "App > Button"))) == nil)
     }
 }
