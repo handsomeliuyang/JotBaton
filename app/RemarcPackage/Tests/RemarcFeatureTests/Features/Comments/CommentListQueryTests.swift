@@ -41,6 +41,14 @@ struct CommentListQueryTests {
         #expect(counts.values.reduce(0, +) == 4)
     }
 
+    @Test("Filter display order follows workflow without altering persisted enum order")
+    func statusDisplayOrder() {
+        let order = CommentStatusFilter.displayOrder
+        #expect(order == [.open, .inProgress, .reusable, .deferred])
+        #expect(order.count == CommentStatusFilter.allCases.count)
+        #expect(Set(order) == Set(CommentStatusFilter.allCases))
+    }
+
     @Test("Chips combine; selecting none shows every status")
     func multiSelectFilter() {
         let items = [comment("o", status: .open), comment("h", status: .reusable),

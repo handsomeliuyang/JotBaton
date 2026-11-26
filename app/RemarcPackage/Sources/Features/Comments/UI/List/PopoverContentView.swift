@@ -246,7 +246,7 @@ struct PopoverContentView: View {
     private func normalHeader(counts: [CommentStatusFilter: Int]) -> some View {
         HStack(spacing: 8) {
             HStack(spacing: 2) {
-                ForEach(CommentStatusFilter.allCases, id: \.self) { filter in
+                ForEach(CommentStatusFilter.displayOrder, id: \.self) { filter in
                     StatusFilterChip(
                         filter: filter,
                         count: counts[filter] ?? 0,
@@ -608,7 +608,18 @@ struct PopoverContentView: View {
     private var footer: some View {
         let comments = visibleActionComments
         let visibleActionsDisabled = sessionActionsDisabled || comments.isEmpty
+        let startCount = comments.filter { $0.status == .open }.count
         let inProgressTaskCount = comments.filter { $0.status == .inProgress }.count
+        let startBadgeCount = !showingHistory && startCount > 0 ? startCount : nil
+        let completeBadgeCount = !showingHistory && inProgressTaskCount > 0 ? inProgressTaskCount : nil
+        let startAccessibilityLabel = startCount > 0
+            ? L10n.tr("Copy and Start (\(startCount) open)")
+            : L10n.tr("Copy and Start")
+        let completeAccessibilityLabel = persistence.taskCompletionInFlight
+            ? L10n.tr("Updating tasks...")
+            : (inProgressTaskCount > 0
+               ? L10n.tr("Complete visible in-progress tasks (\(inProgressTaskCount))")
+               : L10n.tr("Complete in-progress tasks"))
         return HStack(spacing: 6) {
             primaryFooterButton(icon: "doc.on.doc", title: L10n.tr("Copy All")) {
                 copyAll()
@@ -617,18 +628,24 @@ struct PopoverContentView: View {
             .disabled(visibleActionsDisabled)
             .accessibilityIdentifier("remarc.footer.copyAll")
 
-            primaryFooterButton(icon: "play.fill", title: L10n.tr("Copy and Start"), prominent: true) {
+            primaryFooterButton(icon: "play.fill", title: startAccessibilityLabel,
+                                count: startBadgeCount, prominent: true) {
                 copyAllAndStartDevelopment()
             }
-            .help(L10n.tr("Copy visible Open, Reusable and In Progress comments; set Open to In Progress and keep comments"))
+            .help(startCount > 0
+                  ? L10n.tr("Copy visible Open, Reusable and In Progress comments; set \(startCount) Open to In Progress and keep comments")
+                  : L10n.tr("Copy visible Open, Reusable and In Progress comments; set Open to In Progress and keep comments"))
             .disabled(visibleActionsDisabled || !comments.contains { $0.status.canStartDevelopment })
             .accessibilityIdentifier("remarc.footer.copyAndStart")
 
-            primaryFooterButton(icon: "checkmark.circle", title: L10n.tr("Complete in-progress tasks"),
-                                isWorking: persistence.taskCompletionInFlight) {
+            primaryFooterButton(icon: "checkmark.circle", title: completeAccessibilityLabel,
+                                count: completeBadgeCount,
+                                isWorking: persistence.taskCompletionInFlight,
+                                tint: Color.remarcWarning(for: colorScheme)) {
                 let ids = Set(visibleActionComments.filter { $0.status == .inProgress }.map(\.id))
                 completeTasks(scope: .inProgress, commentIDs: ids)
             }
+            .padding(.leading, 6)
             .help(persistence.taskCompletionInFlight
                   ? L10n.tr("Updating tasks...")
                   : L10n.tr("Complete visible in-progress tasks (\(inProgressTaskCount))"))
@@ -1063,20 +1080,31 @@ struct PopoverContentView: View {
 
     /// Session actions share one neutral look; the single `prominent` action
     /// carries the brand fill so the footer has an obvious next step.
-    private func primaryFooterButton(icon: String, title: String, isWorking: Bool = false,
-                                     prominent: Bool = false,
+    private func primaryFooterButton(icon: String, title: String, count: Int? = nil,
+                                     isWorking: Bool = false, prominent: Bool = false,
+                                     tint: Color? = nil,
                                      action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Group {
                 if isWorking {
                     ProgressView().controlSize(.small)
+                } else if let count, count > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: icon)
+                        Text("\(count)")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 8)
                 } else {
                     Label(title, systemImage: icon)
                         .labelStyle(.iconOnly)
                 }
             }
         }
-        .buttonStyle(RemarcToolbarButtonStyle(prominent: prominent, isWorking: isWorking))
+        .buttonStyle(RemarcToolbarButtonStyle(prominent: prominent, isWorking: isWorking, tint: tint))
         .accessibilityLabel(title)
     }
 

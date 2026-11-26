@@ -11,6 +11,10 @@ public enum CommentStatusFilter: String, CaseIterable, Sendable {
     case inProgress
     case deferred
 
+    /// UI display order matching the left-to-right footer workflow (Start -> Complete).
+    /// Kept separate from `allCases` so persisted filter storage stays unchanged.
+    public static let displayOrder: [CommentStatusFilter] = [.open, .inProgress, .reusable, .deferred]
+
     public var title: String {
         switch self {
         case .open: return L10n.tr("Open")
