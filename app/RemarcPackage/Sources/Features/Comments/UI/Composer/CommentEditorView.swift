@@ -111,9 +111,11 @@ struct CommentEditorView: View {
                             attachments.append(path)
                         }
                     },
+                    lineSpacing: 3,
+                    showsVerticalScroller: true
                 )
                 .focused($isFocused)
-                .frame(minHeight: 30, maxHeight: 300)
+                .frame(minHeight: 30, maxHeight: 480)
                 .clipped()
 
                 // Footer

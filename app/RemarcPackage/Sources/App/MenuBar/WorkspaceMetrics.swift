@@ -11,7 +11,8 @@ public enum WorkspaceMetrics {
     public static let popoverMinHeight: CGFloat = 440
     public static let popoverHeight: CGFloat = 720
     public static let cardCornerRadius: CGFloat = 10
-    public static let editorWidth: CGFloat = 440
+    public static let editorDefaultWidth: CGFloat = 560
+    public static let editorMinWidth: CGFloat = 440
     public static let popoverArrowWidth: CGFloat = 20
     public static let popoverArrowHeight: CGFloat = 10
     public static let popoverGap: CGFloat = 7

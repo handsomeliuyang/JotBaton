@@ -28,8 +28,10 @@ public final class FloatingEditorController: ObservableObject {
     @Published public var targetSessionID: UUID?
     @Published public private(set) var saveFeedbackTrigger: Int = 0
     @Published public private(set) var validationFeedbackTrigger: Int = 0
+    @Published public private(set) var editorWidth: CGFloat = WorkspaceMetrics.editorDefaultWidth
     public var suppressClickOutside: Bool = false
 
+    private let userDefaults: UserDefaults
     private var panel: NSPanel?
     private var editorHostingView: NSHostingView<FloatingEditorWrapper>?
     private var dimOverlay: NSPanel?
@@ -42,6 +44,10 @@ public final class FloatingEditorController: ObservableObject {
     private var currentSaveAction: ((String, [String]) -> Bool)?
     private var currentSuccessMessage: String?
     private var presentationGeneration: UInt64 = 0
+
+    public init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
 
     public var currentPresentationGeneration: UInt64 { presentationGeneration }
 
@@ -262,8 +268,17 @@ public final class FloatingEditorController: ObservableObject {
         // Create dim overlay on top of the popover
         installDimOverlay(generation: generation)
 
+        // Load persisted width and clamp to the target screen's visible width
+        let targetScreen = NSScreen.bestScreen(for: getPopoverPanel())
+        let initialWidth = EditorWidthPolicy.loadWidth(
+            from: userDefaults,
+            visibleScreenWidth: targetScreen.visibleFrame.width
+        )
+        self.editorWidth = initialWidth
+
         // Create editor panel
         let wrapper = FloatingEditorWrapper(
+            controller: self,
             presentationGeneration: generation,
             initialText: initialText,
             initialAttachments: initialAttachments,
@@ -281,7 +296,7 @@ public final class FloatingEditorController: ObservableObject {
         )
 
         let panel = KeyableEditorPanel(
-            contentRect: NSRect(x: 0, y: 0, width: WorkspaceMetrics.editorWidth, height: 300),
+            contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: 300),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -306,9 +321,14 @@ public final class FloatingEditorController: ObservableObject {
         let hostingView = NSHostingView(rootView: wrapper)
         hostingView.sizingOptions = [.intrinsicContentSize]
 
-        // Measure ideal size first, then size the panel to fit
+        // Measure ideal size first, then size the panel to fit (capped to screen height)
         let fittingSize = hostingView.fittingSize
-        panel.setContentSize(fittingSize)
+        let initialHeight = EditorWidthPolicy.verticalFrame(
+            fittingHeight: fittingSize.height,
+            aroundMidY: targetScreen.visibleFrame.midY,
+            visibleScreenFrame: targetScreen.visibleFrame
+        ).height
+        panel.setContentSize(NSSize(width: initialWidth, height: initialHeight))
 
         // Pin with Auto Layout
         hostingView.translatesAutoresizingMaskIntoConstraints = false
@@ -318,6 +338,24 @@ public final class FloatingEditorController: ObservableObject {
             hostingView.leadingAnchor.constraint(equalTo: visualEffectView.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: visualEffectView.trailingAnchor),
             hostingView.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor),
+        ])
+
+        // Install leading and trailing edge resize handles above the hosting view
+        let handleWidth: CGFloat = 6
+        let leadingHandle = makeResizeHandle(edge: .leading, generation: generation)
+        let trailingHandle = makeResizeHandle(edge: .trailing, generation: generation)
+        visualEffectView.addSubview(leadingHandle)
+        visualEffectView.addSubview(trailingHandle)
+        NSLayoutConstraint.activate([
+            leadingHandle.topAnchor.constraint(equalTo: visualEffectView.topAnchor),
+            leadingHandle.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor),
+            leadingHandle.leadingAnchor.constraint(equalTo: visualEffectView.leadingAnchor),
+            leadingHandle.widthAnchor.constraint(equalToConstant: handleWidth),
+
+            trailingHandle.topAnchor.constraint(equalTo: visualEffectView.topAnchor),
+            trailingHandle.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor),
+            trailingHandle.trailingAnchor.constraint(equalTo: visualEffectView.trailingAnchor),
+            trailingHandle.widthAnchor.constraint(equalToConstant: handleWidth),
         ])
 
         self.editorHostingView = hostingView
@@ -438,22 +476,109 @@ public final class FloatingEditorController: ObservableObject {
         }
     }
 
-    private func resizePanelToFit() {
+    private func makeResizeHandle(edge: EditorResizeEdge, generation: UInt64) -> EdgeResizeHandleView {
+        let handle = EdgeResizeHandleView(edge: edge)
+        handle.onDragChanged = { [weak self] initialFrame, deltaX in
+            self?.handleResizeDrag(
+                edge: edge,
+                initialFrame: initialFrame,
+                deltaX: deltaX,
+                generation: generation
+            )
+        }
+        handle.onDragEnded = { [weak self] in
+            self?.handleResizeDragEnded(generation: generation)
+        }
+        handle.onDoubleClick = { [weak self] in
+            self?.handleResetWidthToDefault(generation: generation)
+        }
+        return handle
+    }
+
+    private func handleResizeDrag(
+        edge: EditorResizeEdge,
+        initialFrame: NSRect,
+        deltaX: CGFloat,
+        generation: UInt64
+    ) {
+        guard presentationGeneration == generation,
+              let panel,
+              let hostingView = editorHostingView else { return }
+
+        let screen = NSScreen.bestScreen(for: panel)
+        let horizontal = EditorWidthPolicy.resizedHorizontalFrame(
+            edge: edge,
+            initialFrame: initialFrame,
+            deltaX: deltaX,
+            visibleScreenFrame: screen.visibleFrame
+        )
+
+        if abs(editorWidth - horizontal.width) > 0.5 {
+            editorWidth = horizontal.width
+            hostingView.invalidateIntrinsicContentSize()
+            hostingView.layoutSubtreeIfNeeded()
+        }
+
+        resizePanelToFit(targetX: horizontal.x, animate: false)
+    }
+
+    private func handleResizeDragEnded(generation: UInt64) {
+        guard presentationGeneration == generation else { return }
+        EditorWidthPolicy.saveWidth(editorWidth, to: userDefaults)
+        // Perform one non-animated height check after the run loop settles in case
+        // SwiftUI completed an asynchronous text reflow pass on the final drag tick.
+        Task { @MainActor [weak self] in
+            guard let self, self.presentationGeneration == generation else { return }
+            self.editorHostingView?.layoutSubtreeIfNeeded()
+            self.resizePanelToFit(animate: false)
+        }
+    }
+
+    private func handleResetWidthToDefault(generation: UInt64) {
+        guard presentationGeneration == generation,
+              let panel,
+              let hostingView = editorHostingView else { return }
+
+        let screen = NSScreen.bestScreen(for: panel)
+        let horizontal = EditorWidthPolicy.centeredHorizontalFrame(
+            targetWidth: WorkspaceMetrics.editorDefaultWidth,
+            aroundMidX: panel.frame.midX,
+            visibleScreenFrame: screen.visibleFrame
+        )
+        editorWidth = horizontal.width
+        EditorWidthPolicy.saveWidth(horizontal.width, to: userDefaults)
+        hostingView.invalidateIntrinsicContentSize()
+        hostingView.layoutSubtreeIfNeeded()
+        resizePanelToFit(targetX: horizontal.x, animate: true)
+    }
+
+    private func resizePanelToFit(targetX: CGFloat? = nil, animate: Bool = true) {
         guard let panel = panel, let hostingView = editorHostingView else { return }
         let fittingSize = hostingView.fittingSize
         let currentFrame = panel.frame
-        guard abs(currentFrame.height - fittingSize.height) > 1 else { return }
-
-        // Keep the panel centered vertically around the same midpoint
-        let newY = currentFrame.midY - fittingSize.height / 2
+        let resolvedX = targetX ?? currentFrame.origin.x
+        let targetWidth = editorWidth
 
         let screen = NSScreen.bestScreen(for: panel)
-        let screenFrame = screen.visibleFrame
-        let clampedY = max(screenFrame.minY + 8, min(newY, screenFrame.maxY - fittingSize.height - 8))
+        let vertical = EditorWidthPolicy.verticalFrame(
+            fittingHeight: fittingSize.height,
+            aroundMidY: currentFrame.midY,
+            visibleScreenFrame: screen.visibleFrame
+        )
 
-        let newFrame = NSRect(x: currentFrame.origin.x, y: clampedY,
-                              width: currentFrame.width, height: fittingSize.height)
-        panel.setFrame(newFrame, display: true, animate: true)
+        let xChanged = abs(currentFrame.origin.x - resolvedX) > 0.5
+        let widthChanged = abs(currentFrame.width - targetWidth) > 0.5
+        let heightChanged = abs(currentFrame.height - vertical.height) > 1
+        let yChanged = abs(currentFrame.origin.y - vertical.y) > 1
+        guard xChanged || widthChanged || heightChanged || yChanged else { return }
+
+        let newFrame = NSRect(
+            x: resolvedX,
+            y: vertical.y,
+            width: targetWidth,
+            height: vertical.height
+        )
+        panel.setFrame(newFrame, display: true, animate: animate)
         panel.invalidateShadow()
     }
 
@@ -500,6 +625,7 @@ private class DimOverlayContentView: NSView {
 
 struct FloatingEditorWrapper: View {
     @ObservedObject private var localization = LocalizationManager.shared
+    @ObservedObject var controller: FloatingEditorController
     @State private var text: String
     @State private var attachments: [String]
 
@@ -510,7 +636,8 @@ struct FloatingEditorWrapper: View {
     let onSave: (String, [String]) -> Void
     let onCancel: () -> Void
 
-    init(presentationGeneration: UInt64, initialText: String, initialAttachments: [String], screenshotImagePath: String?, referenceText: String?, comment: Comment?, onSave: @escaping (String, [String]) -> Void, onCancel: @escaping () -> Void) {
+    init(controller: FloatingEditorController, presentationGeneration: UInt64, initialText: String, initialAttachments: [String], screenshotImagePath: String?, referenceText: String?, comment: Comment?, onSave: @escaping (String, [String]) -> Void, onCancel: @escaping () -> Void) {
+        self.controller = controller
         self.presentationGeneration = presentationGeneration
         _text = State(initialValue: initialText)
         _attachments = State(initialValue: initialAttachments)
@@ -532,16 +659,14 @@ struct FloatingEditorWrapper: View {
             onSave: onSave,
             onCancel: onCancel
         )
-        .frame(width: WorkspaceMetrics.editorWidth)
+        .frame(width: controller.editorWidth)
         // Material background and shadow provided by NSVisualEffectView + maskImage
         // in FloatingEditorController — no SwiftUI material backgrounds here.
         .onRemarcChange(of: text) { newValue in
-            let controller = FloatingEditorController.shared
             guard controller.isCurrentPresentation(presentationGeneration) else { return }
             controller.currentText = newValue
         }
         .onRemarcChange(of: attachments) { newValue in
-            let controller = FloatingEditorController.shared
             guard controller.isCurrentPresentation(presentationGeneration) else { return }
             controller.currentAttachments = newValue
         }

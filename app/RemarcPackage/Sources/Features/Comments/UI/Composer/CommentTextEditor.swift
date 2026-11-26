@@ -9,21 +9,35 @@ struct CommentTextEditor: NSViewRepresentable {
     var onCancel: () -> Void
     var onImagePaste: ((NSImage) -> Void)?
     var onContentHeightChange: ((CGFloat) -> Void)?
+    var lineSpacing: CGFloat = 0
+    var showsVerticalScroller: Bool = false
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onSubmit: onSubmit, onCancel: onCancel, onImagePaste: onImagePaste, onContentHeightChange: onContentHeightChange)
+        Coordinator(
+            text: $text,
+            onSubmit: onSubmit,
+            onCancel: onCancel,
+            onImagePaste: onImagePaste,
+            onContentHeightChange: onContentHeightChange,
+            lineSpacing: lineSpacing
+        )
     }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = false
+        scrollView.hasVerticalScroller = showsVerticalScroller
         scrollView.hasHorizontalScroller = false
+        if showsVerticalScroller {
+            scrollView.scrollerStyle = .overlay
+            scrollView.autohidesScrollers = true
+        }
         scrollView.borderType = .noBorder
 
         let textView = InterceptingTextView()
         textView.isRichText = false
         textView.allowsUndo = true
-        textView.font = NSFont.systemFont(ofSize: 13)
+        let font = NSFont.systemFont(ofSize: 13)
+        textView.font = font
         textView.textColor = NSColor.labelColor
         textView.backgroundColor = .clear
         textView.isVerticallyResizable = true
@@ -32,6 +46,8 @@ struct CommentTextEditor: NSViewRepresentable {
         textView.autoresizingMask = [.width]
         textView.delegate = context.coordinator
         textView.interceptDelegate = context.coordinator
+
+        applyTextStyleIfNeeded(to: textView, font: font)
 
         if let textContainer = textView.textContainer {
             textContainer.widthTracksTextView = true
@@ -53,12 +69,15 @@ struct CommentTextEditor: NSViewRepresentable {
             onSubmit: onSubmit,
             onCancel: onCancel,
             onImagePaste: onImagePaste,
-            onContentHeightChange: onContentHeightChange
+            onContentHeightChange: onContentHeightChange,
+            lineSpacing: lineSpacing
         )
 
-        guard let textView = scrollView.documentView as? NSTextView else { return }
+        guard let textView = scrollView.documentView as? InterceptingTextView else { return }
         if textView.string != text {
             textView.string = text
+            applyTextStyleIfNeeded(to: textView, font: textView.font ?? NSFont.systemFont(ofSize: 13))
+            textView.invalidateIntrinsicContentSize()
         }
     }
 
@@ -66,7 +85,7 @@ struct CommentTextEditor: NSViewRepresentable {
         guard let textView = nsView.documentView as? InterceptingTextView else { return nil }
         let width = proposal.width ?? nsView.frame.width
         guard width > 0 else { return nil }
-        let contentHeight = textView.textContentHeight
+        let contentHeight = textView.textContentHeight(forWidth: width)
         // Respect the proposed height so the NSScrollView is sized correctly
         // and enables scrolling when content exceeds the frame max.
         if let maxHeight = proposal.height, maxHeight < contentHeight {
@@ -75,19 +94,44 @@ struct CommentTextEditor: NSViewRepresentable {
         return CGSize(width: width, height: contentHeight)
     }
 
+    private func applyTextStyleIfNeeded(to textView: NSTextView, font: NSFont) {
+        guard lineSpacing > 0 else { return }
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacing
+        textView.defaultParagraphStyle = paragraphStyle
+        textView.typingAttributes = [
+            .font: font,
+            .foregroundColor: NSColor.labelColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        if let textStorage = textView.textStorage, textStorage.length > 0 {
+            let fullRange = NSRange(location: 0, length: textStorage.length)
+            textStorage.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+        }
+    }
+
     class Coordinator: NSObject, NSTextViewDelegate, InterceptingTextViewDelegate {
         var text: Binding<String>
         var onSubmit: () -> Void
         var onCancel: () -> Void
         var onImagePaste: ((NSImage) -> Void)?
         var onContentHeightChange: ((CGFloat) -> Void)?
+        var lineSpacing: CGFloat
 
-        init(text: Binding<String>, onSubmit: @escaping () -> Void, onCancel: @escaping () -> Void, onImagePaste: ((NSImage) -> Void)?, onContentHeightChange: ((CGFloat) -> Void)?) {
+        init(
+            text: Binding<String>,
+            onSubmit: @escaping () -> Void,
+            onCancel: @escaping () -> Void,
+            onImagePaste: ((NSImage) -> Void)?,
+            onContentHeightChange: ((CGFloat) -> Void)?,
+            lineSpacing: CGFloat = 0
+        ) {
             self.text = text
             self.onSubmit = onSubmit
             self.onCancel = onCancel
             self.onImagePaste = onImagePaste
             self.onContentHeightChange = onContentHeightChange
+            self.lineSpacing = lineSpacing
         }
 
         func update(
@@ -95,17 +139,29 @@ struct CommentTextEditor: NSViewRepresentable {
             onSubmit: @escaping () -> Void,
             onCancel: @escaping () -> Void,
             onImagePaste: ((NSImage) -> Void)?,
-            onContentHeightChange: ((CGFloat) -> Void)?
+            onContentHeightChange: ((CGFloat) -> Void)?,
+            lineSpacing: CGFloat = 0
         ) {
             self.text = text
             self.onSubmit = onSubmit
             self.onCancel = onCancel
             self.onImagePaste = onImagePaste
             self.onContentHeightChange = onContentHeightChange
+            self.lineSpacing = lineSpacing
         }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? InterceptingTextView else { return }
+            if lineSpacing > 0, textView.string.isEmpty {
+                let paragraphStyle = NSMutableParagraphStyle()
+                paragraphStyle.lineSpacing = lineSpacing
+                textView.defaultParagraphStyle = paragraphStyle
+                textView.typingAttributes = [
+                    .font: textView.font ?? NSFont.systemFont(ofSize: 13),
+                    .foregroundColor: NSColor.labelColor,
+                    .paragraphStyle: paragraphStyle
+                ]
+            }
             text.wrappedValue = textView.string
             textView.invalidateIntrinsicContentSize()
             onContentHeightChange?(textView.textContentHeight)
@@ -141,13 +197,40 @@ protocol InterceptingTextViewDelegate: AnyObject {
 class InterceptingTextView: NSTextView {
     weak var interceptDelegate: InterceptingTextViewDelegate?
 
+    /// Calculates the content height using TextKit layout for a specific available width,
+    /// including text container insets. Restores the text container's live sizing mode
+    /// afterwards so `widthTracksTextView` continues tracking resizes normally.
+    func textContentHeight(forWidth width: CGFloat) -> CGFloat {
+        guard let layoutManager = textContainer?.layoutManager,
+              let textContainer = textContainer else { return 22 }
+        let targetContainerWidth = max(width - textContainerInset.width * 2, 1)
+        let previousWidthTracks = textContainer.widthTracksTextView
+        let previousSize = textContainer.containerSize
+        let needsTemporarySize = abs(previousSize.width - targetContainerWidth) > 0.5
+            || previousSize.height < 10_000
+        if needsTemporarySize {
+            textContainer.widthTracksTextView = false
+            textContainer.containerSize = NSSize(
+                width: targetContainerWidth,
+                height: CGFloat.greatestFiniteMagnitude
+            )
+        }
+        layoutManager.ensureLayout(for: textContainer)
+        let usedRect = layoutManager.usedRect(for: textContainer)
+        if needsTemporarySize {
+            textContainer.containerSize = previousSize
+            textContainer.widthTracksTextView = previousWidthTracks
+        }
+        return max(ceil(usedRect.height) + textContainerInset.height * 2, 22)
+    }
+
     /// Calculates the content height using TextKit layout, including text container insets.
     var textContentHeight: CGFloat {
         guard let layoutManager = textContainer?.layoutManager,
               let textContainer = textContainer else { return 22 }
         layoutManager.ensureLayout(for: textContainer)
         let usedRect = layoutManager.usedRect(for: textContainer)
-        return max(usedRect.height + textContainerInset.height * 2, 22)
+        return max(ceil(usedRect.height) + textContainerInset.height * 2, 22)
     }
 
     override func resize(withOldSuperviewSize oldSize: NSSize) {
