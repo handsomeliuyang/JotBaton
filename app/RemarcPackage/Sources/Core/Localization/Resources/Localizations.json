@@ -835,6 +835,7 @@
   "Where captured images are stored.": "截图图片的存储位置。",
   "Works with Google Drive, Syncthing, Dropbox, OneDrive, or any folder synced between your Macs. Sync files are stored in its {0} folder.": "支持 Google Drive、Syncthing、Dropbox、OneDrive 或任意多设备同步文件夹。同步文件会保存在其中的 {0} 文件夹内。",
   "Works with Zapier, Make, n8n, IFTTT, Slack incoming webhooks, or any endpoint that accepts JSON.": "支持 Zapier、Make、n8n、IFTTT、Slack 传入 Webhook，以及其他接受 JSON 的服务地址。",
+  "Yesterday {0}": "昨天 {0}",
   "Your local tasks are kept. Retry, or copy the diagnostic details if the problem continues.": "本地任务已保留。请重试；若问题持续，可复制诊断信息。",
   "Zoom in": "放大",
   "Zoom out": "缩小",

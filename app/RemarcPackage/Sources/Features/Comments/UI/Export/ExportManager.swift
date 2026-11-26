@@ -85,9 +85,13 @@ public final class ExportManager {
     }
 
     /// Format a date according to the chosen format.
-    public func formatDate(_ date: Date, format: ExportDateFormat, includeTime: Bool = false, use24Hour: Bool = false, locale: Locale? = nil) -> String {
+    public func formatDate(_ date: Date, format: ExportDateFormat, includeTime: Bool = false, use24Hour: Bool = false, locale: Locale? = nil, calendar: Calendar? = nil) -> String {
         let formatter = DateFormatter()
         if let locale { formatter.locale = locale }
+        if let calendar {
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+        }
         switch format {
         case .short:
             if includeTime {
