@@ -2,6 +2,28 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.46 - 2026-11-26
+
+### 截图与标注
+
+- 框选后默认进入标注，光标保留在评论框，可在设置中关闭自动标注。新增「调整选区」，「仅复制图片」支持 ⌘C，并修复 Esc 和关闭按钮的响应。 [fdd3eeb](https://github.com/handsomeliuyang/JotBaton/commit/fdd3eeb4c56318440816c78aa6642b36ec3fe9d5)
+
+### 评论与会话
+
+- 评论卡片收紧布局，常用操作移至顶部。截图缩略图从顶部裁切，保留截图开头的内容。 [7814bb5](https://github.com/handsomeliuyang/JotBaton/commit/7814bb5298885e08ec609f9deb6696408130b2c3) [40887ff](https://github.com/handsomeliuyang/JotBaton/commit/40887ff89e5702d414e1831f6dea3cc11b59eb2d)
+- 可从卡片的「移动到…」按钮或右键菜单将评论移至其他会话。 [a0d7a41](https://github.com/handsomeliuyang/JotBaton/commit/a0d7a413857c146992655cd07dd43d0a2fd98271)
+- 浮动编辑器默认更宽，拖动窗口边缘即可调整宽度。 [77635e4](https://github.com/handsomeliuyang/JotBaton/commit/77635e4396a9258a9abf40d0c7e54b05cad9a5a3)
+- 「复制并开始」显示待处理条数，「完成」按钮使用强调色，状态筛选项顺序已统一。 [494bc1a](https://github.com/handsomeliuyang/JotBaton/commit/494bc1a0c12887802b2400aaac56034deaf79c57)
+- 来源应用名称省略 .app 后缀，评论时间按自然日区分今天和昨天。 [d4bc39a](https://github.com/handsomeliuyang/JotBaton/commit/d4bc39acfcf9a0a2e14b6f27f9547941096d8d78)
+
+### 测试修复
+
+- 修复评论卡片媒体测试中类型重名和参数标签造成的编译错误。 [40782a3](https://github.com/handsomeliuyang/JotBaton/commit/40782a3efe149540ed0c7fc112f91f0ea38d6e5d)
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.44...v1.2.46)
+
+<!-- remarc-release: {"base_tag": "v1.2.44", "build": "65", "source_sha": "40782a3efe149540ed0c7fc112f91f0ea38d6e5d"} -->
+
 ## 1.2.45 - 2026-11-26
 
 ### 截图与标注
