@@ -44,6 +44,18 @@ struct CommentCardView: View {
 
     private var isCollapsed: Bool { comment.status == .resolved && !isResolvedExpanded }
 
+    private var leadMedia: CardMediaPolicy.LeadMedia? {
+        CardMediaPolicy.leadImage(for: comment)
+    }
+
+    private var leadImagePath: String? {
+        leadMedia?.imagePath
+    }
+
+    private var extraImageCount: Int {
+        leadMedia?.extraImageCount ?? 0
+    }
+
     private var collapsedSummary: String {
         let fallback = comment.type.displayText == nil ? comment.type.displayName : comment.truncatedTypeLabel
         let text = comment.meaningfulCommentText ?? fallback
@@ -56,7 +68,8 @@ struct CommentCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             headerView
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.top, 7)
+                .padding(.bottom, 4)
 
             VStack(alignment: .leading, spacing: 8) {
                 if isCollapsed {
@@ -71,23 +84,29 @@ struct CommentCardView: View {
                             FloatingEditorController.shared.showForEdit(comment: comment)
                         }
                         .help(L10n.tr("Open details"))
+                } else if let imagePath = leadImagePath {
+                    HStack(alignment: .top, spacing: 10) {
+                        leadThumbnailView(imagePath: imagePath)
+                        VStack(alignment: .leading, spacing: 6) {
+                            contextBadges
+                            textReferenceView(quoteLineLimit: 2, trailingPadding: 0)
+                            if let commentText = comment.meaningfulCommentText {
+                                commentTextView(commentText, lineLimit: 4)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 } else {
                     contextBadges
-                    referenceView
-                    if !comment.attachments.isEmpty {
-                        AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 200)
-                            .padding(.leading, 8)
-                            .quoteBorder()
-                    }
+                    textReferenceView(quoteLineLimit: 2, trailingPadding: 12)
                     if let commentText = comment.meaningfulCommentText {
-                        commentTextView(commentText)
+                        commentTextView(commentText, lineLimit: 3)
                     }
                 }
-
-                metadataView
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.top, 4)
+            .padding(.bottom, 10)
         }
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
@@ -115,7 +134,7 @@ struct CommentCardView: View {
     // MARK: - Header
 
     private var headerView: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             if comment.status == .resolved {
                 Button {
                     isResolvedExpanded.toggle()
@@ -138,9 +157,16 @@ struct CommentCardView: View {
                 Spacer(minLength: 0)
             }
 
+            if showActions {
+                cardActions
+                    .fixedSize()
+                    .accessibilityHidden(!showActions)
+            }
+
             StatusDotView(comment: comment)
                 .fixedSize()
         }
+        .frame(minHeight: 22)
     }
 
     private var sourceMetadata: some View {
@@ -166,53 +192,75 @@ struct CommentCardView: View {
         }
     }
 
+    // MARK: - Media Thumbnail
+
+    private func leadThumbnailView(imagePath: String) -> some View {
+        ScreenshotThumbnailView(
+            imagePath: imagePath,
+            cardFrame: .init(width: 120, minHeight: 56, maxHeight: 90)
+        )
+        .overlay(alignment: .bottomTrailing) {
+            if extraImageCount > 0 {
+                Text("+\(extraImageCount)")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.black.opacity(0.68), in: Capsule())
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            ScreenshotPreviewController.shared.show(
+                imagePath: imagePath,
+                commentText: Comment.normalizedCommentText(comment.commentText)
+            )
+        }
+        .contextMenu {
+            imageContextMenu(for: imagePath)
+        }
+    }
+
+    @ViewBuilder
+    private func imageContextMenu(for imagePath: String) -> some View {
+        Button {
+            if let nsImage = loadScreenshotImage(imagePath) {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.writeObjects([nsImage])
+                ToastManager.shared.show(L10n.tr("Image copied"))
+            }
+        } label: {
+            Label(L10n.tr("Copy Image"), systemImage: "doc.on.doc")
+        }
+
+        Button {
+            saveScreenshotAs(imagePath: imagePath)
+        } label: {
+            Label(L10n.tr("Save Image As\u{2026}"), systemImage: "square.and.arrow.down")
+        }
+    }
+
     // MARK: - Reference Container
 
     @ViewBuilder
-    private var referenceView: some View {
+    private func textReferenceView(quoteLineLimit: Int, trailingPadding: CGFloat) -> some View {
         switch comment.type {
         case .comment(let text):
             TruncatingQuoteText(
                 text: highlighted("\u{201C}\(text.replacingOccurrences(of: "\n", with: " "))\u{201D}"),
-                accentColor: Color.remarcAccent(for: colorScheme)
+                accentColor: Color.remarcAccent(for: colorScheme),
+                lineLimit: quoteLineLimit
             )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 8)
-                .padding(.trailing, 12)
+                .padding(.trailing, trailingPadding)
                 .quoteBorder()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     FloatingEditorController.shared.showForEdit(comment: comment)
-                }
-
-        case .screenshot(let imagePath):
-            ScreenshotThumbnailView(imagePath: imagePath, maxWidth: 140)
-                .padding(.leading, 8)
-                .quoteBorder()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    ScreenshotPreviewController.shared.show(
-                        imagePath: imagePath,
-                        commentText: Comment.normalizedCommentText(comment.commentText)
-                    )
-                }
-                .contextMenu {
-                    Button {
-                        if let nsImage = loadScreenshotImage(imagePath) {
-                            let pasteboard = NSPasteboard.general
-                            pasteboard.clearContents()
-                            pasteboard.writeObjects([nsImage])
-                            ToastManager.shared.show(L10n.tr("Image copied"))
-                        }
-                    } label: {
-                        Label(L10n.tr("Copy Image"), systemImage: "doc.on.doc")
-                    }
-
-                    Button {
-                        saveScreenshotAs(imagePath: imagePath)
-                    } label: {
-                        Label(L10n.tr("Save Image As\u{2026}"), systemImage: "square.and.arrow.down")
-                    }
                 }
 
         case .webElement(let name, let path):
@@ -231,7 +279,7 @@ struct CommentCardView: View {
                     }
             }
 
-        case .quickNote, .critMode:
+        case .screenshot, .quickNote, .critMode:
             EmptyView()
         }
     }
@@ -264,11 +312,11 @@ struct CommentCardView: View {
 
     // MARK: - Comment Text
 
-    private func commentTextView(_ commentText: String) -> some View {
+    private func commentTextView(_ commentText: String, lineLimit: Int) -> some View {
         Text(highlighted(commentText))
             .font(.system(size: 13))
             .foregroundStyle(.primary)
-            .lineLimit(3)
+            .lineLimit(lineLimit)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -277,28 +325,6 @@ struct CommentCardView: View {
     }
 
     // MARK: - Metadata + Actions
-
-    private var metadataView: some View {
-        HStack(spacing: 4) {
-            // Edit mode persists the move; the next store update supplies
-            // the current session, including moves undone outside this card.
-            SessionPickerPill(
-                selectedSessionID: .constant(comment.sessionID),
-                mode: .edit,
-                comment: comment
-            )
-            .accessibilityIdentifier("remarc.comment.session.\(comment.id)")
-
-            Spacer(minLength: 0)
-
-            cardActions
-                .fixedSize()
-                .opacity(showActions ? 1 : 0)
-                .allowsHitTesting(showActions)
-                .accessibilityHidden(!showActions)
-        }
-        .frame(minHeight: 22)
-    }
 
     private func metadataText(now: Date) -> String {
         let date = comment.createdAt.remarcCompactTimestamp(
@@ -457,19 +483,19 @@ struct CardSurfaceModifier: ViewModifier {
 
 // MARK: - Truncating Quote Text
 
-/// Displays quote text with `lineLimit(3)` and a bottom fade when truncated.
-/// Each instance owns its own measurement state, so multiple cards in a list don't interfere.
+/// Displays quote text with a configurable line limit and tail truncation.
 private struct TruncatingQuoteText: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let text: AttributedString
     let accentColor: Color
+    var lineLimit: Int = 2
 
     var body: some View {
         Text(text)
             .font(.system(size: 11))
             .italic()
             .foregroundStyle(accentColor)
-            .lineLimit(3)
+            .lineLimit(lineLimit)
             .truncationMode(.tail)
     }
 }
