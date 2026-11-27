@@ -2,6 +2,21 @@
 
 Notable changes to Remarc. The [GitHub Releases page](https://github.com/handsomeliuyang/Remarc/releases) is the authoritative list going forward.
 
+## 1.2.47 - 2026-11-27
+
+### 新增
+
+- 评论卡片与历史记录卡片支持整卡点击打开编辑页，缩略图新增悬停放大提示与统一右键复制/另存为菜单 ([2b819fe](https://github.com/handsomeliuyang/JotBaton/commit/2b819fe33c487a33a36725bd8fb22fcd1051a26b))
+- 评论编辑页主图按编辑器宽度大图显示，支持随拖动自适应、小屏高度限制与删除附件后自动顺延 ([85db81c](https://github.com/handsomeliuyang/JotBaton/commit/85db81cbb7f1072645bf2bb34dbc042d4dd8534b))
+
+### 其他变更
+
+- 看图预览窗口移除评论文字区，仅保留图片与复制、另存为、标注、关闭工具栏 ([081a45a](https://github.com/handsomeliuyang/JotBaton/commit/081a45aa8590a2e1b3b7cf135722268dd13abcd2))
+
+[完整变更](https://github.com/handsomeliuyang/JotBaton/compare/v1.2.46...v1.2.47)
+
+<!-- remarc-release: {"base_tag": "v1.2.46", "build": "66", "source_sha": "081a45aa8590a2e1b3b7cf135722268dd13abcd2"} -->
+
 ## 1.2.46 - 2026-11-26
 
 ### 截图与标注
