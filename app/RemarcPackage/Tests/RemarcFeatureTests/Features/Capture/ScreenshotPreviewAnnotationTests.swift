@@ -34,7 +34,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
 
-        controller.show(imagePath: path, commentText: "hello")
+        controller.show(imagePath: path)
         let host = try XCTUnwrap(controller.panelForTesting?.contentView?.subviews.first)
         XCTAssertTrue(host.acceptsFirstMouse(for: nil), "preview tools must accept the first click")
         XCTAssertTrue(controller.isPanelVisibleForTesting)
@@ -47,7 +47,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
     func testAnnotateCreatesASessionAtTheImagesExactPixelSize() throws {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
 
         controller.toggleAnnotationForTesting()
         XCTAssertTrue(controller.isAnnotating)
@@ -58,7 +58,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
 
     func testPreviewHistoryShortcutsWorkWithoutCanvasFocus() throws {
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: try storedImage(), commentText: nil)
+        controller.show(imagePath: try storedImage())
         controller.toggleAnnotationForTesting()
         let session = try XCTUnwrap(controller.sessionForTesting)
         let panel = try XCTUnwrap(controller.panelForTesting)
@@ -89,7 +89,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
     func testApplyFlattensIntoTheStoredPngAndBumpsTheRevision() async throws {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
         controller.toggleAnnotationForTesting()
 
         let session = try XCTUnwrap(controller.sessionForTesting)
@@ -129,7 +129,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
     func testDraggingTheCanvasDoesNotMoveThePanel() throws {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
         controller.toggleAnnotationForTesting()
 
         // SwiftUI materialises the representable's NSView on a runloop turn.
@@ -158,14 +158,14 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         let second = try storedImage()
         let controller = ScreenshotPreviewController.shared
 
-        controller.show(imagePath: first, commentText: nil)
+        controller.show(imagePath: first)
         controller.toggleAnnotationForTesting()
         let session = try XCTUnwrap(controller.sessionForTesting)
         session.add(AnnotationItem(payload: .rect(CGRect(x: 2, y: 2, width: 20, height: 10)),
                                    ink: AnnotationInk.presets[0], strokeWidth: 3))
         XCTAssertTrue(session.isDirty)
 
-        controller.show(imagePath: second, commentText: nil)
+        controller.show(imagePath: second)
 
         XCTAssertTrue(controller.sessionForTesting === session,
                       "the dirty session must survive an unresolved replacement")
@@ -187,14 +187,14 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
         let second = try storedImage()
         let controller = ScreenshotPreviewController.shared
 
-        controller.show(imagePath: first, commentText: nil)
+        controller.show(imagePath: first)
         controller.toggleAnnotationForTesting()
         let session = try XCTUnwrap(controller.sessionForTesting)
         session.beginText(at: CGPoint(x: 10, y: 10), pointSize: 12)
         session.updatePendingText("hello")
         XCTAssertFalse(session.isDirty, "a pending label is not yet an edit")
 
-        controller.show(imagePath: second, commentText: nil)
+        controller.show(imagePath: second)
 
         XCTAssertTrue(controller.sessionForTesting === session,
                       "the label was committed, which made the session dirty and held the show")
@@ -208,7 +208,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
     func testResolutionIsRefusedWhileAnApplyIsInFlight() async throws {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
         controller.toggleAnnotationForTesting()
 
         let session = try XCTUnwrap(controller.sessionForTesting)
@@ -233,7 +233,7 @@ final class ScreenshotPreviewAnnotationTests: XCTestCase {
     func testDismissIsRefusedWhileAnInlineLabelIsBeingTyped() throws {
         let path = try storedImage()
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
         controller.toggleAnnotationForTesting()
 
         let session = try XCTUnwrap(controller.sessionForTesting)

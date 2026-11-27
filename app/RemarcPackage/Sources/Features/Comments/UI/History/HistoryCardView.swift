@@ -21,7 +21,7 @@ struct HistoryCardView: View {
         VStack(alignment: .leading, spacing: 8) {
             referenceView
             if !comment.attachments.isEmpty {
-                AttachmentStripView(attachments: comment.attachments, commentText: Comment.normalizedCommentText(comment.commentText), isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 80)
+                AttachmentStripView(attachments: comment.attachments, isEditable: false, maxThumbnailWidth: 140, maxThumbnailHeight: 80)
                     .padding(.leading, 8)
                     .quoteBorder()
             }
@@ -85,10 +85,7 @@ struct HistoryCardView: View {
                 // history screenshot could not be opened at all.
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    ScreenshotPreviewController.shared.show(
-                        imagePath: imagePath,
-                        commentText: Comment.normalizedCommentText(comment.commentText)
-                    )
+                    ScreenshotPreviewController.shared.show(imagePath: imagePath)
                 }
                 .imageContextMenu(imagePath: imagePath)
                 .padding(.leading, 8)

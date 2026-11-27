@@ -19,7 +19,7 @@ public final class ScreenshotPreviewController {
     private var session: AnnotationSession?
     private var currentImagePath: String?
     /// A `show()` that arrived while a dirty session was unresolved.
-    private var queuedShow: (imagePath: String, commentText: String?)?
+    private var queuedShow: String?
 
     /// A durable commit is in flight.
     ///
@@ -33,7 +33,7 @@ public final class ScreenshotPreviewController {
     public var isAnnotating: Bool { session != nil }
     var isVisible: Bool { panel?.isVisible == true || isApplying }
 
-    public func show(imagePath: String, commentText: String?) {
+    public func show(imagePath: String) {
         // A label still being typed is resolved first, exactly as any other
         // dismissal would: committing it is what may make the session dirty, and
         // that has to happen before the gate below, not after. A pending-text
@@ -48,7 +48,7 @@ public final class ScreenshotPreviewController {
         // from the dirty veto, so the teardown happened anyway. Hold the request
         // and let Apply or Discard release it.
         if session?.isDirty == true || isApplying {
-            queuedShow = (imagePath, commentText)
+            queuedShow = imagePath
             ToastManager.shared.show(L10n.tr("Apply or discard your annotations first."))
             return
         }
@@ -73,9 +73,6 @@ public final class ScreenshotPreviewController {
         let previewView = ScreenshotPreviewView(
             image: nsImage,
             imagePath: imagePath,
-            commentText: commentText,
-            maxWidth: maxWidth,
-            maxHeight: maxHeight,
             onDismiss: { [weak self] in self?.requestDismiss(intent: .closeButton) },
             onSave: { [weak self] image in self?.saveImageThroughBarrier(fallback: image) },
             session: nil,
@@ -364,9 +361,9 @@ public final class ScreenshotPreviewController {
     /// Discard, and a clean dismissal. Draining anywhere else is what let a
     /// replacement tear down work the user had not decided about yet.
     private func drainQueuedShow() {
-        guard session == nil, let queued = queuedShow else { return }
+        guard session == nil, let queuedImagePath = queuedShow else { return }
         queuedShow = nil
-        show(imagePath: queued.imagePath, commentText: queued.commentText)
+        show(imagePath: queuedImagePath)
     }
 
     /// Rebuilds the hosted SwiftUI content in place, preserving the panel.
@@ -601,9 +598,6 @@ struct ScreenshotPreviewView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     var image: NSImage
     let imagePath: String
-    let commentText: String?
-    let maxWidth: CGFloat
-    let maxHeight: CGFloat
     let onDismiss: () -> Void
     let onSave: (NSImage) -> Void
 
@@ -624,27 +618,6 @@ struct ScreenshotPreviewView: View {
     @State private var isSaveHovered = false
     @State private var isAnnotateHovered = false
     @State private var copySuccess = false
-
-    /// Compute exact image display size, scaling down to fit within constraints
-    private var imageDisplaySize: CGSize {
-        let imageSize = image.size
-        guard imageSize.width > 0, imageSize.height > 0 else {
-            return CGSize(width: 200, height: 150)
-        }
-
-        // Reserve space for header (~34pt) + footer (~48pt) + padding
-        let targetWidth = maxWidth - 32  // 16pt padding on each side
-        let targetHeight = maxHeight - 100
-
-        let widthRatio = targetWidth / imageSize.width
-        let heightRatio = targetHeight / imageSize.height
-        let scale = min(widthRatio, heightRatio)
-
-        return CGSize(
-            width: max(imageSize.width * scale, 200),
-            height: max(imageSize.height * scale, 100)
-        )
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -743,10 +716,8 @@ struct ScreenshotPreviewView: View {
             // Image — flexible frame so it resizes with the panel
             VStack(spacing: 6) {
                 if let session {
-                    // Framed to the exact aspect-fit rect. `imageDisplaySize` above
-                    // is dead code with the wrong constants; this computes fresh,
-                    // accounting for the outermost 16pt horizontal padding removing
-                    // 32pt before the flexible frame expands.
+                    // Framed to the exact aspect-fit rect inside the flexible container,
+                    // accounting for the outermost 16pt horizontal padding.
                     GeometryReader { proxy in
                         let fitted = AnnotationPreviewLayout.fittedSize(
                             pixelSize: session.pixelSize, available: proxy.size)
@@ -790,16 +761,6 @@ struct ScreenshotPreviewView: View {
                         )
                 )
                 .padding(.horizontal, 16)
-
-            // Comment text — full width, left-justified
-            if let text = commentText, !text.isEmpty {
-                Text(text)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-            }
         }
         .padding(.bottom, 14)
     }

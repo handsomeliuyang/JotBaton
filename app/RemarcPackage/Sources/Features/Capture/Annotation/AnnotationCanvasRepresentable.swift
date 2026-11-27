@@ -44,9 +44,8 @@ package struct AnnotationCanvasRepresentable: NSViewRepresentable {
 
 /// Aspect-fit rect for the preview canvas.
 ///
-/// `imageDisplaySize` in `ScreenshotPreviewController` is dead code with the wrong
-/// constants, so this computes fresh: the outermost `.padding(.horizontal, 16)`
-/// removes 32pt before the flexible frame expands, and the letterbox is centred.
+/// Computes fresh from the available flexible container size (after the outermost
+/// `.padding(.horizontal, 16)` removes 32pt), keeping the letterbox centred.
 package enum AnnotationPreviewLayout {
     package static func fittedSize(pixelSize: CGSize, available: CGSize) -> CGSize {
         guard pixelSize.width > 0, pixelSize.height > 0,

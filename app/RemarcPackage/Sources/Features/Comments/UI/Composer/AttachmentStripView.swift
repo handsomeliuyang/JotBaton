@@ -4,7 +4,6 @@ import SwiftUI
 struct AttachmentStripView: View {
     @ObservedObject private var localization = LocalizationManager.shared
     let attachments: [String]
-    var commentText: String? = nil
     var isEditable: Bool = true
     var maxThumbnailWidth: CGFloat = 140
     var maxThumbnailHeight: CGFloat = 100
@@ -31,7 +30,7 @@ struct AttachmentStripView: View {
                 .modifier(ImagePreviewAffordance())
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    ScreenshotPreviewController.shared.show(imagePath: path, commentText: commentText)
+                    ScreenshotPreviewController.shared.show(imagePath: path)
                 }
                 .imageContextMenu(imagePath: path)
 

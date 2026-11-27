@@ -236,10 +236,7 @@ struct CommentCardView: View {
         .modifier(ImagePreviewAffordance())
         .contentShape(Rectangle())
         .onTapGesture {
-            ScreenshotPreviewController.shared.show(
-                imagePath: imagePath,
-                commentText: Comment.normalizedCommentText(comment.commentText)
-            )
+            ScreenshotPreviewController.shared.show(imagePath: imagePath)
         }
         .overlay(alignment: .bottomTrailing) {
             if extraImageCount > 0 {

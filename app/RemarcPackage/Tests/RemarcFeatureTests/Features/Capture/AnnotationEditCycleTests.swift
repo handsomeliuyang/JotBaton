@@ -53,7 +53,7 @@ final class AnnotationEditCycleTests: XCTestCase {
 
     private func annotate(_ path: String) throws -> AnnotationSession {
         let controller = ScreenshotPreviewController.shared
-        controller.show(imagePath: path, commentText: nil)
+        controller.show(imagePath: path)
         controller.toggleAnnotationForTesting()
         return try XCTUnwrap(controller.sessionForTesting)
     }

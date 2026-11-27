@@ -307,7 +307,7 @@ private struct EditorLeadImageView: View {
             .modifier(ImagePreviewAffordance())
             .contentShape(Rectangle())
             .onTapGesture {
-                ScreenshotPreviewController.shared.show(imagePath: imagePath, commentText: nil)
+                ScreenshotPreviewController.shared.show(imagePath: imagePath)
             }
             .imageContextMenu(imagePath: imagePath)
 
