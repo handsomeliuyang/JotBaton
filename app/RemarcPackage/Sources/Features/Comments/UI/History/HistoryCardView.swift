@@ -31,7 +31,17 @@ struct HistoryCardView: View {
             metadataView
         }
         .padding(12)
+        .clipShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
+        .contentShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
+        .onTapGesture {
+            FloatingEditorController.shared.showForEdit(comment: comment)
+        }
+        .help(L10n.tr("Open details"))
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: L10n.tr("Open details")) {
+            FloatingEditorController.shared.showForEdit(comment: comment)
+        }
         .opacity(0.85)
         .onHover { isHovered = $0 }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
@@ -47,11 +57,6 @@ struct HistoryCardView: View {
                 .font(.system(size: 11))
                 .lineLimit(1)
                 .labelStyle(TypeLabelStyle(colorScheme: colorScheme))
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    FloatingEditorController.shared.showForEdit(comment: comment)
-                }
-                .help(L10n.tr("Open details"))
             if comment.webContext != nil {
                 WebContextBadge(webContext: comment.webContext!, regionElements: comment.regionElements, colorScheme: colorScheme)
             }
@@ -71,16 +76,10 @@ struct HistoryCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 8)
                 .quoteBorder()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    FloatingEditorController.shared.showForEdit(comment: comment)
-                }
-                .help(L10n.tr("Open details"))
 
         case .screenshot(let imagePath):
             ScreenshotThumbnailView(imagePath: imagePath, maxWidth: 140, maxHeight: 80)
-                .padding(.leading, 8)
-                .quoteBorder()
+                .modifier(ImagePreviewAffordance())
                 // The fourth preview entry point. CommentCardView, CommentEditorView,
                 // and AttachmentStripView already open it; this one was missing, so a
                 // history screenshot could not be opened at all.
@@ -91,6 +90,9 @@ struct HistoryCardView: View {
                         commentText: Comment.normalizedCommentText(comment.commentText)
                     )
                 }
+                .imageContextMenu(imagePath: imagePath)
+                .padding(.leading, 8)
+                .quoteBorder()
 
         case .webElement(let name, let path):
             let displayName = WebContext.smartLabel(
@@ -98,11 +100,6 @@ struct HistoryCardView: View {
                 elementName: comment.webContext?.elementName
             )
             WebElementReferenceView(name: displayName, path: path, colorScheme: colorScheme)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    FloatingEditorController.shared.showForEdit(comment: comment)
-                }
-                .help(L10n.tr("Open details"))
 
         case .quickNote, .critMode:
             EmptyView()
@@ -117,11 +114,6 @@ struct HistoryCardView: View {
             .foregroundStyle(.primary)
             .lineLimit(3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                FloatingEditorController.shared.showForEdit(comment: comment)
-            }
-            .help(L10n.tr("Open details"))
     }
 
     // MARK: - Metadata + Restore

@@ -7,7 +7,6 @@ import FeatureComments
 import FeatureIntegrations
 import FeatureSettings
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct TypeLabelStyle: LabelStyle {
     let colorScheme: ColorScheme
@@ -83,11 +82,6 @@ struct CommentCardView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            FloatingEditorController.shared.showForEdit(comment: comment)
-                        }
-                        .help(L10n.tr("Open details"))
                 } else if let imagePath = leadImagePath {
                     HStack(alignment: .top, spacing: 10) {
                         leadThumbnailView(imagePath: imagePath)
@@ -114,6 +108,15 @@ struct CommentCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
         .modifier(CardSurfaceModifier(isHovered: isHovered))
+        .contentShape(RoundedRectangle(cornerRadius: WorkspaceMetrics.cardCornerRadius, style: .continuous))
+        .onTapGesture {
+            FloatingEditorController.shared.showForEdit(comment: comment)
+        }
+        .help(L10n.tr("Open details"))
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: L10n.tr("Open details")) {
+            FloatingEditorController.shared.showForEdit(comment: comment)
+        }
         .contextMenu {
             Menu {
                 ForEach(persistence.activeSessions) { session in
@@ -230,6 +233,14 @@ struct CommentCardView: View {
             imagePath: imagePath,
             cardFrame: .init(width: 120, minHeight: 56, maxHeight: 90)
         )
+        .modifier(ImagePreviewAffordance())
+        .contentShape(Rectangle())
+        .onTapGesture {
+            ScreenshotPreviewController.shared.show(
+                imagePath: imagePath,
+                commentText: Comment.normalizedCommentText(comment.commentText)
+            )
+        }
         .overlay(alignment: .bottomTrailing) {
             if extraImageCount > 0 {
                 Text("+\(extraImageCount)")
@@ -240,38 +251,10 @@ struct CommentCardView: View {
                     .background(Color.black.opacity(0.68), in: Capsule())
                     .padding(4)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            ScreenshotPreviewController.shared.show(
-                imagePath: imagePath,
-                commentText: Comment.normalizedCommentText(comment.commentText)
-            )
-        }
-        .contextMenu {
-            imageContextMenu(for: imagePath)
-        }
-    }
-
-    @ViewBuilder
-    private func imageContextMenu(for imagePath: String) -> some View {
-        Button {
-            if let nsImage = loadScreenshotImage(imagePath) {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.writeObjects([nsImage])
-                ToastManager.shared.show(L10n.tr("Image copied"))
-            }
-        } label: {
-            Label(L10n.tr("Copy Image"), systemImage: "doc.on.doc")
-        }
-
-        Button {
-            saveScreenshotAs(imagePath: imagePath)
-        } label: {
-            Label(L10n.tr("Save Image As\u{2026}"), systemImage: "square.and.arrow.down")
-        }
+        .imageContextMenu(imagePath: imagePath)
     }
 
     // MARK: - Reference Container
@@ -289,10 +272,6 @@ struct CommentCardView: View {
                 .padding(.leading, 8)
                 .padding(.trailing, trailingPadding)
                 .quoteBorder()
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    FloatingEditorController.shared.showForEdit(comment: comment)
-                }
 
         case .webElement(let name, let path):
             // Smart-id fallback: when the React component name is missing or
@@ -304,40 +283,10 @@ struct CommentCardView: View {
             )
             if displayName != nil || path != nil {
                 WebElementReferenceView(name: displayName, path: path, colorScheme: colorScheme)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        FloatingEditorController.shared.showForEdit(comment: comment)
-                    }
             }
 
         case .screenshot, .quickNote, .critMode:
             EmptyView()
-        }
-    }
-
-    // MARK: - Save Screenshot
-
-    private func saveScreenshotAs(imagePath: String) {
-        let sourceURL = resolveImagePath(imagePath)
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.png]
-        savePanel.nameFieldStringValue = sourceURL.lastPathComponent
-        savePanel.canCreateDirectories = true
-        savePanel.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 4)
-
-        savePanel.begin { response in
-            guard response == .OK, let destinationURL = savePanel.url else { return }
-            do {
-                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-                Task { @MainActor in
-                    ToastManager.shared.show(L10n.tr("Image saved"))
-                }
-            } catch {
-                debugLog("Failed to save screenshot: \(error.localizedDescription)")
-                Task { @MainActor in
-                    ToastManager.shared.show(L10n.tr("Failed to save image"))
-                }
-            }
         }
     }
 
@@ -349,10 +298,6 @@ struct CommentCardView: View {
             .foregroundStyle(.primary)
             .lineLimit(lineLimit)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                FloatingEditorController.shared.showForEdit(comment: comment)
-            }
     }
 
     // MARK: - Metadata + Actions
