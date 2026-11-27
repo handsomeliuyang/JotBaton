@@ -25,163 +25,201 @@ struct CommentEditorView: View {
     let onSave: (String, [String]) -> Void
     let onCancel: () -> Void
 
+    private var leadMedia: CardMediaPolicy.LeadMedia? {
+        CardMediaPolicy.leadImage(screenshotPath: screenshotImagePath, attachments: attachments)
+    }
+
+    private var leadImageIsAttachment: Bool {
+        screenshotImagePath == nil && !attachments.isEmpty
+    }
+
+    private var trailingAttachments: [String] {
+        if screenshotImagePath != nil {
+            return attachments
+        }
+        return attachments.count > 1 ? Array(attachments.dropFirst()) : []
+    }
+
+    private var leadImageAvailableWidth: CGFloat {
+        max(120, floatingController.editorWidth - 32)
+    }
+
+    private var leadImageMaxHeight: CGFloat {
+        min(320, max(120, floatingController.visibleScreenHeight * 0.35))
+    }
+
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Dedicated top bar keeps the close button clear of full-width lead images.
+            HStack(spacing: 8) {
                 if AppIdentity.current.isDevelopment {
                     DevelopmentIdentityBadge()
                 }
-                // Reference (read-only)
-                if let imagePath = screenshotImagePath {
-                    ScreenshotThumbnailView(imagePath: imagePath, maxWidth: 200)
-                        .padding(.trailing, 16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .quoteBorder()
-                        .onTapGesture {
-                            ScreenshotPreviewController.shared.show(imagePath: imagePath, commentText: nil)
-                        }
-                } else if let ref = referenceText {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Button(action: {
-                            floatingController.showFullReference(ref, presentationGeneration: presentationGeneration)
-                        }) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\u{201C}\(ref)\u{201D}")
-                                    .font(.system(size: 11))
-                                    .italic()
-                                    .foregroundStyle(Color.remarcAccent(for: colorScheme))
-                                    .lineLimit(10)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .padding(.leading, 8)
-                                    .padding(.trailing, 16)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .quoteBorder()
-                                Label(L10n.tr("Show full quote"), systemImage: "arrow.up.left.and.arrow.down.right")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(Color.remarcPrimary(for: colorScheme))
-                                    .padding(.leading, 8)
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .help(ref)
-                        .accessibilityLabel(L10n.tr("Show full quote"))
-                        .accessibilityIdentifier("remarc.commentEditor.showFullQuote")
-                        if let comment {
-                            HStack(spacing: 4) {
-                                Text({
-                                    let date = comment.createdAt.interfaceFormatted(date: .abbreviated, time: .shortened)
-                                    if let app = appDisplayName(for: comment) {
-                                        return "\(app) — \(date)"
-                                    }
-                                    return date
-                                }())
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.primary.opacity(0.45))
-                                    .lineLimit(1)
-                                Text(comment.shortID)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(.primary.opacity(0.4))
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
-                            }
-                        }
-                    }
-                } else {
+                if screenshotImagePath != nil {
+                    Label(L10n.tr("Screenshot"), systemImage: "camera.viewfinder")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                } else if referenceText == nil {
                     Label(L10n.tr("Quick Note"), systemImage: "note.text")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 0)
+                Button(action: onCancel) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(isCloseHovered ? Color.remarcPrimary(for: colorScheme) : .primary.opacity(0.35))
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in isCloseHovered = hovering }
+                .animation(.easeInOut(duration: 0.15), value: isCloseHovered)
+            }
 
-                // Attachment strip (above text editor)
-                if !attachments.isEmpty {
-                    AttachmentStripView(attachments: attachments, isEditable: true) { index in
-                        attachments.remove(at: index)
+            // Reference text (read-only)
+            if screenshotImagePath == nil, let ref = referenceText {
+                VStack(alignment: .leading, spacing: 4) {
+                    Button(action: {
+                        floatingController.showFullReference(ref, presentationGeneration: presentationGeneration)
+                    }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\u{201C}\(ref)\u{201D}")
+                                .font(.system(size: 11))
+                                .italic()
+                                .foregroundStyle(Color.remarcAccent(for: colorScheme))
+                                .lineLimit(10)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.leading, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .quoteBorder()
+                            Label(L10n.tr("Show full quote"), systemImage: "arrow.up.left.and.arrow.down.right")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.remarcPrimary(for: colorScheme))
+                                .padding(.leading, 8)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(ref)
+                    .accessibilityLabel(L10n.tr("Show full quote"))
+                    .accessibilityIdentifier("remarc.commentEditor.showFullQuote")
+                    if let comment {
+                        HStack(spacing: 4) {
+                            Text({
+                                let date = comment.createdAt.interfaceFormatted(date: .abbreviated, time: .shortened)
+                                if let app = appDisplayName(for: comment) {
+                                    return "\(app) — \(date)"
+                                }
+                                return date
+                            }())
+                                .font(.system(size: 10))
+                                .foregroundStyle(.primary.opacity(0.45))
+                                .lineLimit(1)
+                            Text(comment.shortID)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.primary.opacity(0.4))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                 }
+            }
 
-                // Text editor
-                CommentTextEditor(
-                    text: $commentText,
-                    onSubmit: { onSave(commentText, attachments) },
-                    onCancel: onCancel,
-                    onImagePaste: { image in
-                        if let path = AppServices.shared.comments.saveAttachmentImage(image) {
-                            attachments.append(path)
-                        }
-                    },
-                    lineSpacing: 3,
-                    showsVerticalScroller: true
+            // Lead image at full editor width (read-only for screenshots, removable for attachments)
+            if let leadMedia {
+                EditorLeadImageView(
+                    imagePath: leadMedia.imagePath,
+                    availableWidth: leadImageAvailableWidth,
+                    maxHeight: leadImageMaxHeight,
+                    isRemovable: leadImageIsAttachment,
+                    onRemove: leadImageIsAttachment ? {
+                        guard !attachments.isEmpty else { return }
+                        attachments.remove(at: 0)
+                    } : nil,
+                    onImageLoaded: {
+                        floatingController.notifyContentHeightChanged(presentationGeneration: presentationGeneration)
+                    }
                 )
-                .focused($isFocused)
-                .frame(minHeight: 30, maxHeight: 480)
-                .clipped()
+            }
 
-                // Footer
-                HStack {
-                    SessionPickerPill(
-                        selectedSessionID: $editorSessionID,
-                        mode: comment != nil ? .edit : .create,
-                        comment: comment
-                    )
-
-                    Button(action: pickAttachmentImage) {
-                        Image(systemName: "paperclip")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.primary.opacity(isAttachHovered ? 0.6 : 0.3))
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in isAttachHovered = hovering }
-                    .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
-                    .help(L10n.tr("Attach image"))
-
-                    Spacer()
-
-                    Button(action: { onSave(commentText, attachments) }) {
-                        HStack(spacing: 6) {
-                            Text(L10n.tr("Save"))
-                                .font(.system(size: 12, weight: .medium))
-                            HStack(spacing: 1) {
-                                Image(systemName: "command")
-                                Image(systemName: "return")
-                            }
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.5))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(
-                            Color.remarcBrandGradient(for: colorScheme),
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
-                        .opacity(isSaveHovered ? 1.0 : 0.85)
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in isSaveHovered = hovering }
-                    .animation(.easeInOut(duration: 0.15), value: isSaveHovered)
-                    .modifier(SaveButtonFeedbackModifier(trigger: floatingController.saveFeedbackTrigger))
-                    .accessibilityIdentifier("remarc.commentInput.submitButton")
+            // Remaining attachments strip (above text editor)
+            if !trailingAttachments.isEmpty {
+                AttachmentStripView(attachments: trailingAttachments, isEditable: true) { index in
+                    let actualIndex = screenshotImagePath != nil ? index : index + 1
+                    guard attachments.indices.contains(actualIndex) else { return }
+                    attachments.remove(at: actualIndex)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
 
-            // Close button
-            Button(action: onCancel) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(isCloseHovered ? Color.remarcPrimary(for: colorScheme) : .primary.opacity(0.35))
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
+            // Text editor
+            CommentTextEditor(
+                text: $commentText,
+                onSubmit: { onSave(commentText, attachments) },
+                onCancel: onCancel,
+                onImagePaste: { image in
+                    if let path = AppServices.shared.comments.saveAttachmentImage(image) {
+                        attachments.append(path)
+                    }
+                },
+                lineSpacing: 3,
+                showsVerticalScroller: true
+            )
+            .focused($isFocused)
+            .frame(minHeight: 30, maxHeight: 480)
+            .clipped()
+
+            // Footer
+            HStack {
+                SessionPickerPill(
+                    selectedSessionID: $editorSessionID,
+                    mode: comment != nil ? .edit : .create,
+                    comment: comment
+                )
+
+                Button(action: pickAttachmentImage) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.primary.opacity(isAttachHovered ? 0.6 : 0.3))
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in isAttachHovered = hovering }
+                .animation(.easeInOut(duration: 0.15), value: isAttachHovered)
+                .help(L10n.tr("Attach image"))
+
+                Spacer()
+
+                Button(action: { onSave(commentText, attachments) }) {
+                    HStack(spacing: 6) {
+                        Text(L10n.tr("Save"))
+                            .font(.system(size: 12, weight: .medium))
+                        HStack(spacing: 1) {
+                            Image(systemName: "command")
+                            Image(systemName: "return")
+                        }
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(
+                        Color.remarcBrandGradient(for: colorScheme),
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
+                    .opacity(isSaveHovered ? 1.0 : 0.85)
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in isSaveHovered = hovering }
+                .animation(.easeInOut(duration: 0.15), value: isSaveHovered)
+                .modifier(SaveButtonFeedbackModifier(trigger: floatingController.saveFeedbackTrigger))
+                .accessibilityIdentifier("remarc.commentInput.submitButton")
             }
-            .buttonStyle(.plain)
-            .onHover { hovering in isCloseHovered = hovering }
-            .animation(.easeInOut(duration: 0.15), value: isCloseHovered)
-            .padding(.top, 6)
-            .padding(.trailing, 6)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
         .onAppear {
             guard floatingController.isCurrentPresentation(presentationGeneration) else { return }
             isFocused = true
@@ -241,5 +279,56 @@ struct CommentEditorView: View {
                 attachments.append(path)
             }
         }
+    }
+}
+
+private struct EditorLeadImageView: View {
+    @ObservedObject private var localization = LocalizationManager.shared
+    let imagePath: String
+    let availableWidth: CGFloat
+    let maxHeight: CGFloat
+    let isRemovable: Bool
+    let onRemove: (() -> Void)?
+    let onImageLoaded: @MainActor () -> Void
+
+    private var cacheMaxWidth: CGFloat {
+        Self.bucketedCacheWidth(for: availableWidth)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            ScreenshotThumbnailView(
+                imagePath: imagePath,
+                maxWidth: availableWidth,
+                maxHeight: maxHeight,
+                cacheMaxWidth: cacheMaxWidth,
+                onImageLoaded: onImageLoaded
+            )
+            .modifier(ImagePreviewAffordance())
+            .contentShape(Rectangle())
+            .onTapGesture {
+                ScreenshotPreviewController.shared.show(imagePath: imagePath, commentText: nil)
+            }
+            .imageContextMenu(imagePath: imagePath)
+
+            if isRemovable, let onRemove {
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .offset(x: 4, y: -4)
+                .accessibilityLabel(L10n.tr("Delete"))
+            }
+        }
+        .padding(.top, isRemovable ? 4 : 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    static func bucketedCacheWidth(for width: CGFloat, step: CGFloat = 80) -> CGFloat {
+        guard width.isFinite, width > 0 else { return step }
+        return ceil(width / step) * step
     }
 }

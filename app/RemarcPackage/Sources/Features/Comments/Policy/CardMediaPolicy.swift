@@ -18,10 +18,17 @@ public enum CardMediaPolicy {
     /// - Screenshot comments lead with the screenshot; every attachment counts as extra.
     /// - Other comments lead with `attachments.first`; remaining attachments count as extra.
     public static func leadImage(for comment: Comment) -> LeadMedia? {
-        if case .screenshot(let imagePath) = comment.type {
-            return LeadMedia(imagePath: imagePath, extraImageCount: comment.attachments.count)
+        leadImage(screenshotPath: comment.type.imagePath, attachments: comment.attachments)
+    }
+
+    /// Returns the lead preview image path and the number of additional images
+    /// behind it for editable editor state that holds a screenshot path and
+    /// mutable attachments separately from a saved `Comment`.
+    public static func leadImage(screenshotPath: String?, attachments: [String]) -> LeadMedia? {
+        if let screenshotPath {
+            return LeadMedia(imagePath: screenshotPath, extraImageCount: attachments.count)
         }
-        guard let firstAttachment = comment.attachments.first else { return nil }
-        return LeadMedia(imagePath: firstAttachment, extraImageCount: comment.attachments.count - 1)
+        guard let firstAttachment = attachments.first else { return nil }
+        return LeadMedia(imagePath: firstAttachment, extraImageCount: attachments.count - 1)
     }
 }

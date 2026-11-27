@@ -46,4 +46,36 @@ struct CardMediaPolicyTests {
         #expect(CardMediaPolicy.leadImage(for: makeComment(type: .comment(text: "quoted"))) == nil)
         #expect(CardMediaPolicy.leadImage(for: makeComment(type: .webElement(componentName: "Button", filePath: "App > Button"))) == nil)
     }
+
+    @Test("raw overload leads with screenshot when screenshot and attachments are both present")
+    func rawScreenshotAndAttachments() {
+        let media = CardMediaPolicy.leadImage(screenshotPath: "shot.png", attachments: ["a.png", "b.png"])
+        #expect(media == .init(imagePath: "shot.png", extraImageCount: 2))
+    }
+
+    @Test("raw overload leads with first attachment when screenshot is absent")
+    func rawAttachmentsOnly() {
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: ["a.png"]) == .init(imagePath: "a.png", extraImageCount: 0))
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: ["a.png", "b.png", "c.png"]) == .init(imagePath: "a.png", extraImageCount: 2))
+    }
+
+    @Test("raw overload returns nil when screenshot and attachments are both absent")
+    func rawNoImages() {
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: []) == nil)
+    }
+
+    @Test("removing the lead attachment promotes the next attachment to lead")
+    func rawRemovingLeadPromotesNextAttachment() {
+        var attachments = ["a.png", "b.png", "c.png"]
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: attachments) == .init(imagePath: "a.png", extraImageCount: 2))
+
+        attachments.remove(at: 0)
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: attachments) == .init(imagePath: "b.png", extraImageCount: 1))
+
+        attachments.remove(at: 0)
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: attachments) == .init(imagePath: "c.png", extraImageCount: 0))
+
+        attachments.remove(at: 0)
+        #expect(CardMediaPolicy.leadImage(screenshotPath: nil, attachments: attachments) == nil)
+    }
 }

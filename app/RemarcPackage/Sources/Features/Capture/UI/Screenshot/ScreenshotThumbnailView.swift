@@ -8,7 +8,9 @@ struct ScreenshotThumbnailView: View {
     let imagePath: String
     var maxWidth: CGFloat = 280
     var maxHeight: CGFloat = 200
+    var cacheMaxWidth: CGFloat? = nil
     var cardFrame: ScreenshotThumbnailCache.CardFrame? = nil
+    var onImageLoaded: (@MainActor () -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
@@ -54,6 +56,7 @@ struct ScreenshotThumbnailView: View {
             // replacing pixels should not collapse the card to a placeholder.
             thumbnail = result
             loadedURL = url
+            onImageLoaded?()
         }
         .transaction { $0.animation = nil }
     }
@@ -69,10 +72,11 @@ struct ScreenshotThumbnailView: View {
                 displayScale: displayScale
             )
         }
+        let decodeWidth = cacheMaxWidth ?? maxWidth
         return ScreenshotThumbnailCache.Request(
             url: url,
             revision: revision,
-            maxPixelSize: Int(ceil(max(maxWidth, maxHeight) * displayScale))
+            maxPixelSize: Int(ceil(max(decodeWidth, maxHeight) * displayScale))
         )
     }
 

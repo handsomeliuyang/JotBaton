@@ -29,6 +29,7 @@ public final class FloatingEditorController: ObservableObject {
     @Published public private(set) var saveFeedbackTrigger: Int = 0
     @Published public private(set) var validationFeedbackTrigger: Int = 0
     @Published public private(set) var editorWidth: CGFloat = WorkspaceMetrics.editorDefaultWidth
+    @Published public private(set) var visibleScreenHeight: CGFloat = NSScreen.main?.visibleFrame.height ?? 900
     public var suppressClickOutside: Bool = false
 
     private let userDefaults: UserDefaults
@@ -37,6 +38,7 @@ public final class FloatingEditorController: ObservableObject {
     private var dimOverlay: NSPanel?
     private let referenceWindowController = ReferenceTextWindowController()
     private let clickOutsideMonitor = ClickOutsideMonitor()
+    private let contentHeightChangedSubject = PassthroughSubject<Void, Never>()
     private var contentCancellable: AnyCancellable?
     private var initialText: String = ""
     private var initialAttachments: [String] = []
@@ -137,6 +139,11 @@ public final class FloatingEditorController: ObservableObject {
     func showFullReference(_ text: String, presentationGeneration generation: UInt64) {
         guard isCurrentPresentation(generation), isVisible, let panel else { return }
         referenceWindowController.show(reference: text, over: panel)
+    }
+
+    func notifyContentHeightChanged(presentationGeneration generation: UInt64) {
+        guard isCurrentPresentation(generation), isVisible else { return }
+        contentHeightChangedSubject.send(())
     }
 
     private func attemptSave(text: String, attachments: [String]) {
@@ -275,6 +282,7 @@ public final class FloatingEditorController: ObservableObject {
             visibleScreenWidth: targetScreen.visibleFrame.width
         )
         self.editorWidth = initialWidth
+        self.visibleScreenHeight = targetScreen.visibleFrame.height
 
         // Create editor panel
         let wrapper = FloatingEditorWrapper(
@@ -379,6 +387,7 @@ public final class FloatingEditorController: ObservableObject {
                 guard let self, self.presentationGeneration == generation else { return false }
                 return !self.suppressClickOutside && !self.hasUnsavedChanges
                     && !self.referenceWindowController.isVisible
+                    && !ScreenshotPreviewController.shared.isVisible
             },
             dismiss: { [weak self] in
                 guard let self, self.presentationGeneration == generation else { return }
@@ -433,6 +442,7 @@ public final class FloatingEditorController: ObservableObject {
                 guard let self,
                       self.presentationGeneration == generation,
                       !self.referenceWindowController.isVisible,
+                      !ScreenshotPreviewController.shared.isVisible,
                       !self.hasUnsavedChanges
                 else { return }
                 self.dismiss()
@@ -466,9 +476,10 @@ public final class FloatingEditorController: ObservableObject {
 
     private func installContentObserver() {
         contentCancellable?.cancel()
-        contentCancellable = Publishers.Merge(
+        contentCancellable = Publishers.Merge3(
             $currentText.map { _ in () },
-            $currentAttachments.map { _ in () }
+            $currentAttachments.map { _ in () },
+            contentHeightChangedSubject
         )
         .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
         .sink { [weak self] _ in
@@ -554,12 +565,17 @@ public final class FloatingEditorController: ObservableObject {
 
     private func resizePanelToFit(targetX: CGFloat? = nil, animate: Bool = true) {
         guard let panel = panel, let hostingView = editorHostingView else { return }
+        let screen = NSScreen.bestScreen(for: panel)
+        if abs(visibleScreenHeight - screen.visibleFrame.height) > 1 {
+            visibleScreenHeight = screen.visibleFrame.height
+        }
+        hostingView.invalidateIntrinsicContentSize()
+        hostingView.layoutSubtreeIfNeeded()
         let fittingSize = hostingView.fittingSize
         let currentFrame = panel.frame
         let resolvedX = targetX ?? currentFrame.origin.x
         let targetWidth = editorWidth
 
-        let screen = NSScreen.bestScreen(for: panel)
         let vertical = EditorWidthPolicy.verticalFrame(
             fittingHeight: fittingSize.height,
             aroundMidY: currentFrame.midY,
